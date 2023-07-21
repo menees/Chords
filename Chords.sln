@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.6.33829.357
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Src", "Src", "{804F4B06-AF8A-4136-B66F-C59939098A81}"
+	ProjectSection(SolutionItems) = preProject
+		src\Directory.Build.props = src\Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{57A26346-E1F1-4CA5-AE54-04C3A98EDF49}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		Build.cmd = Build.cmd
+		LICENSE = LICENSE
+		NuGet.Config = NuGet.Config
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{D020E797-377B-43A9-8744-3EE701469574}"
+	ProjectSection(SolutionItems) = preProject
+		tests\.runsettings = tests\.runsettings
+		tests\Directory.Build.props = tests\Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Menees.Chords", "src\Menees.Chords\Menees.Chords.csproj", "{CD68F697-FA6B-4762-8720-2B1514A94F8E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{CD68F697-FA6B-4762-8720-2B1514A94F8E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CD68F697-FA6B-4762-8720-2B1514A94F8E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CD68F697-FA6B-4762-8720-2B1514A94F8E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CD68F697-FA6B-4762-8720-2B1514A94F8E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{CD68F697-FA6B-4762-8720-2B1514A94F8E} = {804F4B06-AF8A-4136-B66F-C59939098A81}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {075C4E5D-96BC-4445-A4E1-B4A979A43002}
+	EndGlobalSection
+EndGlobal

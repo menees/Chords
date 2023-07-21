@@ -1,0 +1,79 @@
+<Project>
+	<PropertyGroup>
+		<NeutralLanguage>en-US</NeutralLanguage>
+		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+		<Authors>Bill Menees</Authors>
+		<PackageProjectUrl>http://www.menees.com</PackageProjectUrl>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<RepositoryType>git</RepositoryType>
+		<RepositoryUrl>https://github.com/menees/Chords</RepositoryUrl>
+		<GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+		<LangVersion>latest</LangVersion>
+		<CurrentYear>$([System.DateTime]::UtcNow.ToString(`yyyy`))</CurrentYear>
+		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
+		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>
+
+		<!-- When TargetFrameworks changes, also update the app's Properties\PublishProfiles\*.pubxml files. -->
+		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
+		<MeneesTargetNetCoreBase>net6.0</MeneesTargetNetCoreBase>
+		<MeneesTargetNetCoreWindows>$(MeneesTargetNetCoreBase)-windows</MeneesTargetNetCoreWindows>
+
+		<RepoSrcFolder>$(MSBuildThisFileDirectory)</RepoSrcFolder>
+		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>
+		<Nullable>enable</Nullable>
+		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+		<ProduceReferenceAssembly>false</ProduceReferenceAssembly>
+		<_SkipUpgradeNetAnalyzersNuGetWarning>true</_SkipUpgradeNetAnalyzersNuGetWarning>
+
+		<!-- Make the assembly, file, and NuGet package versions the same. -->
+		<Version>0.0.1</Version>
+		<UseLocaMeneesLibraries>false</UseLocaMeneesLibraries>
+		<LocaMeneesLibrariesSrc/>
+		<BuildingInsideVisualStudio Condition="'$(BuildingInsideVisualStudio)' == ''">false</BuildingInsideVisualStudio>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Debug'">
+		<DefineConstants>DEBUG;TRACE</DefineConstants>
+		<CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+
+		<!-- Only set the BuildTime's date in Debug builds, so it doesn't force a rebuild every time.-->
+		<!-- https://stackoverflow.com/a/6656553/1882616 -->
+		<BuildTime Condition="'$(BuildTime)' == ''">$([System.DateTime]::UtcNow.ToString(`yyyy-MM-dd 00:00:00Z`))</BuildTime>
+
+		<!-- Make debug builds inside VS use local Libraries if available (instead of NuGet packages) to make debugging easier. -->
+		<!-- https://docs.microsoft.com/en-us/visualstudio/msbuild/visual-studio-integration-msbuild#build-solutions -->
+		<LocaMeneesLibrariesSrc>$(RepoSrcFolder)..\..\Libraries\src\</LocaMeneesLibrariesSrc>
+		<UseLocaMeneesLibraries Condition="$(BuildingInsideVisualStudio) and exists($(LocaMeneesLibrariesSrc))">true</UseLocaMeneesLibraries>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<DefineConstants>TRACE</DefineConstants>
+
+		<!-- Set the full BuildTime in Release builds. It will cause a rebuild, but the AssemblyMetadata will be correct. -->
+		<BuildTime Condition="'$(BuildTime)' == ''">$([System.DateTime]::UtcNow.ToString(`yyyy-MM-dd HH:mm:ssZ`))</BuildTime>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AssemblyMetadata Condition="'$(BuildTime)' != ''" Include="BuildTime" Value="$(BuildTime)" />
+		<AssemblyMetadata Include="ProductUrl" Value="$(PackageProjectUrl)" />
+	</ItemGroup>
+
+	<ItemGroup Condition="$(UseCustomCodeAnalyzers)">
+		<PackageReference Include="codecracker.CSharp" Version="1.1.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Menees.Analyzers" Version="3.0.11">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="6.0.0">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.376">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+</Project>
