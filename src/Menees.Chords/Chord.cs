@@ -56,9 +56,14 @@ public sealed class Chord
 	/// <returns>True if <paramref name="text"/> was parsed and a <paramref name="chord"/> returned. False otherwise.</returns>
 	public static bool TryParse([NotNullWhen(true)] string? text, [MaybeNullWhen(false)] out Chord chord)
 	{
-		// Has to start with A-G (case insensitive).
-		// Can contain at most one '/' (for slash chords a.k.a. split chords).
-		// Can contain multiple '#', digits, "add", "sus", "m", "M", "dim"
+		// Ignore leading and trailing whitespace.
+		// Named has to start with A-G (case insensitive).
+		// Handle Nashville numbered chords (including slash chords like 1sus4/#3).
+		// Handle Roman numeral chords
+		// Can contain at most one '/' (for https://en.wikipedia.org/wiki/Slash_chord).
+		// Can contain multiple '#', digits, "add", "sus", "m", "M", "dim", "min", "maj", "aug", "-", "+"
+		// Normalize keys B#, E#, Cb and Fb to C, F, B and E
+		// https://en.wikipedia.org/wiki/Chord_notation
 		// TODO: Finish TryParse. [Bill, 7/21/2023]
 		chord = new(text ?? "?");
 		return true;
