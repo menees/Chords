@@ -68,6 +68,7 @@ public sealed class DocumentParser
 			}
 			else
 			{
+				// TODO: Optionally expand tabs to spaces. [Bill, 7/21/2023]
 				bool parsed = false;
 				foreach (Func<LineContext, Entry?> tryParse in this.lineParsers)
 				{

@@ -9,7 +9,7 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// A "Ultimate Guitar"-style bracketed header (e.g., [Chorus], [Verse]).
 /// </summary>
-public sealed class HeaderLine : LabeledEntry
+public sealed class HeaderLine : LabeledEntry // TODO: Use CompositeEntry instead? [Bill, 7/21/2023]
 {
 	#region Constructors
 
@@ -27,10 +27,10 @@ public sealed class HeaderLine : LabeledEntry
 	/// Gets an optional comment that followed the header's label (on the same line).
 	/// </summary>
 	/// <remarks>
-	/// This is used for cases like "[Verse (Softer)]" and "[Verse] - Softer" where
+	/// This is used for cases like "[Verse (Softer)]", "[Verse - Softer]" and "[Verse] - Softer" where
 	/// "Verse" is the header label, and "Softer" is the header comment.
 	/// </remarks>
-	public string? Comment { get; }
+	public string? Comment { get; } // TODO: Use CompositeEntry instead. [Bill, 7/21/2023]
 
 	#endregion
 
@@ -43,8 +43,13 @@ public sealed class HeaderLine : LabeledEntry
 	/// <returns>A new instance if <paramref name="context"/>'s line was parsed. Null otherwise.</returns>
 	public static HeaderLine? TryParse(LineContext context)
 	{
-		// "Alone With You - Outfield.docx" has some inside the brackets. [Bill, 7/21/2023]
-		// "Line A Stone - Original.docx" has some outside the brackets.
+		// Criteria: Only one '[' and only one ']'. Text in brackets is not a chord.
+		// Label: Text inside brackets excluding any trailing comment.
+		// Comment: Parenthesized text inside brackets. Text after '-' inside brackets. Or text after brackets.
+		// Known: Intro, Outro, Verse, Verse #, Chorus, Interlude, Bridge, Pre-Chorus, Solo, Solo #, Break, Post-Chorus, Pre-Verse
+		//
+		// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt" [Bill, 7/21/2023]
+		// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
 		// TODO: Finish TryParse. [Bill, 7/21/2023]
 		context.GetHashCode();
 		return null;
