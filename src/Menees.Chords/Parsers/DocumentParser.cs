@@ -4,8 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 #endregion
 
@@ -48,10 +50,11 @@ public sealed class DocumentParser
 	/// <para/>
 	/// If this parameter is null, then a default set of line parsers is used that tries to handle everything in a reasonable
 	/// precendence order.</param>
-	/// <param name="tabWidth">An optional tab width to use if tabs need to be converted to spaces.</param>
+	/// <param name="tabWidth">An optional tab width to use if tabs need to be converted to spaces. Pass null to
+	/// skip converting tabs to spaces.</param>
 	public DocumentParser(
 		IEnumerable<Func<LineContext, Entry?>>? lineParsers = null,
-		int tabWidth = DefaultTabWidth)
+		int? tabWidth = DefaultTabWidth)
 	{
 		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
 		this.TabWidth = tabWidth;
@@ -61,7 +64,58 @@ public sealed class DocumentParser
 
 	#region Internal Properties
 
-	internal int TabWidth { get; }
+	internal int? TabWidth { get; }
+
+	#endregion
+
+	#region Public Methods
+
+	/// <summary>
+	/// Converts tabs to spaces in the specified <paramref name="text"/>.
+	/// </summary>
+	/// <param name="text">The text to expand tabs in.</param>
+	/// <param name="tabWidth">The number of spaces for a single tab character. If width is 0, then tabs are removed.</param>
+	/// <returns><paramref name="text"/> with tabs expanded as spaces.</returns>
+	/// <exception cref="ArgumentOutOfRangeException">Tab width is negative</exception>
+	[return: NotNullIfNotNull(nameof(text))]
+	public static string? ConvertTabsToSpaces(string? text, int tabWidth)
+	{
+		if (tabWidth < 0)
+		{
+			throw new ArgumentOutOfRangeException(nameof(tabWidth), "Tab width must be non-negative.");
+		}
+
+		string? result = text;
+
+#pragma warning disable CA2249 // Consider using 'string.Contains' instead of 'string.IndexOf'. string.Contains(char) isn't in .NET Framework 4.8.
+		if (text != null && text.IndexOf('\t') >= 0)
+#pragma warning restore CA2249 // Consider using 'string.Contains' instead of 'string.IndexOf'
+		{
+			StringBuilder sb = new(text.Length);
+			foreach (char ch in text)
+			{
+				if (ch != '\t')
+				{
+					sb.Append(ch);
+				}
+				else if (tabWidth > 0)
+				{
+					// A tab should expand to at least one character.
+					sb.Append(' ');
+
+					// And it may expand up to TabWidth characters.
+					while (sb.Length % tabWidth != 0)
+					{
+						sb.Append(' ');
+					}
+				}
+			}
+
+			result = sb.ToString();
+		}
+
+		return result;
+	}
 
 	#endregion
 
@@ -89,7 +143,8 @@ public sealed class DocumentParser
 		string? rawLineText;
 		while ((rawLineText = reader.ReadLine()) != null)
 		{
-			context.SetLine(rawLineText);
+			string convertedLineText = this.TabWidth == null ? rawLineText : ConvertTabsToSpaces(rawLineText, this.TabWidth.Value);
+			context.SetLine(convertedLineText);
 
 			if (string.IsNullOrWhiteSpace(context.LineText))
 			{

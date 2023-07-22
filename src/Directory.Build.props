@@ -80,5 +80,6 @@
 	<ItemGroup>
 		<Using Include="System"/>
 		<Using Include="System.Collections.Generic"/>
+		<Using Include="System.Linq"/>
 	</ItemGroup>
 </Project>
