@@ -57,10 +57,13 @@ public sealed class LineContext
 
 	#region Internal Methods
 
-	internal void SetLineInfo(string lineText, int lineNumber)
+	internal void SetLineInfo(string lineText, int? tabWidth)
 	{
+		// Make line number 1-based.
+		this.LineNumber++;
+
+		// TODO: Optionally expand tabs to spaces. [Bill, 7/21/2023]
 		this.LineText = lineText;
-		this.LineNumber = lineNumber;
 	}
 
 	internal void Add(Entry entry)

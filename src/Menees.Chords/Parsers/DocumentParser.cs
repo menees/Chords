@@ -16,19 +16,31 @@ public sealed class DocumentParser
 {
 	#region Private Data Members
 
+	private static readonly Func<LineContext, Entry?>[] DefaultLineParsers = new Func<LineContext, Entry?>[]
+	{
+		// TODO: Add other default line parsers in order. [Bill, 7/21/2023]
+		HeaderLine.TryParse,
+		TextLine.Parse,
+	};
+
 	private readonly Func<LineContext, Entry?>[] lineParsers;
+	private readonly int? tabWidth;
 
 	#endregion
 
 	#region Constructors
 
 	/// <summary>
-	/// Creates a new instance.
+	/// Creates a new instance with the specified options.
 	/// </summary>
-	public DocumentParser(IEnumerable<Func<LineContext, Entry?>>? lineParsers = null)
+	/// <param name="lineParsers">An ordered array of line parsers to use.</param>
+	/// <param name="tabWidth">An optional tab width to use if tabs need to be converted to spaces.</param>
+	public DocumentParser(
+		IEnumerable<Func<LineContext, Entry?>>? lineParsers = null,
+		int? tabWidth = null)
 	{
-		// TODO: Use smart array of default line parsers [Bill, 7/21/2023]
-		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : Array.Empty<Func<LineContext, Entry?>>();
+		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
+		this.tabWidth = tabWidth;
 	}
 
 	#endregion
@@ -54,21 +66,17 @@ public sealed class DocumentParser
 	{
 		LineContext context = new(this);
 
-		int lineNumber = 0;
-		string? lineText;
-		while ((lineText = reader.ReadLine()) != null)
+		string? rawLineText;
+		while ((rawLineText = reader.ReadLine()) != null)
 		{
-			// Make line number 1-based.
-			lineNumber++;
-			context.SetLineInfo(lineText, lineNumber);
+			context.SetLineInfo(rawLineText, this.tabWidth);
 
-			if (string.IsNullOrWhiteSpace(lineText))
+			if (string.IsNullOrWhiteSpace(context.LineText))
 			{
 				context.Add(new BlankLine());
 			}
 			else
 			{
-				// TODO: Optionally expand tabs to spaces. [Bill, 7/21/2023]
 				bool parsed = false;
 				foreach (Func<LineContext, Entry?> tryParse in this.lineParsers)
 				{
@@ -83,7 +91,8 @@ public sealed class DocumentParser
 
 				if (!parsed)
 				{
-					throw new FormatException($"Line {lineNumber} could not be parsed: {lineText}");
+					// We should only get here if TextLine.Parse wasn't used (since it accepts everything).
+					throw new FormatException($"Line {context.LineNumber} could not be parsed: {context.LineText}");
 				}
 			}
 		}

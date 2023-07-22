@@ -1,5 +1,11 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
+using Menees.Chords.Parsers;
+
+#endregion
+
 /// <summary>
 /// A line of lyrics only or otherwise unmatched text.
 /// </summary>
@@ -30,5 +36,19 @@ public sealed class TextLine : Entry
 
 	#endregion
 
-	// TODO: Parse [Bill, 7/21/2023]
+	#region Public Methods
+
+	/// <summary>
+	/// Returns the current context line as a new text line.
+	/// </summary>
+	/// <param name="context">The current parsing context.</param>
+	/// <returns>A new instance.</returns>
+	public static TextLine Parse(LineContext context)
+	{
+		// TODO: Look for Comment and ChordDefinitions at the end of the line. [Bill, 7/21/2023]
+		TextLine result = new(context.LineText);
+		return result;
+	}
+
+	#endregion
 }
