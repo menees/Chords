@@ -1,7 +1,7 @@
 ﻿namespace Menees.Chords.Parsers;
 
 [TestClass]
-public sealed class DocumentParserTest
+public sealed class DocumentParserTests
 {
 	[TestMethod]
 	public void ConvertTabsToSpaces()
