@@ -33,4 +33,14 @@ public sealed class ChordLyricPair : Entry
 	public TextLine Lyrics { get; }
 
 	#endregion
+
+	#region Public Methods
+
+	/// <summary>
+	/// Concatenates the <see cref="Chords"/> and <see cref="Lyrics"/> lines
+	/// with an <see cref="Environment.NewLine"/> separator.
+	/// </summary>
+	public override string ToString() => $"{this.Chords}{Environment.NewLine}{this.Lyrics}";
+
+	#endregion
 }

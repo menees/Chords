@@ -10,7 +10,7 @@ using System.Linq;
 /// <summary>
 /// Represents an explicit or implicit group of <see cref="Entry"/>s within a <see cref="Document"/>.
 /// </summary>
-public sealed class Section
+public sealed class Section // TODO: Convert to a composite Entry. [Bill, 7/22/2023]
 {
 	#region Constructors
 

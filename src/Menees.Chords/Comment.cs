@@ -64,5 +64,10 @@ public sealed class Comment : Entry
 		return result;
 	}
 
+	/// <summary>
+	/// Returns <see cref="Text"/>
+	/// </summary>
+	public override string ToString() => this.Text;
+
 	#endregion
 }

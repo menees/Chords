@@ -16,10 +16,10 @@ public sealed class HeaderLine : Entry
 	/// <summary>
 	/// Creates a new instance.
 	/// </summary>
-	/// <param name="label"></param>
-	public HeaderLine(string label)
+	/// <param name="text">The header label or section name.</param>
+	public HeaderLine(string text)
 	{
-		this.Header = label;
+		this.Text = text;
 	}
 
 	#endregion
@@ -29,7 +29,7 @@ public sealed class HeaderLine : Entry
 	/// <summary>
 	/// Gets the main header label (e.g., Chorus, Verse #, Bridge).
 	/// </summary>
-	public string Header { get; }
+	public string Text { get; }
 
 	#endregion
 
@@ -56,6 +56,11 @@ public sealed class HeaderLine : Entry
 		context.GetHashCode();
 		return null;
 	}
+
+	/// <summary>
+	/// Returns <see cref="Text"/>.
+	/// </summary>
+	public override string ToString() => this.Text;
 
 	#endregion
 }

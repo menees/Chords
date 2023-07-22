@@ -15,4 +15,13 @@ public sealed class BlankLine : Entry
 	}
 
 	#endregion
+
+	#region Public Methods
+
+	/// <summary>
+	/// Returns <see cref="string.Empty"/>.
+	/// </summary>
+	public override string ToString() => string.Empty;
+
+	#endregion
 }

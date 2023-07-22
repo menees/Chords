@@ -69,5 +69,10 @@ public sealed class Chord
 		return true;
 	}
 
+	/// <summary>
+	/// Returns the chord <see cref="Name"/>.
+	/// </summary>
+	public override string ToString() => this.Name;
+
 	#endregion
 }
