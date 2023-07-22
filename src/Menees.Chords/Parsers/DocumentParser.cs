@@ -123,14 +123,11 @@ public sealed class DocumentParser
 
 	#region Internal Methods
 
-	internal List<Section> Parse(TextReader reader)
+	internal IReadOnlyList<Entry> Parse(TextReader reader)
 	{
-		IReadOnlyList<Entry> entries = this.ParseLines(reader);
+		IReadOnlyList<Entry> result = this.ParseLines(reader);
 
-		// TODO: Finish Parse. [Bill, 7/21/2023]
-		Section section = new(entries.ToList());
-
-		List<Section> result = new() { section };
+		// TODO: Support custom section groupers. [Bill, 7/21/2023]
 		return result;
 	}
 

@@ -4,22 +4,21 @@
 
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using Menees.Chords.Parsers;
 
 #endregion
 
 /// <summary>
-/// Represents the parsed body of a chord sheet file or text stream
-/// as an immutable, ordered collection of <see cref="Section"/>s.
+/// The parsed body of a chord sheet file or text stream as an
+/// immutable, ordered collection of <see cref="Entry"/>s.
 /// </summary>
 public sealed class Document
 {
 	#region Constructors
 
-	private Document(List<Section> sections, string? fileName)
+	private Document(IReadOnlyList<Entry> entries, string? fileName)
 	{
-		this.Sections = sections.ToList();
+		this.Entries = entries;
 		this.FileName = fileName;
 	}
 
@@ -28,14 +27,17 @@ public sealed class Document
 	#region Public Properties
 
 	/// <summary>
-	/// Gets the name of the file the document was loaded from (if any).
+	/// Gets the name of the file that the document was loaded from (if any).
 	/// </summary>
+	/// <remarks>
+	/// This may help with inferring the song name (e.g., using <see cref="Path.GetFileNameWithoutExtension(string?)"/>).
+	/// </remarks>
 	public string? FileName { get; }
 
 	/// <summary>
-	/// Gets the ordered collection of sections within the document.
+	/// Gets the ordered collection of entries within the document.
 	/// </summary>
-	public IReadOnlyList<Section> Sections { get; }
+	public IReadOnlyList<Entry> Entries { get; }
 
 	#endregion
 
@@ -51,22 +53,22 @@ public sealed class Document
 	{
 		parser ??= new();
 		using StreamReader reader = new(fileName);
-		List<Section> sections = parser.Parse(reader);
-		Document result = new(sections, fileName);
+		IReadOnlyList<Entry> entries = parser.Parse(reader);
+		Document result = new(entries, fileName);
 		return result;
 	}
 
 	/// <summary>
-	/// Loads a document from the specified <paramref name="textReader"/>.
+	/// Loads a document from the specified <paramref name="reader"/>.
 	/// </summary>
-	/// <param name="textReader">The reader to read lines from.</param>
+	/// <param name="reader">The reader to read lines from.</param>
 	/// <param name="parser">An optional custom document parser. If null, then a default <see cref="DocumentParser"/> is used.</param>
 	/// <returns>A new document instance.</returns>
-	public static Document Load(TextReader textReader, DocumentParser? parser = null)
+	public static Document Load(TextReader reader, DocumentParser? parser = null)
 	{
 		parser ??= new();
-		List<Section> sections = parser.Parse(textReader);
-		Document result = new(sections, null);
+		IReadOnlyList<Entry> entries = parser.Parse(reader);
+		Document result = new(entries, null);
 		return result;
 	}
 
@@ -80,8 +82,8 @@ public sealed class Document
 	{
 		parser ??= new();
 		using StringReader reader = new(text);
-		List<Section> sections = parser.Parse(reader);
-		Document result = new(sections, null);
+		IReadOnlyList<Entry> entries = parser.Parse(reader);
+		Document result = new(entries, null);
 		return result;
 	}
 

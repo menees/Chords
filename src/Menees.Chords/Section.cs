@@ -8,21 +8,19 @@ using System.Linq;
 #endregion
 
 /// <summary>
-/// Represents an explicit or implicit group of <see cref="Entry"/>s within a <see cref="Document"/>.
+/// An explicit or implicit group of <see cref="Entry"/>s within a <see cref="Document"/>.
 /// </summary>
-public sealed class Section // TODO: Convert to a composite Entry. [Bill, 7/22/2023]
+public sealed class Section : Entry
 {
 	#region Constructors
 
 	/// <summary>
-	/// Creates a new section with the specified entries and header.
+	/// Creates a new section with the specified entries.
 	/// </summary>
 	/// <param name="entries">The values to include in <see cref="Entries"/>.</param>
-	/// <param name="header">Optional text to assign to <see cref="Header"/>.</param>
-	public Section(IEnumerable<Entry> entries, string? header = null)
+	public Section(IEnumerable<Entry> entries)
 	{
 		this.Entries = entries.ToList();
-		this.Header = header;
 	}
 
 	#endregion
@@ -34,10 +32,14 @@ public sealed class Section // TODO: Convert to a composite Entry. [Bill, 7/22/2
 	/// </summary>
 	public IReadOnlyList<Entry> Entries { get; }
 
+	#endregion
+
+	#region Public Methods
+
 	/// <summary>
-	/// Gets the section header/name (if any).
+	/// Concatenates the section's <see cref="Entries"/> using <see cref="Environment.NewLine"/> separators.
 	/// </summary>
-	public string? Header { get; }
+	public override string ToString() => string.Join(Environment.NewLine, this.Entries);
 
 	#endregion
 }

@@ -14,10 +14,9 @@ public sealed class LineContextTests
 
 		Document doc = Document.Parse("Line 1\nLine\t2\r\nLine 3\n  ", parser);
 		doc.ShouldNotBeNull();
-		doc.Sections.Count.ShouldBe(1);
-		doc.Sections[0].Entries.Count.ShouldBe(4);
-		doc.Sections[0].Entries[0].ShouldBeOfType<TextLine>();
-		doc.Sections[0].Entries[3].ShouldBeOfType<BlankLine>();
+		doc.Entries.Count.ShouldBe(4);
+		doc.Entries[0].ShouldBeOfType<TextLine>();
+		doc.Entries[3].ShouldBeOfType<BlankLine>();
 
 		TextLine CheckContext(LineContext context)
 		{

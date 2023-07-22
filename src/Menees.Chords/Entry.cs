@@ -8,7 +8,7 @@ using System.Collections.Generic;
 #endregion
 
 /// <summary>
-/// Represents one or more related, parsed lines from a <see cref="Document"/>.
+/// One or more related, parsed lines from a <see cref="Document"/>.
 /// </summary>
 public abstract class Entry
 {

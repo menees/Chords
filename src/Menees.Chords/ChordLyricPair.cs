@@ -1,7 +1,7 @@
 ﻿namespace Menees.Chords;
 
 /// <summary>
-/// A sequential <see cref="ChordLine"/> and <see cref="TextLine"/> pair within a <see cref="Section"/>.
+/// A sequential <see cref="ChordLine"/> and <see cref="TextLine"/> pair.
 /// </summary>
 public sealed class ChordLyricPair : Entry
 {
