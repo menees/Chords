@@ -9,14 +9,17 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// A "Ultimate Guitar"-style bracketed header (e.g., [Chorus], [Verse]).
 /// </summary>
-public sealed class HeaderLine : LabeledEntry // TODO: Use CompositeEntry instead? [Bill, 7/21/2023]
+public sealed class HeaderLine : Entry
 {
 	#region Constructors
 
-	private HeaderLine(string? label, string? comment)
-		: base(label)
+	/// <summary>
+	/// Creates a new instance.
+	/// </summary>
+	/// <param name="label"></param>
+	public HeaderLine(string label)
 	{
-		this.Comment = comment;
+		this.Header = label;
 	}
 
 	#endregion
@@ -24,13 +27,9 @@ public sealed class HeaderLine : LabeledEntry // TODO: Use CompositeEntry instea
 	#region Public Properties
 
 	/// <summary>
-	/// Gets an optional comment that followed the header's label (on the same line).
+	/// Gets the main header label (e.g., Chorus, Verse #, Bridge).
 	/// </summary>
-	/// <remarks>
-	/// This is used for cases like "[Verse (Softer)]", "[Verse - Softer]" and "[Verse] - Softer" where
-	/// "Verse" is the header label, and "Softer" is the header comment.
-	/// </remarks>
-	public string? Comment { get; } // TODO: Use CompositeEntry instead. [Bill, 7/21/2023]
+	public string Header { get; }
 
 	#endregion
 
@@ -51,6 +50,9 @@ public sealed class HeaderLine : LabeledEntry // TODO: Use CompositeEntry instea
 		// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt" [Bill, 7/21/2023]
 		// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
 		// TODO: Finish TryParse. [Bill, 7/21/2023]
+		//
+		// This is used for cases like "[Verse (Softer)]", "[Verse - Softer]" and "[Verse] - Softer" where
+		// "Verse" is the header label, and "Softer" is the header comment.
 		context.GetHashCode();
 		return null;
 	}

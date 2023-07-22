@@ -8,4 +8,27 @@
 /// </remarks>
 public sealed class LyricLine : Entry
 {
+	#region Constructors
+
+	/// <summary>
+	/// Creates a new instance for the specified text.
+	/// </summary>
+	/// <param name="text">The lyrics or text for this line.</param>
+	public LyricLine(string text)
+	{
+		this.Text = text;
+	}
+
+	#endregion
+
+	#region Public Properties
+
+	/// <summary>
+	/// Gets the lyrics or text for this entry.
+	/// </summary>
+	public string Text { get; }
+
+	#endregion
+
+	// TODO: Parse [Bill, 7/21/2023]
 }

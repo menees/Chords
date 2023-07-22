@@ -10,4 +10,5 @@
 /// <seealso href="https://www.chordpro.org/chordpro/directives-env_grid/"/>
 public sealed class ChordGridLine : Entry
 {
+	// TODO: Parse [Bill, 7/21/2023]
 }

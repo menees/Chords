@@ -9,4 +9,5 @@
 /// </remarks>
 public sealed class TablatureLine : Entry
 {
+	// TODO: Parse [Bill, 7/21/2023]
 }

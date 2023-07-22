@@ -14,9 +14,15 @@ public sealed class Section
 {
 	#region Constructors
 
-	internal Section(List<Entry> entries)
+	/// <summary>
+	/// Creates a new section with the specified entries and header.
+	/// </summary>
+	/// <param name="entries">The values to include in <see cref="Entries"/>.</param>
+	/// <param name="header">Optional text to assign to <see cref="Header"/>.</param>
+	public Section(IEnumerable<Entry> entries, string? header = null)
 	{
-		this.Entries = entries;
+		this.Entries = entries.ToList();
+		this.Header = header;
 	}
 
 	#endregion
@@ -24,14 +30,14 @@ public sealed class Section
 	#region Public Properties
 
 	/// <summary>
-	/// Gets the section header/name (if any) from the first entry in <see cref="Entries"/>.
-	/// </summary>
-	public string? Header => (this.Entries.FirstOrDefault() as LabeledEntry)?.Label;
-
-	/// <summary>
 	/// Gets the entries within the current section.
 	/// </summary>
 	public IReadOnlyList<Entry> Entries { get; }
+
+	/// <summary>
+	/// Gets the section header/name (if any).
+	/// </summary>
+	public string? Header { get; }
 
 	#endregion
 }

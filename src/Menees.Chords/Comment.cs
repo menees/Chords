@@ -26,4 +26,7 @@ public sealed class Comment : Entry
 	public string Text { get; }
 
 	#endregion
+
+	// Starts with # or *. Or entire line in parentheses
+	// TODO: Parse [Bill, 7/21/2023]
 }
