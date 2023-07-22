@@ -14,6 +14,15 @@ using System.Linq;
 /// </summary>
 public sealed class DocumentParser
 {
+	#region Public Constants
+
+	/// <summary>
+	/// Gets the default number of spaces to use when expanding a tab character.
+	/// </summary>
+	public const int DefaultTabWidth = 4;
+
+	#endregion
+
 	#region Private Data Members
 
 	private static readonly Func<LineContext, Entry?>[] DefaultLineParsers = new Func<LineContext, Entry?>[]
@@ -24,7 +33,6 @@ public sealed class DocumentParser
 	};
 
 	private readonly Func<LineContext, Entry?>[] lineParsers;
-	private readonly int? tabWidth;
 
 	#endregion
 
@@ -33,15 +41,27 @@ public sealed class DocumentParser
 	/// <summary>
 	/// Creates a new instance with the specified options.
 	/// </summary>
-	/// <param name="lineParsers">An ordered array of line parsers to use.</param>
+	/// <param name="lineParsers">An ordered array of line parsers to use. This allows you to customize the parsing
+	/// for known input scenarios. For example, you can use a subset of ChordPro-compatible parsers if you know you're
+	/// only reading ChordPro input, or you can omit <see cref="HeaderLine.TryParse"/> if you're not using
+	/// "Ultimate Guitar"-style headers lines.
+	/// <para/>
+	/// If this parameter is null, then a default set of line parsers is used that tries to handle everything in a reasonable
+	/// precendence order.</param>
 	/// <param name="tabWidth">An optional tab width to use if tabs need to be converted to spaces.</param>
 	public DocumentParser(
 		IEnumerable<Func<LineContext, Entry?>>? lineParsers = null,
-		int? tabWidth = null)
+		int tabWidth = DefaultTabWidth)
 	{
 		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
-		this.tabWidth = tabWidth;
+		this.TabWidth = tabWidth;
 	}
+
+	#endregion
+
+	#region Internal Properties
+
+	internal int TabWidth { get; }
 
 	#endregion
 
@@ -69,7 +89,7 @@ public sealed class DocumentParser
 		string? rawLineText;
 		while ((rawLineText = reader.ReadLine()) != null)
 		{
-			context.SetLineInfo(rawLineText, this.tabWidth);
+			context.SetLine(rawLineText);
 
 			if (string.IsNullOrWhiteSpace(context.LineText))
 			{
