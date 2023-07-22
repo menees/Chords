@@ -1,7 +1,7 @@
 ﻿namespace Menees.Chords;
 
 /// <summary>
-/// A sequential <see cref="ChordLine"/> and <see cref="LyricLine"/> pair within a section.
+/// A sequential <see cref="ChordLine"/> and <see cref="TextLine"/> pair within a <see cref="Section"/>.
 /// </summary>
 public sealed class ChordLyricPair : Entry
 {
@@ -10,12 +10,12 @@ public sealed class ChordLyricPair : Entry
 	/// <summary>
 	/// Creates a new instance for a pair of related chord and lyric lines.
 	/// </summary>
-	/// <param name="chordLine">The chord line (i.e., top line).</param>
-	/// <param name="lyricLine">The lyric line (i.e., bottom line).</param>
-	public ChordLyricPair(ChordLine chordLine, LyricLine lyricLine)
+	/// <param name="chords">The chord line (i.e., top line).</param>
+	/// <param name="lyrics">The lyric line (i.e., bottom line).</param>
+	public ChordLyricPair(ChordLine chords, TextLine lyrics)
 	{
-		this.Chords = chordLine;
-		this.Lyrics = lyricLine;
+		this.Chords = chords;
+		this.Lyrics = lyrics;
 	}
 
 	#endregion
@@ -30,7 +30,7 @@ public sealed class ChordLyricPair : Entry
 	/// <summary>
 	/// Gets the line of lyrics.
 	/// </summary>
-	public LyricLine Lyrics { get; }
+	public TextLine Lyrics { get; }
 
 	#endregion
 }
