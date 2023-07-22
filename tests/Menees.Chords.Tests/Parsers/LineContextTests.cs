@@ -1,14 +1,14 @@
 ﻿namespace Menees.Chords.Parsers;
 
-using Shouldly;
-
 [TestClass]
 public sealed class LineContextTests
 {
+	#region Public Methods
+
 	[TestMethod]
 	public void LineNumber()
 	{
-		// The parser variable must be assigned something so the CheckContext local method can capture it.
+		// The parser variable must be assigned something first so the CheckContext local method can safely capture the variable.
 		DocumentParser parser = null!;
 		parser = new(new[] { CheckContext });
 
@@ -44,4 +44,32 @@ public sealed class LineContextTests
 			return new TextLine(context.LineText);
 		}
 	}
+
+	#endregion
+
+	#region Internal Methods
+
+	internal static LineContext Create(string line)
+	{
+		LineContext? result = null;
+
+		DocumentParser parser = new(new[] { SaveContext });
+		Document doc = Document.Parse(line, parser);
+
+		TextLine SaveContext(LineContext context)
+		{
+			if (result != null)
+			{
+				Assert.Fail("Multiple test lines are not supported.");
+			}
+
+			result = context;
+			return new(line);
+		}
+
+		result.ShouldNotBeNull();
+		return result;
+	}
+
+	#endregion
 }

@@ -78,6 +78,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<PackageReference Include="PolySharp" Version="1.7.1">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
+
+	<ItemGroup>
 		<Using Include="System"/>
 		<Using Include="System.Collections.Generic"/>
 		<Using Include="System.Linq"/>

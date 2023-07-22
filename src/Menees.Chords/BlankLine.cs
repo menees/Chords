@@ -8,4 +8,11 @@
 /// </remarks>
 public sealed class BlankLine : Entry
 {
+	#region Constructors
+
+	internal BlankLine()
+	{
+	}
+
+	#endregion
 }

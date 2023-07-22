@@ -31,6 +31,8 @@ public sealed class DocumentParser
 	{
 		// TODO: Add other default line parsers in order. [Bill, 7/21/2023]
 		HeaderLine.TryParse,
+		Comment.TryParse,
+		TablatureLine.TryParse,
 		TextLine.Parse,
 	};
 
