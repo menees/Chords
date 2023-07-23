@@ -8,6 +8,8 @@ public sealed class LineContextTests
 	[TestMethod]
 	public void LineNumber()
 	{
+		int expectedLineNumber = 0;
+
 		// The parser variable must be assigned something first so the CheckContext local method can safely capture the variable.
 		DocumentParser parser = null!;
 		parser = new(new[] { CheckContext });
@@ -25,7 +27,7 @@ public sealed class LineContextTests
 			context.Parser.ShouldBe(parser);
 
 			// Should be 1-based line number.
-			context.LineNumber.ShouldBe(context.Entries.Count + 1);
+			context.LineNumber.ShouldBe(++expectedLineNumber);
 			return new LyricLine(context.LineText);
 		}
 	}

@@ -113,9 +113,7 @@ public sealed class DocumentParser
 
 		string? result = text;
 
-#pragma warning disable CA2249 // Consider using 'string.Contains' instead of 'string.IndexOf'. string.Contains(char) isn't in .NET Framework 4.8.
-		if (text != null && text.IndexOf('\t') >= 0)
-#pragma warning restore CA2249 // Consider using 'string.Contains' instead of 'string.IndexOf'
+		if (text != null && text.Contains("\t"))
 		{
 			StringBuilder sb = new(text.Length);
 			foreach (char ch in text)
@@ -161,6 +159,7 @@ public sealed class DocumentParser
 
 	private IReadOnlyList<Entry> ParseLines(TextReader reader)
 	{
+		List<Entry> result = new();
 		LineContext context = new(this);
 
 		string? rawLineText;
@@ -171,7 +170,7 @@ public sealed class DocumentParser
 
 			if (string.IsNullOrWhiteSpace(context.LineText))
 			{
-				context.Add(new BlankLine());
+				result.Add(new BlankLine());
 			}
 			else
 			{
@@ -182,7 +181,7 @@ public sealed class DocumentParser
 					if (entry != null)
 					{
 						parsed = true;
-						context.Add(entry);
+						result.Add(entry);
 						break;
 					}
 				}
@@ -195,7 +194,7 @@ public sealed class DocumentParser
 			}
 		}
 
-		return context.Entries;
+		return result;
 	}
 
 	#endregion

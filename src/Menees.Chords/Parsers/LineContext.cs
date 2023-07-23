@@ -15,7 +15,6 @@ public sealed class LineContext
 {
 	#region Private Data Members
 
-	private readonly List<Entry> entries = new();
 	private Dictionary<string, object>? state;
 
 	#endregion
@@ -48,15 +47,6 @@ public sealed class LineContext
 	public int LineNumber { get; private set; }
 
 	/// <summary>
-	/// Gets the entries that have already been parsed.
-	/// </summary>
-	/// <remarks>
-	/// This can be used for advanced lookback scenarios to see if the current line is in
-	/// a specific section type (e.g., preceded by start_of_grid and not end_of_grid).
-	/// </remarks>
-	public IReadOnlyList<Entry> Entries => this.entries;
-
-	/// <summary>
 	/// Gets a case-insensitive dictionary to store custom parsing state information.
 	/// </summary>
 	/// <remarks>
@@ -76,11 +66,6 @@ public sealed class LineContext
 		// Make line number 1-based.
 		this.LineNumber++;
 		this.LineText = lineText;
-	}
-
-	internal void Add(Entry entry)
-	{
-		this.entries.Add(entry);
 	}
 
 	#endregion
