@@ -16,11 +16,29 @@ public sealed class Comment : TextEntry
 	/// <summary>
 	/// Creates a new instance for the specified comment.
 	/// </summary>
-	/// <param name="comment"></param>
-	public Comment(string comment)
-		: base(comment)
+	/// <param name="text">The comment text with no prefix or suffix.</param>
+	/// <param name="prefix">An optional prefix that was before <paramref name="text"/>.</param>
+	/// <param name="suffix">An optional suffix that was after <paramref name="text"/>.</param>
+	public Comment(string text, string? prefix = null, string? suffix = null)
+		: base(text)
 	{
+		this.Prefix = prefix;
+		this.Suffix = suffix;
 	}
+
+	#endregion
+
+	#region Public Properties
+
+	/// <summary>
+	/// Gets the optional prefix that was before <see cref="TextEntry.Text"/>.
+	/// </summary>
+	public string? Prefix { get; }
+
+	/// <summary>
+	/// Gets the optional suffix that was before <see cref="TextEntry.Text"/>.
+	/// </summary>
+	public string? Suffix { get; }
 
 	#endregion
 
@@ -30,7 +48,7 @@ public sealed class Comment : TextEntry
 	/// Tries to parse the current line as a comment.
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
-	/// <returns>A new comment if the line starts with "# ", "##", "*", or is surrounded by parentheses.</returns>
+	/// <returns>A new comment if the line starts with "#", "*", or is surrounded by parentheses.</returns>
 	public static Comment? TryParse(LineContext context)
 	{
 		Comment? result = null;
@@ -38,22 +56,41 @@ public sealed class Comment : TextEntry
 		string line = context.LineText.Trim();
 		if (!string.IsNullOrEmpty(line))
 		{
-			if (line.StartsWith("# ") || line.StartsWith("##"))
+			if (line[0] == '#')
 			{
-				result = new(line[2..]);
+				// A comment line can end with a '#', (e.g., F#).
+				string trimmed = line.TrimStart('#').TrimStart(' ');
+				string prefix = line.Substring(0, line.Length - trimmed.Length);
+				result = new(trimmed, prefix);
 			}
 			else if (line[0] == '*')
 			{
-				result = new(line.Trim('*'));
+				result = Split(line, '*', '*');
 			}
 			else if (line[0] == '(' && line[^1] == ')')
 			{
-				result = new(line[1..^1]);
+				result = Split(line, '(', ')');
 			}
 		}
 
 		return result;
+
+		static Comment Split(string line, char start, char end)
+		{
+			Comment? result;
+			string startTrimmed = line.TrimStart(start).TrimStart(' ');
+			string prefix = line.Substring(0, line.Length - startTrimmed.Length);
+			string text = startTrimmed.TrimEnd(end).TrimEnd();
+			string suffix = startTrimmed.Substring(text.Length);
+			result = new(text, prefix, suffix);
+			return result;
+		}
 	}
+
+	/// <summary>
+	/// Gets the formatted comment text including <see cref="Prefix"/> and <see cref="Suffix"/>.
+	/// </summary>
+	public override string ToString() => $"{this.Prefix}{this.Text}{this.Suffix}";
 
 	#endregion
 }

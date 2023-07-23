@@ -13,6 +13,13 @@ using Menees.Chords.Parsers;
 /// ChordPro's introduction says, "Finally, all lines that start with a # are ignored.
 /// These can be used to insert remarks into the ChordPro file that are only relevant
 /// for maintainers."
+/// <para/>
+/// ChordPro remarks are essentially comments in the input that won't be visible
+/// in the rendered output. If you want to preserve this non-visible aspect, make
+/// sure <see cref="ChordProRemarkLine.TryParse"/> has a higher priority than
+/// <see cref="Comment.TryParse"/> when creating a <see cref="DocumentParser"/>.
+/// Otherwise, <see cref="Comment.TryParse"/> will parse the remark as a visible
+/// comment.
 /// </remarks>
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-introduction/"/>
 public sealed class ChordProRemarkLine : TextEntry

@@ -15,6 +15,7 @@ public sealed class ChordProDirectiveLine : Entry
 	#region Internal Constants
 
 	internal const string GridStateKey = nameof(ChordProDirectiveLine) + "." + "Grid";
+	internal const string TabStateKey = nameof(ChordProDirectiveLine) + "." + "Tab";
 
 	#endregion
 
@@ -122,17 +123,18 @@ public sealed class ChordProDirectiveLine : Entry
 			if (colonIndex >= 0)
 			{
 				name = line[1..colonIndex];
-				argument = line[(colonIndex + 1)..^2];
+				argument = line[(colonIndex + 1)..^1];
 			}
 			else
 			{
-				name = line[1..^2];
+				name = line[1..^1];
 				argument = null;
 			}
 
 			result = new(name.Trim(), argument?.Trim());
 
-			// Push/pop the current grid state to make parsing simple for ChordProGridLine.
+			// Push/pop the current grid or tab state to make parsing simpler for
+			// ChordProGridLine and TablatureLine.
 			if (result.ShortName.Equals("sog", Comparison))
 			{
 				context.State[GridStateKey] = result;
@@ -140,6 +142,14 @@ public sealed class ChordProDirectiveLine : Entry
 			else if (result.ShortName.Equals("eog", Comparison))
 			{
 				context.State.Remove(GridStateKey);
+			}
+			else if (result.ShortName.Equals("sot", Comparison))
+			{
+				context.State[TabStateKey] = result;
+			}
+			else if (result.ShortName.Equals("eot", Comparison))
+			{
+				context.State.Remove(TabStateKey);
 			}
 		}
 

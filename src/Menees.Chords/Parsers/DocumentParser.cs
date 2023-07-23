@@ -32,6 +32,17 @@ public sealed class DocumentParser
 		// TODO: Add other default line parsers in order. [Bill, 7/21/2023]
 		HeaderLine.TryParse,
 		Comment.TryParse,
+
+		// Note: We omit ChordProRemarkLine.TryParse because Comment.TryParse will consume any #-prefixed remark lines.
+		ChordProDirectiveLine.TryParse,
+		ChordProGridLine.TryParse,
+		ChordProLyricLine.TryParse,
+		TablatureLine.TryParse,
+		LyricLine.Parse,
+	};
+
+	private static readonly Func<LineContext, Entry?>[] ChordProParsersArray = new Func<LineContext, Entry?>[]
+	{
 		ChordProRemarkLine.TryParse,
 		ChordProDirectiveLine.TryParse,
 		ChordProGridLine.TryParse,
@@ -65,6 +76,15 @@ public sealed class DocumentParser
 		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
 		this.TabWidth = tabWidth;
 	}
+
+	#endregion
+
+	#region Public Properties
+
+	/// <summary>
+	/// Gets a collection of line parsers to use when processing input that's known to be in ChordPro format.
+	/// </summary>
+	public static IEnumerable<Func<LineContext, Entry?>> ChordProLineParsers => ChordProParsersArray;
 
 	#endregion
 

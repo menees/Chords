@@ -6,7 +6,7 @@ using Menees.Chords.Parsers;
 public class TablatureLineTests
 {
 	[TestMethod]
-	public void TryParse()
+	public void TryParseFormat()
 	{
 		Test("e|--1--", "e");
 		Test("B|--1--|", "B");
@@ -32,5 +32,16 @@ public class TablatureLineTests
 				line.ToString().ShouldBe(text);
 			}
 		}
+	}
+
+	[TestMethod]
+	public void TryParseEnvironment()
+	{
+		Document doc = Document.Parse("{start_of_tab}\n|--1-2-3---|\n{end_of_tab}\nNot tab");
+		doc.Entries.Count.ShouldBe(4);
+		doc.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().Name.ShouldBe("start_of_tab");
+		doc.Entries[1].ShouldBeOfType<TablatureLine>().Text.ShouldBe("|--1-2-3---|");
+		doc.Entries[2].ShouldBeOfType<ChordProDirectiveLine>().Name.ShouldBe("end_of_tab");
+		doc.Entries[3].ShouldBeOfType<LyricLine>().Text.ShouldBe("Not tab");
 	}
 }

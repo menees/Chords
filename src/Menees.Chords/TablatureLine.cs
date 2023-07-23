@@ -45,19 +45,21 @@ public sealed class TablatureLine : TextEntry
 	/// Tries to parse the current line as a tablature line.
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
-	/// <returns>A new instance if the line starts with "Note|" or "Note:".</returns>
+	/// <returns>A new instance if the line is inside a start_of_tab/end_of_tab environment,
+	/// or if the line starts with "Note|" or "Note:".</returns>
 	public static TablatureLine? TryParse(LineContext context)
 	{
 		TablatureLine? result = null;
 
 		string line = context.LineText.Trim();
-		if (!string.IsNullOrEmpty(line))
+		int noteLength = ChordParser.GetNoteLength(line);
+		if (context.State.TryGetValue(ChordProDirectiveLine.TabStateKey, out object? gridState) && gridState is ChordProDirectiveLine)
 		{
-			int noteLength = ChordParser.GetNoteLength(line);
-			if (noteLength > 0 && line.Length > noteLength && (line[noteLength] == '|' || line[noteLength] == ':'))
-			{
-				result = new(noteLength, line);
-			}
+			result = new(noteLength, line);
+		}
+		else if (noteLength > 0 && line.Length > noteLength && (line[noteLength] == '|' || line[noteLength] == ':'))
+		{
+			result = new(noteLength, line);
 		}
 
 		return result;
