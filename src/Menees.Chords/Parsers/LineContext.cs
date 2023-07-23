@@ -16,6 +16,7 @@ public sealed class LineContext
 	#region Private Data Members
 
 	private readonly List<Entry> entries = new();
+	private Dictionary<string, object>? state;
 
 	#endregion
 
@@ -54,6 +55,17 @@ public sealed class LineContext
 	/// a specific section type (e.g., preceded by start_of_grid and not end_of_grid).
 	/// </remarks>
 	public IReadOnlyList<Entry> Entries => this.entries;
+
+	/// <summary>
+	/// Gets a case-insensitive dictionary to store custom parsing state information.
+	/// </summary>
+	/// <remarks>
+	/// This can be used to store information that needs to be shared between multiple
+	/// line parsers. For example, if a start_of_grid <see cref="ChordProDirective"/> is
+	/// parsed, it could store that state so <see cref="ChordGridLine"/> can know a grid
+	/// is active, and an end_of_grid <see cref="ChordProDirective"/> can clear that state.
+	/// </remarks>
+	public IDictionary<string, object> State => this.state ??= new(StringComparer.CurrentCultureIgnoreCase);
 
 	#endregion
 

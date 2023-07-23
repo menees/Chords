@@ -5,6 +5,12 @@
 /// </summary>
 public sealed class ChordProDirective : Entry
 {
+	#region Internal Constants
+
+	internal const string GridStateKey = nameof(ChordProDirective) + "." + "Grid";
+
+	#endregion
+
 	#region Public Methods
 
 	// {id[:.*]}
