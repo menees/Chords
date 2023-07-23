@@ -62,7 +62,7 @@ public sealed class LineContext
 	/// <remarks>
 	/// This can be used to store information that needs to be shared between multiple
 	/// line parsers. For example, if a start_of_grid <see cref="ChordProDirective"/> is
-	/// parsed, it could store that state so <see cref="ChordGridLine"/> can know a grid
+	/// parsed, it could store that state so <see cref="ChordProGridLine"/> can know a grid
 	/// is active, and an end_of_grid <see cref="ChordProDirective"/> can clear that state.
 	/// </remarks>
 	public IDictionary<string, object> State => this.state ??= new(StringComparer.CurrentCultureIgnoreCase);

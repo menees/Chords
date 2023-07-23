@@ -14,11 +14,11 @@ using Menees.Chords.Parsers;
 /// <c>|  Am . . . | C . . . | E  . . . | E  . . . |</c>
 /// </remarks>
 /// <seealso href="https://www.chordpro.org/chordpro/directives-env_grid/"/>
-public sealed class ChordGridLine : Entry
+public sealed class ChordProGridLine : Entry
 {
 	#region Constructors
 
-	internal ChordGridLine(string text)
+	internal ChordProGridLine(string text)
 	{
 		this.Text = text;
 	}
@@ -37,20 +37,20 @@ public sealed class ChordGridLine : Entry
 	#region Public Methods
 
 	/// <summary>
-	/// Tries to parse the current line as a tablature line.
+	/// Tries to parse the current line as a ChordPro grid line.
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
-	/// <returns>A new instance if the line starts with "Note|" or "Note:".</returns>
-	public static ChordGridLine? TryParse(LineContext context)
+	/// <returns>A new instance if the line is inside a start_of_grid section that hasn't had a matching end_of_grid.</returns>
+	public static ChordProGridLine? TryParse(LineContext context)
 	{
-		ChordGridLine? result = null;
+		ChordProGridLine? result = null;
 
-		// The chord grid line syntax is very loose, and ChordPro's examples include things
-		// that the syntax says are not allowed. So, we'll require the line to be inside an
-		// open start_of_grid/end_of_grid section.
+		// The ChordPro grid line syntax is very loose, and ChordPro's examples include things
+		// that the documentation says are not allowed. So, we'll require the line to be inside
+		// an open start_of_grid/end_of_grid section.
 		if (context.State.TryGetValue(ChordProDirective.GridStateKey, out object? gridState) && gridState is ChordProDirective)
 		{
-			result = new ChordGridLine(context.LineText);
+			result = new ChordProGridLine(context.LineText);
 		}
 
 		return result;
