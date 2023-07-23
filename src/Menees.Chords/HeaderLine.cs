@@ -17,7 +17,7 @@ public sealed class HeaderLine : TextEntry
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="text">The header label or section name.</param>
-	public HeaderLine(string text)
+	private HeaderLine(string text)
 		: base(text)
 	{
 	}

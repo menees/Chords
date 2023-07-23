@@ -18,7 +18,7 @@ public sealed class ChordProGridLine : TextEntry
 {
 	#region Constructors
 
-	internal ChordProGridLine(string text)
+	private ChordProGridLine(string text)
 		: base(text)
 	{
 	}
