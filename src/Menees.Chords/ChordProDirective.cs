@@ -1,8 +1,15 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
+using Menees.Chords.Parsers;
+
+#endregion
+
 /// <summary>
-/// A ChordPro directive in "{id}" or "{id: label}" format.
+/// A ChordPro directive in "{name}" or "{name: argument}" format.
 /// </summary>
+/// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/"/>
 public sealed class ChordProDirective : Entry
 {
 	#region Internal Constants
@@ -11,15 +18,139 @@ public sealed class ChordProDirective : Entry
 
 	#endregion
 
-	#region Public Methods
+	#region Private Data Members
 
-	// {id[:.*]}
-	// TODO: Parse [Bill, 7/21/2023]
+	private const StringComparison Comparison = StringComparison.CurrentCultureIgnoreCase;
+
+	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(StringComparer.CurrentCultureIgnoreCase)
+	{
+		{ "chordfont", "cf" },
+		{ "chordsize", "cs" },
+		{ "column_break", "colb" },
+		{ "columns", "col" },
+		{ "comment", "c" },
+		{ "comment_box", "cb" },
+		{ "comment_italic", "ci" },
+		{ "end_of_bridge", "eob" },
+		{ "end_of_chorus", "eoc" },
+		{ "end_of_grid", "eog" },
+		{ "end_of_tab", "eot" },
+		{ "end_of_verse", "eov" },
+		{ "grid", "g" },
+		{ "new_page", "np" },
+		{ "new_physical_page", "npp" },
+		{ "new_song", "ns" },
+		{ "no_grid", "ng" },
+		{ "start_of_bridge", "sob" },
+		{ "start_of_chorus", "soc" },
+		{ "start_of_grid", "sog" },
+		{ "start_of_tab", "sot" },
+		{ "start_of_verse", "sov" },
+		{ "subtitle", "st" },
+		{ "textfont", "tf" },
+		{ "textsize", "ts" },
+		{ "title", "t" },
+	};
+
+	private static readonly Dictionary<string, string> ShortNameToLongNameMap = LongNameToShortNameMap
+		.ToDictionary(pair => pair.Value, pair => pair.Key, LongNameToShortNameMap.Comparer);
+
+	#endregion
+
+	#region Constructors
+
+	private ChordProDirective(string name, string? argument)
+	{
+		this.Name = name;
+		this.Argument = argument;
+
+		this.LongName = this.Name;
+		this.ShortName = this.Name;
+		if (LongNameToShortNameMap.TryGetValue(this.Name, out string? shortName))
+		{
+			this.ShortName = shortName;
+		}
+		else if (ShortNameToLongNameMap.TryGetValue(this.Name, out string? longName))
+		{
+			this.LongName = longName;
+		}
+	}
+
+	#endregion
+
+	#region Public Properties
 
 	/// <summary>
-	/// Gets the ChordPro directive text.
+	/// Gets the directive's name.
 	/// </summary>
-	public override string ToString() => "TODO"; // TODO: Finish ChordProDirective.ToString. [Bill, 7/22/2023]
+	public string Name { get; }
+
+	/// <summary>
+	/// Gets the directive's optional argument (i.e., the part after the colon separator).
+	/// </summary>
+	public string? Argument { get; }
+
+	/// <summary>
+	/// Gets the directive's long name form or <see cref="Name"/>.
+	/// </summary>
+	public string LongName { get; }
+
+	/// <summary>
+	/// Gets the directive's short name form or <see cref="Name"/>.
+	/// </summary>
+	public string ShortName { get; }
+
+	#endregion
+
+	#region Public Methods
+
+	/// <summary>
+	/// Tries to parse the current line as a ChordPro directive line.
+	/// </summary>
+	/// <param name="context">The current parsing context.</param>
+	/// <returns>A new instance if the line is in "{name}" or "{name: argument}" format.</returns>
+	public static ChordProDirective? TryParse(LineContext context)
+	{
+		ChordProDirective? result = null;
+
+		string line = context.LineText.Trim();
+		if (line.Length > 2 && line[0] == '{' && line[^1] == '}')
+		{
+			string name;
+			string? argument;
+			int colonIndex = line.IndexOf(':');
+			if (colonIndex >= 0)
+			{
+				name = line[1..colonIndex];
+				argument = line[(colonIndex + 1)..^2];
+			}
+			else
+			{
+				name = line[1..^2];
+				argument = null;
+			}
+
+			result = new(name.Trim(), argument?.Trim());
+
+			// Push/pop the current grid state to make parsing simple for ChordProGridLine.
+			if (result.ShortName.Equals("sog", Comparison))
+			{
+				context.State[GridStateKey] = result;
+			}
+			else if (result.ShortName.Equals("eog", Comparison))
+			{
+				context.State.Remove(GridStateKey);
+			}
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// Gets the ChordPro directive in {<see cref="Name"/>} or {<see cref="Name"/>: <see cref="Argument"/>} format.
+	/// </summary>
+	public override string ToString()
+		=> "{" + this.Name + (string.IsNullOrEmpty(this.Argument) ? string.Empty : (": " + this.Argument)) + "}";
 
 	#endregion
 }

@@ -61,9 +61,12 @@ public sealed class Chord
 		// Handle Nashville numbered chords (including slash chords like 1sus4/#3).
 		// Handle Roman numeral chords
 		// Can contain at most one '/' (for https://en.wikipedia.org/wiki/Slash_chord).
-		// Can contain multiple '#', digits, "add", "sus", "m", "M", "dim", "min", "maj", "aug", "-", "+"
+		// Can contain multiple '#', digits, "add", "sus", "m", "M", "dim", "min", "maj", "aug", "-", "+", "dom", Δ, "alt", °, ø, |
+		// Can contain parentheses.
+		// https://music.stackexchange.com/questions/13976/what-does-a-number-inside-a-parentheses-in-a-chord-name-mean-example-b79b9
 		// Normalize keys B#, E#, Cb and Fb to C, F, B and E
 		// https://en.wikipedia.org/wiki/Chord_notation
+		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns
 		// TODO: Finish TryParse. [Bill, 7/21/2023]
 		chord = new(text ?? "?");
 		return true;
