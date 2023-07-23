@@ -52,7 +52,7 @@ public sealed class LineContextTests
 			return new(line);
 		}
 
-		result.ShouldNotBeNull();
+		result.ShouldNotBeNull("No LineContext was provided (e.g., for an empty line).");
 		return result;
 	}
 

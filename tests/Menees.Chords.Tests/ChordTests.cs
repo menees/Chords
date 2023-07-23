@@ -16,7 +16,7 @@ public class ChordTests
 	}
 
 	[TestMethod]
-	public new void ToString()
+	public void ToStringTest()
 	{
 		Assert.Fail();
 	}

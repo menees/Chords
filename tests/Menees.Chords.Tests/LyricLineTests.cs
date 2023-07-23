@@ -1,17 +1,21 @@
 ﻿namespace Menees.Chords;
 
+using Menees.Chords.Parsers;
+
 [TestClass]
 public class LyricLineTests
 {
 	[TestMethod]
-	public void LyricLine()
+	public void LyricLineTest()
 	{
-		Assert.Fail();
+		LyricLine line = new("Test");
+		line.Text.ShouldBe("Test");
 	}
 
 	[TestMethod]
 	public void Parse()
 	{
-		Assert.Fail();
+		LineContext context = LineContextTests.Create("Testing");
+		LyricLine.Parse(context).Text.ShouldBe("Testing");
 	}
 }

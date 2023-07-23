@@ -4,7 +4,7 @@
 public class ChordDefinitionsTests
 {
 	[TestMethod]
-	public new void ToString()
+	public void ToStringTest()
 	{
 		Assert.Fail();
 	}

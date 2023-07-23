@@ -6,6 +6,9 @@ public class TextEntryTests
 	[TestMethod]
 	public void Text()
 	{
-		Assert.Fail();
+		const string Expected = " Testing\t";
+		LyricLine line = new(Expected);
+		line.Text.ShouldBe(Expected);
+		line.ToString().ShouldBe(Expected);
 	}
 }

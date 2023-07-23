@@ -13,7 +13,7 @@ public abstract class TextEntry : Entry
 	/// <param name="text">The text line for the current entry.</param>
 	protected TextEntry(string text)
 	{
-		this.Text = text;
+		this.Text = text ?? string.Empty;
 	}
 
 	#endregion
