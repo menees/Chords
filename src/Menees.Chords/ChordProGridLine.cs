@@ -39,7 +39,7 @@ public sealed class ChordProGridLine : TextEntry
 		// The ChordPro grid line syntax is very loose, and ChordPro's examples include things
 		// that the documentation says are not allowed. So, we'll require the line to be inside
 		// an open start_of_grid/end_of_grid section.
-		if (context.State.TryGetValue(ChordProDirective.GridStateKey, out object? gridState) && gridState is ChordProDirective)
+		if (context.State.TryGetValue(ChordProDirectiveLine.GridStateKey, out object? gridState) && gridState is ChordProDirectiveLine)
 		{
 			result = new ChordProGridLine(context.LineText);
 		}

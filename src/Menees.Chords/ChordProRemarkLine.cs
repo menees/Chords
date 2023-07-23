@@ -15,11 +15,11 @@ using Menees.Chords.Parsers;
 /// for maintainers."
 /// </remarks>
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-introduction/"/>
-public sealed class ChordProRemark : TextEntry
+public sealed class ChordProRemarkLine : TextEntry
 {
 	#region Constructors
 
-	private ChordProRemark(string text)
+	private ChordProRemarkLine(string text)
 		: base(text)
 	{
 	}
@@ -33,9 +33,9 @@ public sealed class ChordProRemark : TextEntry
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
 	/// <returns>A new instance if the current trimmed line starts with '#'.</returns>
-	public static ChordProRemark? TryParse(LineContext context)
+	public static ChordProRemarkLine? TryParse(LineContext context)
 	{
-		ChordProRemark? result = null;
+		ChordProRemarkLine? result = null;
 
 		if (context.LineText.TrimStart().StartsWith("#"))
 		{

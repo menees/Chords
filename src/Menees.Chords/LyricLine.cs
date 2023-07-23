@@ -7,12 +7,12 @@ using Menees.Chords.Parsers;
 #endregion
 
 /// <summary>
-/// A line of lyrics only or otherwise unmatched text.
+/// A line of lyrics only (or otherwise unmatched text).
 /// </summary>
 /// <remarks>
-/// A lyric line is not in ChordPro format, so it won't contain embedded [X] chords.
+/// A lyric line is not in ChordPro format, so it won't contain embedded [Chord] tokens.
 /// </remarks>
-public sealed class TextLine : TextEntry
+public sealed class LyricLine : TextEntry
 {
 	#region Constructors
 
@@ -20,7 +20,7 @@ public sealed class TextLine : TextEntry
 	/// Creates a new instance for the specified text.
 	/// </summary>
 	/// <param name="text">The lyrics or text for this line.</param>
-	public TextLine(string text)
+	public LyricLine(string text)
 		: base(text)
 	{
 	}
@@ -34,10 +34,10 @@ public sealed class TextLine : TextEntry
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
 	/// <returns>A new instance.</returns>
-	public static TextLine Parse(LineContext context)
+	public static LyricLine Parse(LineContext context)
 	{
 		// TODO: Look for Comment and ChordDefinitions at the end of the line. [Bill, 7/21/2023]
-		TextLine result = new(context.LineText);
+		LyricLine result = new(context.LineText);
 		return result;
 	}
 

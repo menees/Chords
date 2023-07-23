@@ -7,13 +7,13 @@ using Menees.Chords.Parsers;
 #endregion
 
 /// <summary>
-/// A line of interlaced chords and lyrics in ChordPro format.
+/// A line of interlaced lyrics and chords in ChordPro format.
 /// </summary>
-public sealed class ChordProContent : TextEntry
+public sealed class ChordProLyricLine : TextEntry
 {
 	#region Constructors
 
-	private ChordProContent(string text)
+	private ChordProLyricLine(string text)
 		: base(text)
 	{
 	}
@@ -27,9 +27,9 @@ public sealed class ChordProContent : TextEntry
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
 	/// <returns>A new instance if the line contains interlaced chords and lyrics.</returns>
-	public static ChordProContent? TryParse(LineContext context)
+	public static ChordProLyricLine? TryParse(LineContext context)
 	{
-		ChordProContent? result = null;
+		ChordProLyricLine? result = null;
 
 		// Line with embedded [id] tokens.
 		// Also construct from ChordLine and ChordLyricPair

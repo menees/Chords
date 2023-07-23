@@ -10,11 +10,11 @@ using Menees.Chords.Parsers;
 /// A ChordPro directive in "{name}" or "{name: argument}" format.
 /// </summary>
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/"/>
-public sealed class ChordProDirective : Entry
+public sealed class ChordProDirectiveLine : Entry
 {
 	#region Internal Constants
 
-	internal const string GridStateKey = nameof(ChordProDirective) + "." + "Grid";
+	internal const string GridStateKey = nameof(ChordProDirectiveLine) + "." + "Grid";
 
 	#endregion
 
@@ -59,7 +59,7 @@ public sealed class ChordProDirective : Entry
 
 	#region Constructors
 
-	private ChordProDirective(string name, string? argument)
+	private ChordProDirectiveLine(string name, string? argument)
 	{
 		this.Name = name;
 		this.Argument = argument;
@@ -109,9 +109,9 @@ public sealed class ChordProDirective : Entry
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
 	/// <returns>A new instance if the line is in "{name}" or "{name: argument}" format.</returns>
-	public static ChordProDirective? TryParse(LineContext context)
+	public static ChordProDirectiveLine? TryParse(LineContext context)
 	{
-		ChordProDirective? result = null;
+		ChordProDirectiveLine? result = null;
 
 		string line = context.LineText.Trim();
 		if (line.Length > 2 && line[0] == '{' && line[^1] == '}')
