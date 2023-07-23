@@ -12,7 +12,7 @@ using Menees.Chords.Parsers;
 /// <remarks>
 /// A lyric line is not in ChordPro format, so it won't contain embedded [X] chords.
 /// </remarks>
-public sealed class TextLine : Entry
+public sealed class TextLine : TextEntry
 {
 	#region Constructors
 
@@ -21,18 +21,9 @@ public sealed class TextLine : Entry
 	/// </summary>
 	/// <param name="text">The lyrics or text for this line.</param>
 	public TextLine(string text)
+		: base(text)
 	{
-		this.Text = text;
 	}
-
-	#endregion
-
-	#region Public Properties
-
-	/// <summary>
-	/// Gets the lyrics or text for this entry.
-	/// </summary>
-	public string Text { get; }
 
 	#endregion
 
@@ -49,11 +40,6 @@ public sealed class TextLine : Entry
 		TextLine result = new(context.LineText);
 		return result;
 	}
-
-	/// <summary>
-	/// Returns <see cref="Text"/>.
-	/// </summary>
-	public override string ToString() => this.Text;
 
 	#endregion
 }

@@ -9,7 +9,7 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// A comment line or a comment segment on the same line as another entry.
 /// </summary>
-public sealed class Comment : Entry
+public sealed class Comment : TextEntry
 {
 	#region Constructors
 
@@ -18,18 +18,9 @@ public sealed class Comment : Entry
 	/// </summary>
 	/// <param name="comment"></param>
 	public Comment(string comment)
+		: base(comment)
 	{
-		this.Text = comment;
 	}
-
-	#endregion
-
-	#region Public Properties
-
-	/// <summary>
-	/// Gets the comment text.
-	/// </summary>
-	public string Text { get; }
 
 	#endregion
 
@@ -63,11 +54,6 @@ public sealed class Comment : Entry
 
 		return result;
 	}
-
-	/// <summary>
-	/// Returns <see cref="Text"/>
-	/// </summary>
-	public override string ToString() => this.Text;
 
 	#endregion
 }

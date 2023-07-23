@@ -13,7 +13,7 @@ using Menees.Chords.Parsers;
 /// Example:
 /// <c>e|--9/11-9-7-7h9--|--9-11-12-11--| (2x)</c>
 /// </remarks>
-public sealed class TablatureLine : Entry
+public sealed class TablatureLine : TextEntry
 {
 	#region Constructors
 
@@ -23,9 +23,9 @@ public sealed class TablatureLine : Entry
 	/// <param name="noteLength">The length of the leading note.</param>
 	/// <param name="text">The text of the tablature line.</param>
 	private TablatureLine(int noteLength, string text)
+		: base(text)
 	{
 		this.NoteLength = noteLength;
-		this.Text = text;
 	}
 
 	#endregion
@@ -33,14 +33,9 @@ public sealed class TablatureLine : Entry
 	#region Public Properties
 
 	/// <summary>
-	/// Gets the length of the note at the beginning of the tab <see cref="Text"/>.
+	/// Gets the length of the note at the beginning of the tab line's <see cref="TextEntry.Text"/>.
 	/// </summary>
 	public int NoteLength { get; }
-
-	/// <summary>
-	/// Gets the text of the tablature line.
-	/// </summary>
-	public string Text { get; }
 
 	#endregion
 
@@ -67,11 +62,6 @@ public sealed class TablatureLine : Entry
 
 		return result;
 	}
-
-	/// <summary>
-	/// Returns <see cref="Text"/>.
-	/// </summary>
-	public override string ToString() => this.Text;
 
 	#endregion
 }

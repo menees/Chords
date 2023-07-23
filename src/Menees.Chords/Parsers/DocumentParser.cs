@@ -32,8 +32,10 @@ public sealed class DocumentParser
 		// TODO: Add other default line parsers in order. [Bill, 7/21/2023]
 		HeaderLine.TryParse,
 		Comment.TryParse,
+		ChordProRemark.TryParse,
 		ChordProDirective.TryParse,
 		ChordProGridLine.TryParse,
+		ChordProContent.TryParse,
 		TablatureLine.TryParse,
 		TextLine.Parse,
 	};

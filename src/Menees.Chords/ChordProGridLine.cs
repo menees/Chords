@@ -14,23 +14,14 @@ using Menees.Chords.Parsers;
 /// <c>|  Am . . . | C . . . | E  . . . | E  . . . |</c>
 /// </remarks>
 /// <seealso href="https://www.chordpro.org/chordpro/directives-env_grid/"/>
-public sealed class ChordProGridLine : Entry
+public sealed class ChordProGridLine : TextEntry
 {
 	#region Constructors
 
 	internal ChordProGridLine(string text)
+		: base(text)
 	{
-		this.Text = text;
 	}
-
-	#endregion
-
-	#region Public Properties
-
-	/// <summary>
-	/// Gets the chord grid line's text.
-	/// </summary>
-	public string Text { get; }
 
 	#endregion
 
@@ -55,11 +46,6 @@ public sealed class ChordProGridLine : Entry
 
 		return result;
 	}
-
-	/// <summary>
-	/// Returns <see cref="Text"/>.
-	/// </summary>
-	public override string ToString() => this.Text;
 
 	#endregion
 }

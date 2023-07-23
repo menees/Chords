@@ -9,23 +9,14 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// A line of interlaced chords and lyrics in ChordPro format.
 /// </summary>
-public sealed class ChordProContent : Entry
+public sealed class ChordProContent : TextEntry
 {
 	#region Constructors
 
 	private ChordProContent(string text)
+		: base(text)
 	{
-		this.Text = text;
 	}
-
-	#endregion
-
-	#region Public Properties
-
-	/// <summary>
-	/// Gets the text of the ChordPro chord and lyric line.
-	/// </summary>
-	public string Text { get; }
 
 	#endregion
 
@@ -46,11 +37,6 @@ public sealed class ChordProContent : Entry
 		context.GetHashCode();
 		return result;
 	}
-
-	/// <summary>
-	/// Returns <see cref="Text"/>.
-	/// </summary>
-	public override string ToString() => this.Text;
 
 	#endregion
 }

@@ -9,7 +9,7 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// A "Ultimate Guitar"-style bracketed header (e.g., [Chorus], [Verse]).
 /// </summary>
-public sealed class HeaderLine : Entry
+public sealed class HeaderLine : TextEntry
 {
 	#region Constructors
 
@@ -18,18 +18,9 @@ public sealed class HeaderLine : Entry
 	/// </summary>
 	/// <param name="text">The header label or section name.</param>
 	public HeaderLine(string text)
+		: base(text)
 	{
-		this.Text = text;
 	}
-
-	#endregion
-
-	#region Public Properties
-
-	/// <summary>
-	/// Gets the main header label (e.g., Chorus, Verse #, Bridge).
-	/// </summary>
-	public string Text { get; }
 
 	#endregion
 
@@ -56,11 +47,6 @@ public sealed class HeaderLine : Entry
 		context.GetHashCode();
 		return null;
 	}
-
-	/// <summary>
-	/// Returns <see cref="Text"/>.
-	/// </summary>
-	public override string ToString() => this.Text;
 
 	#endregion
 }

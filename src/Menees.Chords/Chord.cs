@@ -67,6 +67,7 @@ public sealed class Chord
 		// Normalize keys B#, E#, Cb and Fb to C, F, B and E
 		// https://en.wikipedia.org/wiki/Chord_notation
 		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns
+		// https://www.chordpro.org/chordpro/chordpro-chords/
 		// TODO: Finish TryParse. [Bill, 7/21/2023]
 		chord = new(text ?? "?");
 		return true;
