@@ -4,6 +4,8 @@
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
+using Menees.Chords.Parsers;
 
 #endregion
 
@@ -14,9 +16,13 @@ public sealed class Chord
 {
 	#region Constructors
 
-	private Chord(string name)
+	internal Chord(string name, string root, IReadOnlyList<string> modifiers, string? bass, Notation notation)
 	{
 		this.Name = name;
+		this.Root = root;
+		this.Modifiers = modifiers;
+		this.Bass = bass;
+		this.Notation = notation;
 	}
 
 	#endregion
@@ -24,9 +30,32 @@ public sealed class Chord
 	#region Public Properties
 
 	/// <summary>
-	/// Gets the name of the chord.
+	/// Gets the full name of the chord.
 	/// </summary>
 	public string Name { get; }
+
+	/// <summary>
+	/// Gets the chord's root note.
+	/// </summary>
+	/// <seealso cref="Notation"/>
+	public string Root { get; }
+
+	/// <summary>
+	/// Gets any modifiers use in the chord <see cref="Name"/> between the <see cref="Root"/> and <see cref="Bass"/>.
+	/// </summary>
+	public IReadOnlyList<string> Modifiers { get; }
+
+	/// <summary>
+	/// Gets the chord's bass note if any (i.e., if this is a slash chord).
+	/// </summary>
+	/// <seealso cref="Notation"/>
+	/// <seealso href="https://en.wikipedia.org/wiki/Chord_notation#Slash_chords"/>
+	public string? Bass { get; }
+
+	/// <summary>
+	/// Gets the notation system used to transcribe the chord.
+	/// </summary>
+	public Notation Notation { get; }
 
 	#endregion
 
@@ -40,12 +69,13 @@ public sealed class Chord
 	/// <exception cref="FormatException"><paramref name="text"/> is not a valid chord name.</exception>
 	public static Chord Parse(string text)
 	{
-		if (!TryParse(text, out Chord? chord))
+		ChordParser parser = new(text ?? string.Empty);
+		if (parser.Chord is null)
 		{
-			throw new FormatException($"Cannot parse {text} as a chord.");
+			throw new FormatException(string.Join(Environment.NewLine, parser.Errors));
 		}
 
-		return chord;
+		return parser.Chord;
 	}
 
 	/// <summary>
@@ -56,27 +86,82 @@ public sealed class Chord
 	/// <returns>True if <paramref name="text"/> was parsed and a <paramref name="chord"/> returned. False otherwise.</returns>
 	public static bool TryParse([NotNullWhen(true)] string? text, [MaybeNullWhen(false)] out Chord chord)
 	{
-		// Ignore leading and trailing whitespace.
-		// Named has to start with A-G (case insensitive).
-		// Handle Nashville numbered chords (including slash chords like 1sus4/#3).
-		// Handle Roman numeral chords
-		// Can contain at most one '/' (for https://en.wikipedia.org/wiki/Slash_chord).
-		// Can contain multiple '#', digits, "add", "sus", "m", "M", "dim", "min", "maj", "aug", "-", "+", "dom", Δ, "alt", °, ø, |
-		// Can contain parentheses.
-		// https://music.stackexchange.com/questions/13976/what-does-a-number-inside-a-parentheses-in-a-chord-name-mean-example-b79b9
-		// Normalize keys B#, E#, Cb and Fb to C, F, B and E
-		// https://en.wikipedia.org/wiki/Chord_notation
-		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns
-		// https://www.chordpro.org/chordpro/chordpro-chords/
-		// TODO: Finish TryParse. [Bill, 7/21/2023]
-		chord = new(text ?? "?");
-		return true;
+		bool result = false;
+		chord = null;
+
+		if (!string.IsNullOrWhiteSpace(text))
+		{
+			ChordParser parser = new(text!);
+			if (parser.Chord != null)
+			{
+				result = true;
+				chord = parser.Chord;
+			}
+		}
+
+		return result;
 	}
 
 	/// <summary>
 	/// Returns the chord <see cref="Name"/>.
 	/// </summary>
 	public override string ToString() => this.Name;
+
+	/// <summary>
+	/// Normalizes notes B#, E#, Cb and Fb to C, F, B and E, respectively if <see cref="Notation"/> is <see cref="Notation.Name"/>.
+	/// </summary>
+	/// <returns>A new chord instance if a change was needed, or the same chord instance otherwise.</returns>
+	public Chord Normalize()
+	{
+		Chord result = this;
+
+		if (this.Notation == Notation.Name)
+		{
+			string normalizedRoot = NormalizeNote(this.Root);
+			string? normalizedBass = this.Bass != null ? NormalizeNote(this.Bass) : null;
+			if (normalizedRoot != this.Root || normalizedBass != this.Bass)
+			{
+				StringBuilder sb = new(this.Name.Length);
+				sb.Append(normalizedRoot);
+				foreach (string modifier in this.Modifiers)
+				{
+					sb.Append(modifier);
+				}
+
+				if (normalizedBass is not null)
+				{
+					sb.Append('/');
+					sb.Append(normalizedBass);
+				}
+
+				result = new(sb.ToString(), normalizedRoot, this.Modifiers, normalizedBass, this.Notation);
+			}
+		}
+
+		return result;
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static string NormalizeNote(string note)
+	{
+		string result = note switch
+		{
+			"B#" => "C",
+			"E#" => "F",
+			"Cb" => "B",
+			"Fb" => "E",
+			"b#" => "c",
+			"e#" => "f",
+			"cb" => "b",
+			"fb" => "e",
+			_ => note,
+		};
+
+		return result;
+	}
 
 	#endregion
 }

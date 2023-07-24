@@ -21,7 +21,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 	#region Private Data Members
 
-	private const StringComparison Comparison = StringComparison.CurrentCultureIgnoreCase;
+	private const StringComparison Comparison = ChordParser.Comparison;
 
 	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(StringComparer.CurrentCultureIgnoreCase)
 	{
