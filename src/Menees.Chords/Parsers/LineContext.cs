@@ -55,7 +55,7 @@ public sealed class LineContext
 	/// parsed, it could store that state so <see cref="ChordProGridLine"/> can know a grid
 	/// is active, and an end_of_grid <see cref="ChordProDirectiveLine"/> can clear that state.
 	/// </remarks>
-	public IDictionary<string, object> State => this.state ??= new(StringComparer.CurrentCultureIgnoreCase);
+	public IDictionary<string, object> State => this.state ??= new(ChordParser.Comparer);
 
 	#endregion
 

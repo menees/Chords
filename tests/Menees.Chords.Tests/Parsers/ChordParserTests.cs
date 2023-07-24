@@ -49,6 +49,7 @@ public class ChordParserTests
 		Test("Caugmaj13", root: "C", modifiers: new[] { "aug", "maj", "13" });
 		Test("C#min7dim5", root: "C#", modifiers: new[] { "min", "7", "dim", "5" });
 		Test("  Ebm7  ", name: "Ebm7", root: "Eb", modifiers: new[] { "m", "7" });
+		Test("CM7", root: "C", modifiers: new[] { "M", "7" });
 
 		Test("1/3", root: "1", bass: "3", notation: Notation.Nashville);
 		Test("3#7b9", root: "3", modifiers: new[] { "#", "7", "b", "9" }, notation: Notation.Nashville);

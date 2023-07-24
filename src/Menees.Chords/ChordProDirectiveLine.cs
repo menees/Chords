@@ -23,7 +23,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 	private const StringComparison Comparison = ChordParser.Comparison;
 
-	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(StringComparer.CurrentCultureIgnoreCase)
+	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(ChordParser.Comparer)
 	{
 		{ "chordfont", "cf" },
 		{ "chordsize", "cs" },

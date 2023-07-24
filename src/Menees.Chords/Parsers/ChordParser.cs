@@ -18,15 +18,24 @@ public sealed class ChordParser
 	/// </summary>
 	public const StringComparison Comparison = StringComparison.CurrentCultureIgnoreCase;
 
+	/// <summary>
+	/// Gets the case-insensitive comparer used to compare strings.
+	/// </summary>
+	public static readonly StringComparer Comparer = StringComparer.CurrentCultureIgnoreCase;
+
 	#endregion
 
 	#region Private Data Members
 
-	// These must listed order from longest to shortest.
-	private static readonly string[] RomanNumerals = new[] { "III", "VII", "II", "IV", "VI", "I", "V" };
+	// When matching against the KnownModifiers or RomanNumerals, we need at most this much lookahead.
+	private const int MaxLookahead = 3;
 
-	// These must listed order from longest to shortest.
-	private static readonly string[] KnownModifiers = new[]
+	private static readonly ISet<string> RomanNumerals = new HashSet<string>(Comparer)
+	{
+		"III", "VII", "II", "IV", "VI", "I", "V",
+	};
+
+	private static readonly ISet<string> KnownModifiers = new HashSet<string>(Comparer)
 	{
 		"add", "sus", "dim", "min", "maj", "aug", "dom", "alt", // 3 char modifiers
 		"11", "13", // 2 char modifiers
@@ -171,11 +180,34 @@ public sealed class ChordParser
 				matchStart++;
 			}
 
-			foreach (string numeral in RomanNumerals)
+			string? match = TryMatchAhead(text, RomanNumerals, matchStart);
+			if (match != null)
 			{
-				if (MatchAhead(text, numeral, matchStart))
+				result = match.Length + matchStart - startIndex;
+			}
+		}
+
+		return result;
+	}
+
+	private static string? TryMatchAhead(string text, ISet<string> validTokens, int startIndex)
+	{
+		string? result = null;
+
+		// We must match in reverse order since prefix items may not be valid
+		// (e.g. "sus" is valid but "s" isn't, "11" is valid but "1" isn't).
+		string? match = null;
+		for (int lookahead = MaxLookahead; lookahead > 0; lookahead--)
+		{
+			if (startIndex + lookahead <= text.Length)
+			{
+				match = match != null ? match.Substring(0, lookahead) : text.Substring(startIndex, lookahead);
+
+				// This matches case-insensitively.
+				if (validTokens.Contains(match))
 				{
-					result = numeral.Length + matchStart - startIndex;
+					// Return the exact case modifier from Text because 'm' != 'M'.
+					result = match;
 					break;
 				}
 			}
@@ -183,9 +215,6 @@ public sealed class ChordParser
 
 		return result;
 	}
-
-	private static bool MatchAhead(string text, string match, int startIndex)
-		=> ((startIndex + match.Length) <= text.Length) && text.Substring(startIndex, match.Length).Equals(match, Comparison);
 
 	private void Parse()
 	{
@@ -250,17 +279,12 @@ public sealed class ChordParser
 		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns#Polychords
 		bool result = false;
 
-		foreach (string modifier in KnownModifiers)
+		string? match = this.MatchAhead(KnownModifiers);
+		if (match != null)
 		{
-			if (this.MatchAhead(modifier))
-			{
-				// Get the exact case modifier from Text because 'm' != 'M'.
-				string exactModifier = this.Text.Substring(this.index, modifier.Length);
-				modifiers.Add(exactModifier);
-				this.index += exactModifier.Length;
-				result = true;
-				break;
-			}
+			modifiers.Add(match);
+			this.index += match.Length;
+			result = true;
 		}
 
 		return result;
@@ -303,7 +327,7 @@ public sealed class ChordParser
 
 	private char? Peek(int offset = 0) => (this.index + offset) < this.Text.Length ? this.Text[this.index + offset] : null;
 
-	private bool MatchAhead(string match) => MatchAhead(this.Text, match, this.index);
+	private string? MatchAhead(ISet<string> validTokens) => TryMatchAhead(this.Text, validTokens, this.index);
 
 	#endregion
 }
