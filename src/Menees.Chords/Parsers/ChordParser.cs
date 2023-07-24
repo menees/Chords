@@ -279,7 +279,7 @@ public sealed class ChordParser
 		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns#Polychords
 		bool result = false;
 
-		string? match = this.MatchAhead(KnownModifiers);
+		string? match = this.TryMatchAhead(KnownModifiers);
 		if (match != null)
 		{
 			modifiers.Add(match);
@@ -327,7 +327,7 @@ public sealed class ChordParser
 
 	private char? Peek(int offset = 0) => (this.index + offset) < this.Text.Length ? this.Text[this.index + offset] : null;
 
-	private string? MatchAhead(ISet<string> validTokens) => TryMatchAhead(this.Text, validTokens, this.index);
+	private string? TryMatchAhead(ISet<string> validTokens) => TryMatchAhead(this.Text, validTokens, this.index);
 
 	#endregion
 }
