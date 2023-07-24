@@ -17,7 +17,7 @@ public enum Notation
 	Nashville,
 
 	/// <summary>
-	/// Chords and notes use the Roman numeral numbering system.
+	/// Chords and notes use Roman numerals.
 	/// </summary>
 	Roman,
 }

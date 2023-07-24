@@ -1,10 +1,16 @@
 ﻿namespace Menees.Chords.Parsers;
 
+#region Using Directives
+
 using System.Diagnostics;
+
+#endregion
 
 [TestClass]
 public class ChordParserTests
 {
+	#region Public Methods
+
 	[TestMethod]
 	public void GetNoteLength()
 	{
@@ -33,8 +39,6 @@ public class ChordParserTests
 	[TestMethod]
 	public void Valid()
 	{
-		// TODO: Test Nashville numbering. [Bill, 7/23/2023]
-		// TODO: Test Roman numerals. [Bill, 7/23/2023]
 		Test("A");
 		Test("D/F#", root: "D", bass: "F#");
 		Test("Am", root: "A", modifiers: new[] { "m" });
@@ -45,6 +49,12 @@ public class ChordParserTests
 		Test("Caugmaj13", root: "C", modifiers: new[] { "aug", "maj", "13" });
 		Test("C#min7dim5", root: "C#", modifiers: new[] { "min", "7", "dim", "5" });
 		Test("  Ebm7  ", name: "Ebm7", root: "Eb", modifiers: new[] { "m", "7" });
+
+		Test("1/3", root: "1", bass: "3", notation: Notation.Nashville);
+		Test("3#7b9", root: "3", modifiers: new[] { "#", "7", "b", "9" }, notation: Notation.Nashville);
+
+		Test("I/IV", root: "I", bass: "IV", notation: Notation.Roman);
+		Test("viiadd3sus4", root: "vii", modifiers: new[] { "add", "3", "sus", "4" }, notation: Notation.Roman);
 
 		static void Test(
 			string text,
@@ -74,8 +84,6 @@ public class ChordParserTests
 	[TestMethod]
 	public void Invalid()
 	{
-		// TODO: Test Nashville numbering. [Bill, 7/23/2023]
-		// TODO: Test Roman numerals. [Bill, 7/23/2023]
 		Test("Not");
 		Test("A/");
 		Test("A!");
@@ -83,6 +91,10 @@ public class ChordParserTests
 		Test("A|B");
 		Test("Coda");
 		Test("D/F#q");
+		Test("Viii");
+		Test("1/8");
+		Test("C#/4");
+		Test("iv/D");
 
 		static void Test(string text)
 		{
@@ -93,4 +105,6 @@ public class ChordParserTests
 			parser.Errors.Count.ShouldBeGreaterThanOrEqualTo(0);
 		}
 	}
+
+	#endregion
 }
