@@ -30,9 +30,10 @@ public sealed class ChordParser
 	{
 		"add", "sus", "dim", "min", "maj", "aug", "dom", "alt", // 3 char modifiers
 		"11", "13", // 2 char modifiers
-		"2", "3", "4", "5", "6", "7", "9", "#", "b", "m", "-", "+", "Δ", "°", "ø", "^", // 1 char modifiers
+		"2", "3", "4", "5", "6", "7", "9", "#", "b", "m", "-", "+", "^", // 1 char modifiers
 
 		// Notes: These are matched case-insensitively, so we don't need to include "M".
+		// I'm not supporting the typographic characters like: "♯", "♭", "Δ", "°", "ø".
 		// ChordPro's chord implementation allows '^' for "maj" and '-' for "m" for a minor chord.
 		// https://www.chordpro.org/chordpro/chordpro-chords/
 		// Wikipedia's "Chord notation" articles mention the others.
