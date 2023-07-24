@@ -33,6 +33,8 @@ public class ChordParserTests
 	[TestMethod]
 	public void Valid()
 	{
+		// TODO: Test Nashville numbering. [Bill, 7/23/2023]
+		// TODO: Test Roman numerals. [Bill, 7/23/2023]
 		Test("A");
 		Test("D/F#", root: "D", bass: "F#");
 		Test("Am", root: "A", modifiers: new[] { "m" });
@@ -42,6 +44,7 @@ public class ChordParserTests
 		Test("C/Ab", root: "C", bass: "Ab");
 		Test("Caugmaj13", root: "C", modifiers: new[] { "aug", "maj", "13" });
 		Test("C#min7dim5", root: "C#", modifiers: new[] { "min", "7", "dim", "5" });
+		Test("  Ebm7  ", name: "Ebm7", root: "Eb", modifiers: new[] { "m", "7" });
 
 		static void Test(
 			string text,
@@ -71,6 +74,8 @@ public class ChordParserTests
 	[TestMethod]
 	public void Invalid()
 	{
+		// TODO: Test Nashville numbering. [Bill, 7/23/2023]
+		// TODO: Test Roman numerals. [Bill, 7/23/2023]
 		Test("Not");
 		Test("A/");
 		Test("A!");
