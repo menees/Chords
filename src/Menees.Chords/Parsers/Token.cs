@@ -1,9 +1,15 @@
 ﻿namespace Menees.Chords.Parsers;
 
+#region Using Directives
+
+using System.Diagnostics.CodeAnalysis;
+
+#endregion
+
 /// <summary>
 /// A single token returned by a <see cref="Lexer"/> when splitting an input line.
 /// </summary>
-public readonly struct Token
+public readonly struct Token : IEquatable<Token>
 {
 	#region Private Data Members
 
@@ -46,6 +52,42 @@ public readonly struct Token
 	/// The 0-based index where <see cref="Text"/> started in the input line.
 	/// </summary>
 	public int Index { get; }
+
+	#endregion
+
+	#region Public Operators
+
+	/// <summary>
+	/// Implements the == operator.
+	/// </summary>
+	public static bool operator ==(Token left, Token right) => left.Equals(right);
+
+	/// <summary>
+	/// Implements the != operator.
+	/// </summary>
+	public static bool operator !=(Token left, Token right) => !left.Equals(right);
+
+	#endregion
+
+	#region Public Methods
+
+	/// <inheritdoc/>
+	public bool Equals(Token other)
+		=> string.Equals(this.text, other.text)
+		&& this.Type == other.Type
+		&& this.Index == other.Index;
+
+	/// <inheritdoc/>
+	public override bool Equals([NotNullWhen(true)] object? obj)
+		=> obj is Token token && this.Equals(token);
+
+	/// <inheritdoc/>
+	public override int GetHashCode()
+		=> unchecked(this.Text.GetHashCode() + this.Type.GetHashCode() + this.Index);
+
+	/// <inheritdoc/>
+	public override string ToString()
+		=> $"{this.Text} ({this.Type}) @ {this.Index}";
 
 	#endregion
 }

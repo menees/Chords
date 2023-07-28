@@ -53,7 +53,8 @@ public sealed class Lexer
 	/// <returns>True if a new token was read. False if there are no more tokens to read.</returns>
 	public bool Read()
 	{
-		this.Token = default;
+		// Instead of "default", start with a None token at the current index.
+		this.Token = new(string.Empty, TokenType.None, this.index);
 
 		int tokenIndex = this.index;
 		char? ch = this.GetChar();

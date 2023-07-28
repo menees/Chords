@@ -33,21 +33,21 @@ public class LexerTests
 		{
 			List<Token> actual = new();
 			Lexer lexer = new(text);
+			lexer.Token.ShouldBe(default);
+
 			while (lexer.Read())
 			{
 				actual.Add(lexer.Token);
 			}
 
-			lexer.Token.Type.ShouldBe(TokenType.None);
+			lexer.Token.ShouldBe(new Token(string.Empty, TokenType.None, text.Length));
 
 			actual.Count.ShouldBe(expected.Length);
 			for (int i = 0; i < actual.Count; i++)
 			{
 				Token actualToken = actual[i];
 				Token expectedToken = expected[i];
-				actualToken.Text.ShouldBe(expectedToken.Text);
-				actualToken.Type.ShouldBe(expectedToken.Type);
-				actualToken.Index.ShouldBe(expectedToken.Index);
+				actualToken.ShouldBe(expectedToken);
 			}
 		}
 	}
