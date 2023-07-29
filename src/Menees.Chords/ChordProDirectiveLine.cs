@@ -114,43 +114,48 @@ public sealed class ChordProDirectiveLine : Entry
 	{
 		ChordProDirectiveLine? result = null;
 
-		// TODO: Use Lexer. [Bill, 7/29/2023]
-		string line = context.LineText.Trim();
-		if (line.Length > 2 && line[0] == '{' && line[^1] == '}')
+		Lexer lexer = context.CreateLexer();
+		if (lexer.Read(skipLeadingWhiteSpace: true)
+			&& lexer.Token.Type == TokenType.Text
+			&& lexer.Token.Text[0] == '{')
 		{
-			string name;
-			string? argument;
-			int colonIndex = line.IndexOf(':');
-			if (colonIndex >= 0)
+			string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
+			if (line.Length > 2 && line[^1] == '}')
 			{
-				name = line[1..colonIndex];
-				argument = line[(colonIndex + 1)..^1];
-			}
-			else
-			{
-				name = line[1..^1];
-				argument = null;
-			}
+				string name;
+				string? argument;
+				int colonIndex = line.IndexOf(':');
+				if (colonIndex >= 0)
+				{
+					name = line[1..colonIndex];
+					argument = line[(colonIndex + 1)..^1];
+				}
+				else
+				{
+					name = line[1..^1];
+					argument = null;
+				}
 
-			result = new(name.Trim(), argument?.Trim());
+				result = new(name.Trim(), argument?.Trim());
 
-			// Push/pop the current grid or tab state to make parsing simpler for
-			// ChordProGridLine and TablatureLine.
-			if (result.ShortName.Equals("sog", Comparison))
-			{
-				context.State[GridStateKey] = result;
-			}
-			else if (result.ShortName.Equals("eog", Comparison))
-			{
-				context.State.Remove(GridStateKey);
-			}
-			else if (result.ShortName.Equals("sot", Comparison))
-			{
-				context.State[TabStateKey] = result;
-			}
-			else if (result.ShortName.Equals("eot", Comparison))
-			{
-				context.State.Remove(TabStateKey);
+				// Push/pop the current grid or tab state to make parsing simpler for
+				// ChordProGridLine and TablatureLine.
+				if (result.ShortName.Equals("sog", Comparison))
+				{
+					context.State[GridStateKey] = result;
+				}
+				else if (result.ShortName.Equals("eog", Comparison))
+				{
+					context.State.Remove(GridStateKey);
+				}
+				else if (result.ShortName.Equals("sot", Comparison))
+				{
+					context.State[TabStateKey] = result;
+				}
+				else if (result.ShortName.Equals("eot", Comparison))
+				{
+					context.State.Remove(TabStateKey);
+				}
 			}
 		}
 

@@ -56,7 +56,6 @@ public sealed class Comment : TextEntry
 		Lexer lexer = context.CreateLexer();
 		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Text)
 		{
-			int commentStartIndex = lexer.Token.Index;
 			if (lexer.Token.Text[0] == '#')
 			{
 				// A comment line can end with a '#', (e.g., F#).
