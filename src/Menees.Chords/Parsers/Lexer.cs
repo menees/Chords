@@ -108,21 +108,10 @@ public sealed class Lexer
 		int? lastWhiteSpaceStartIndex;
 		do
 		{
-			lastWhiteSpaceStartIndex = null;
-			switch (this.Token.Type)
-			{
-				case TokenType.Bracketed:
-					sb.Append('[').Append(this.Token.Text).Append(']');
-					break;
+			lastWhiteSpaceStartIndex = this.Token.Type == TokenType.WhiteSpace ? sb.Length : null;
 
-				case TokenType.WhiteSpace:
-					lastWhiteSpaceStartIndex = sb.Length;
-					goto default;
-
-				default:
-					sb.Append(this.Token.Text);
-					break;
-			}
+			// Use Token.ToString() so brackets are included when needed.
+			sb.Append(this.Token.ToString());
 		}
 		while (this.Read());
 
@@ -197,8 +186,8 @@ public sealed class Lexer
 	{
 		// We're not including the brackets because the caller would
 		// typically need to remove them (e.g., to parse a chord name).
-		// This is similar to C lexer that returns a string with no outer
-		// quotes and with any escaped characters unescaped.
+		// This is similar to a C or SQL lexer that returns a string with no
+		// outer quotes and with any escaped characters unescaped.
 		StringBuilder sb = new();
 
 		// If we can't find an end bracket, then the token type willl be Text.

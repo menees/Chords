@@ -44,8 +44,10 @@ public sealed class ChordProRemarkLine : TextEntry
 	{
 		ChordProRemarkLine? result = null;
 
-		// TODO: Use Lexer. [Bill, 7/29/2023]
-		if (context.LineText.TrimStart().StartsWith("#"))
+		Lexer lexer = context.CreateLexer();
+		if (lexer.Read(skipLeadingWhiteSpace: true)
+			&& lexer.Token.Type == TokenType.Text
+			&& lexer.Token.Text.StartsWith("#"))
 		{
 			result = new(context.LineText);
 		}

@@ -53,24 +53,30 @@ public sealed class Comment : TextEntry
 	{
 		Comment? result = null;
 
-		// TODO: Use Lexer. [Bill, 7/29/2023]
-		string line = context.LineText.Trim();
-		if (!string.IsNullOrEmpty(line))
+		Lexer lexer = context.CreateLexer();
+		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Text)
 		{
-			if (line[0] == '#')
+			int commentStartIndex = lexer.Token.Index;
+			if (lexer.Token.Text[0] == '#')
 			{
 				// A comment line can end with a '#', (e.g., F#).
+				string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
 				string trimmed = line.TrimStart('#').TrimStart(' ');
 				string prefix = line.Substring(0, line.Length - trimmed.Length);
 				result = new(trimmed, prefix);
 			}
-			else if (line[0] == '*')
+			else if (lexer.Token.Text[0] == '*')
 			{
+				string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
 				result = Split(line, '*', '*');
 			}
-			else if (line[0] == '(' && line[^1] == ')')
+			else if (lexer.Token.Text[0] == '(')
 			{
-				result = Split(line, '(', ')');
+				string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
+				if (line[^1] == ')')
+				{
+					result = Split(line, '(', ')');
+				}
 			}
 		}
 

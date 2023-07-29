@@ -24,7 +24,8 @@ public readonly struct Token : IEquatable<Token>
 	/// <summary>
 	/// Creates a new instance.
 	/// </summary>
-	/// <param name="text">The text value of the token.</param>
+	/// <param name="text">The "inner" text value of the token. If <paramref name="type"/> is
+	/// <see cref="TokenType.Bracketed"/>, this text should not have the outer brackets.</param>
 	/// <param name="type">The type of the token's <paramref name="text"/>.</param>
 	/// <param name="index">The index where <paramref name="text"/> started in the input line.</param>
 	public Token(string text, TokenType? type = null, int index = 0)
@@ -39,12 +40,12 @@ public readonly struct Token : IEquatable<Token>
 			{
 				type = TokenType.WhiteSpace;
 			}
-			else if (text[0] == '[' && text[^1] == ']')
-			{
-				type = TokenType.Bracketed;
-			}
 			else
 			{
+				// Note: We never infer TokenType.Bracketed because text should already
+				// have had its outer brackets removed (e.g., by Lexer). If we're passed "[x]",
+				// then we assume the Lexer originally saw "[[x]]". This is consistent with our
+				// ToString() implementation, which adds brackets for TokenType.Bracketed.
 				type = TokenType.Text;
 			}
 		}
@@ -61,7 +62,7 @@ public readonly struct Token : IEquatable<Token>
 	/// <summary>
 	/// The text value of the token.
 	/// </summary>
-	public string Text => this.text ?? string.Empty;
+	public string Text => this.text ?? string.Empty; // Make sure that default(Token) returns string.Empty.
 
 	/// <summary>
 	/// The type of the token's <see cref="Text"/>.
@@ -107,7 +108,12 @@ public readonly struct Token : IEquatable<Token>
 
 	/// <inheritdoc/>
 	public override string ToString()
-		=> $"{this.Text} ({this.Type}) @ {this.Index}";
+		=> this.Type switch
+		{
+			// Note: Lexer.ReadToEnd depends on this implementation.
+			TokenType.Bracketed => $"[{this.Text}]",
+			_ => this.Text,
+		};
 
 	#endregion
 }

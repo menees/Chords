@@ -10,7 +10,7 @@ public class TokenTests
 		// So, we'll just check the defaulted arg logic here.
 		new Token(string.Empty).Type.ShouldBe(TokenType.None);
 		new Token("\t").Type.ShouldBe(TokenType.WhiteSpace);
-		new Token("[A]").Type.ShouldBe(TokenType.Bracketed);
+		new Token("[A]").Type.ShouldBe(TokenType.Text); // Not Bracketed; see constructor comments.
 		new Token("x").Type.ShouldBe(TokenType.Text);
 		new Token(" mix [text] ").Type.ShouldBe(TokenType.Text);
 
@@ -55,7 +55,17 @@ public class TokenTests
 		Dictionary<Token, int> dictionary = new() { [a1] = 1, [a3] = 3, };
 		dictionary.TryGetValue(a2, out int value).ShouldBeTrue();
 		value.ShouldBe(1);
+	}
 
-		a1.ToString().ShouldBe("A (Text) @ 1");
+	[TestMethod]
+	public void ToStringTest()
+	{
+		default(Token).ToString().ShouldBe(string.Empty);
+		new Token("A").ToString().ShouldBe("A");
+		new Token("\t").ToString().ShouldBe("\t");
+
+		new Token("[B]").ToString().ShouldBe("[B]"); // TokenType.Text
+		new Token("[B]", TokenType.Bracketed).ToString().ShouldBe("[[B]]");
+		new Token("B", TokenType.Bracketed).ToString().ShouldBe("[B]");
 	}
 }
