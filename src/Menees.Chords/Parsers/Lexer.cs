@@ -27,7 +27,7 @@ public sealed class Lexer
 	/// <param name="text">The text to split into tokens.</param>
 	public Lexer(string text)
 	{
-		this.text = text;
+		this.text = text ?? string.Empty;
 	}
 
 	#endregion
@@ -38,7 +38,7 @@ public sealed class Lexer
 	/// Gets the current token
 	/// </summary>
 	/// <remarks>
-	/// This will be a default/empty token before <see cref="Read"/> is called
+	/// This will be a default/empty token before <see cref="Read()"/> is called
 	/// and after it returns false.
 	/// </remarks>
 	public Token Token { get; private set; }
@@ -75,6 +75,64 @@ public sealed class Lexer
 		}
 
 		return ch != null;
+	}
+
+	/// <summary>
+	/// Tries to read the next <see cref="Token"/> from the text and optionally skips a leading
+	/// <see cref="TokenType.WhiteSpace"/> token.
+	/// </summary>
+	/// <param name="skipLeadingWhiteSpace">Whether to skip a leading whitespace token.</param>
+	/// <returns>True if a new token was read. False if there are no more tokens to read.</returns>
+	public bool Read(bool skipLeadingWhiteSpace)
+	{
+		bool result = this.Read();
+		if (result && skipLeadingWhiteSpace && this.Token.Type == TokenType.WhiteSpace)
+		{
+			result = this.Read();
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// Reads all text from the current position (i.e., including <see cref="Token"/>) to the end of the text
+	/// and returns it as one string, optionally ignoring trailing whitespace.
+	/// </summary>
+	/// <param name="skipTrailingWhiteSpace">Whether to omit text from the last token if it has
+	/// <see cref="TokenType.WhiteSpace"/>.</param>
+	/// <returns>A string that contains all characters from the current position to the end of the
+	/// text optionally excluding trailing whitespace.</returns>
+	public string ReadToEnd(bool skipTrailingWhiteSpace = false)
+	{
+		StringBuilder sb = new(this.text.Length);
+		int? lastWhiteSpaceStartIndex;
+		do
+		{
+			lastWhiteSpaceStartIndex = null;
+			switch (this.Token.Type)
+			{
+				case TokenType.Bracketed:
+					sb.Append('[').Append(this.Token.Text).Append(']');
+					break;
+
+				case TokenType.WhiteSpace:
+					lastWhiteSpaceStartIndex = sb.Length;
+					goto default;
+
+				default:
+					sb.Append(this.Token.Text);
+					break;
+			}
+		}
+		while (this.Read());
+
+		if (skipTrailingWhiteSpace && lastWhiteSpaceStartIndex != null)
+		{
+			sb.Length = lastWhiteSpaceStartIndex.Value;
+		}
+
+		string result = sb.ToString();
+		return result;
 	}
 
 	/// <summary>

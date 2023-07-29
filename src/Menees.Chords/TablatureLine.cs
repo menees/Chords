@@ -51,15 +51,18 @@ public sealed class TablatureLine : TextEntry
 	{
 		TablatureLine? result = null;
 
-		string line = context.LineText.Trim();
-		int noteLength = ChordParser.GetNoteLength(line);
-		if (context.State.TryGetValue(ChordProDirectiveLine.TabStateKey, out object? gridState) && gridState is ChordProDirectiveLine)
+		Lexer lexer = context.CreateLexer();
+		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Text)
 		{
-			result = new(noteLength, line);
-		}
-		else if (noteLength > 0 && line.Length > noteLength && (line[noteLength] == '|' || line[noteLength] == ':'))
-		{
-			result = new(noteLength, line);
+			int noteLength = ChordParser.GetNoteLength(lexer.Token.Text);
+			if (context.State.TryGetValue(ChordProDirectiveLine.TabStateKey, out object? gridState) && gridState is ChordProDirectiveLine)
+			{
+				result = new(noteLength, lexer.ReadToEnd(true));
+			}
+			else if (noteLength > 0 && lexer.Token.Text.Length > noteLength && (lexer.Token.Text[noteLength] == '|' || lexer.Token.Text[noteLength] == ':'))
+			{
+				result = new(noteLength, lexer.ReadToEnd(true));
+			}
 		}
 
 		return result;

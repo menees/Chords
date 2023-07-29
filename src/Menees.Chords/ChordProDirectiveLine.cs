@@ -114,6 +114,7 @@ public sealed class ChordProDirectiveLine : Entry
 	{
 		ChordProDirectiveLine? result = null;
 
+		// TODO: Use Lexer. [Bill, 7/29/2023]
 		string line = context.LineText.Trim();
 		if (line.Length > 2 && line[0] == '{' && line[^1] == '}')
 		{

@@ -53,6 +53,7 @@ public sealed class Comment : TextEntry
 	{
 		Comment? result = null;
 
+		// TODO: Use Lexer. [Bill, 7/29/2023]
 		string line = context.LineText.Trim();
 		if (!string.IsNullOrEmpty(line))
 		{

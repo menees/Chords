@@ -44,6 +44,7 @@ public sealed class ChordProRemarkLine : TextEntry
 	{
 		ChordProRemarkLine? result = null;
 
+		// TODO: Use Lexer. [Bill, 7/29/2023]
 		if (context.LineText.TrimStart().StartsWith("#"))
 		{
 			result = new(context.LineText);

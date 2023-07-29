@@ -55,6 +55,41 @@ public class LexerTests
 	}
 
 	[TestMethod]
+	public void ReadSkipLeadingWhiteSpace()
+	{
+		Lexer lexer = new("Test");
+		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("Test", TokenType.Text, 0));
+		lexer.Reset();
+		lexer.Read(skipLeadingWhiteSpace: false).ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("Test", TokenType.Text, 0));
+
+		lexer = new("  Test  ");
+		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("Test", TokenType.Text, 2));
+		lexer.Reset();
+		lexer.Read(skipLeadingWhiteSpace: false).ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("  ", TokenType.WhiteSpace, 0));
+	}
+
+	[TestMethod]
+	public void ReadToEnd()
+	{
+		Lexer lexer = new("  A [B] C  ");
+		lexer.ReadToEnd().ShouldBe("  A [B] C  ");
+
+		lexer.Reset();
+		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("A", TokenType.Text, 2));
+		lexer.ReadToEnd(skipTrailingWhiteSpace: true).ShouldBe("A [B] C");
+
+		lexer.Reset();
+		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("A", TokenType.Text, 2));
+		lexer.ReadToEnd(skipTrailingWhiteSpace: false).ShouldBe("A [B] C  ");
+	}
+
+	[TestMethod]
 	public void Reset()
 	{
 		Lexer lexer = new("abc");
