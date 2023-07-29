@@ -36,8 +36,12 @@ public sealed class DocumentParser
 		// Note: We omit ChordProRemarkLine.TryParse because Comment.TryParse will consume any #-prefixed remark lines.
 		ChordProDirectiveLine.TryParse,
 		ChordProGridLine.TryParse,
-		ChordProLyricLine.TryParse,
 		TablatureLine.TryParse,
+
+		// The more specific line type syntaxes should be above this. Below this the line type syntaxes are more loose.
+		// Any ChordLine is also a valid ChordProLyricLine but not vice versa. So, ChordLine needs to come first.
+		ChordLine.TryParse,
+		ChordProLyricLine.TryParse,
 		LyricLine.Parse,
 	};
 

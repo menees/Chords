@@ -11,6 +11,34 @@ using Menees.Chords.Parsers;
 /// </summary>
 public sealed class ChordLine : Entry
 {
+	#region Private Data Members
+
+	// https://www.ultimate-guitar.com/contribution/help/rubric#iii3 (section C. "No chord")
+	private static readonly ISet<string> PseudoChords = new HashSet<string>(ChordParser.Comparer) { "N.C.", "NC", "stop" };
+
+	#endregion
+
+	#region Constructors
+
+	private ChordLine(IReadOnlyList<TextSegment> segments)
+	{
+		this.Segments = segments;
+	}
+
+	#endregion
+
+	#region Public Properties
+
+	/// <summary>
+	/// Gets the text segments that make up the chord line.
+	/// </summary>
+	/// <remarks>
+	/// This can include a mix of segment types (e.g., <see cref="ChordSegment"/> and <see cref="WhiteSpaceSegment"/>).
+	/// </remarks>
+	public IReadOnlyList<TextSegment> Segments { get; }
+
+	#endregion
+
 	#region Public Methods
 
 	/// <summary>
@@ -20,19 +48,52 @@ public sealed class ChordLine : Entry
 	/// <returns>A new instance if the line was parsed as whitespace and chords. Null otherwise.</returns>
 	public static ChordLine? TryParse(LineContext context)
 	{
-		// Make sure most tokens are chords. Chords can be in brackets.
-		// Ignore tokens in parentheses or special annotations (~↑↓*) or things with no letter.
-		// Handle NC and N.C. per UG recommendation. Also [stop] from Romeo & Juliet.
-		// https://www.ultimate-guitar.com/contribution/help/rubric#iii3 (section C. "No chord"
-		// TODO: Finish TryParse. [Bill, 7/26/2023]
-		context.GetHashCode();
-		return null;
+		ChordLine? result = null;
+
+		// TODO: Parse comments and definitions off the end of the line (e.g., in Hey There Delilah). [Bill, 7/29/2023]
+		List<TextSegment> segments = new();
+		Lexer lexer = context.CreateLexer();
+		while (lexer.Read())
+		{
+			if (lexer.Token.Type == TokenType.WhiteSpace)
+			{
+				segments.Add(new WhiteSpaceSegment(lexer.Token.Text));
+			}
+			else if (lexer.Token.Text.All(ch => !char.IsLetter(ch))
+				|| PseudoChords.Contains(lexer.Token.Text)
+				|| (lexer.Token.Text[0] == '(' && lexer.Token.Text[^1] == ')'))
+			{
+				// Allow tokens with no letter (e.g., ~↑↓*), pseudo-chords, or annotations in parentheses.
+				segments.Add(new TextSegment(lexer.Token.ToString(), lexer.Token.Index));
+			}
+			else if (lexer.Token.Text[^1] == '*' && Chord.TryParse(lexer.Token.Text[0..^1], out Chord? chord))
+			{
+				// Allow chords to end with an asterisk since they probably relate to a comment or footnote later.
+				segments.Add(new ChordSegment(chord, lexer.Token.Index, lexer.Token.ToString()));
+			}
+			else if (Chord.TryParse(lexer.Token.Text, out chord))
+			{
+				segments.Add(new ChordSegment(chord, lexer.Token.Index, lexer.Token.ToString()));
+			}
+			else
+			{
+				segments.Clear();
+				break;
+			}
+		}
+
+		if (segments.Count > 0)
+		{
+			result = new(segments);
+		}
+
+		return result;
 	}
 
 	/// <summary>
 	/// Gets chord line text.
 	/// </summary>
-	public override string ToString() => "TODO"; // TODO: Finish ChordLine.ToString(). [Bill, 7/22/2023]
+	public override string ToString() => string.Concat(this.Segments);
 
 	#endregion
 }
