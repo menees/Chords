@@ -4,6 +4,20 @@
 public class TokenTests
 {
 	[TestMethod]
+	public void ConstructorDefaults()
+	{
+		// Other tests ensure the constructor works when all args are specified.
+		// So, we'll just check the defaulted arg logic here.
+		new Token(string.Empty).Type.ShouldBe(TokenType.None);
+		new Token("\t").Type.ShouldBe(TokenType.WhiteSpace);
+		new Token("[A]").Type.ShouldBe(TokenType.Bracketed);
+		new Token("x").Type.ShouldBe(TokenType.Text);
+		new Token(" mix [text] ").Type.ShouldBe(TokenType.Text);
+
+		new Token("x").Index.ShouldBe(0);
+	}
+
+	[TestMethod]
 	public void Properties()
 	{
 		Token token = default;

@@ -27,10 +27,30 @@ public readonly struct Token : IEquatable<Token>
 	/// <param name="text">The text value of the token.</param>
 	/// <param name="type">The type of the token's <paramref name="text"/>.</param>
 	/// <param name="index">The index where <paramref name="text"/> started in the input line.</param>
-	public Token(string text, TokenType type, int index)
+	public Token(string text, TokenType? type = null, int index = 0)
 	{
+		if (type == null)
+		{
+			if (string.IsNullOrEmpty(text))
+			{
+				type = TokenType.None;
+			}
+			else if (string.IsNullOrWhiteSpace(text))
+			{
+				type = TokenType.WhiteSpace;
+			}
+			else if (text[0] == '[' && text[^1] == ']')
+			{
+				type = TokenType.Bracketed;
+			}
+			else
+			{
+				type = TokenType.Text;
+			}
+		}
+
 		this.text = text;
-		this.Type = type;
+		this.Type = type.Value;
 		this.Index = index;
 	}
 

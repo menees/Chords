@@ -42,7 +42,7 @@ public sealed class LineContextTests
 		Lexer lexer2 = context.CreateLexer();
 		lexer2.ShouldBe(lexer1);
 		lexer1.Read().ShouldBeTrue();
-		lexer1.Token.ShouldBe(new Token("Test", TokenType.Text, 0));
+		lexer1.Token.ShouldBe(new Token("Test"));
 
 		// Reset should have been called.
 		Lexer lexer3 = context.CreateLexer();

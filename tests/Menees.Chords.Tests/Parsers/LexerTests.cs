@@ -11,7 +11,7 @@ public class LexerTests
 		Test(string.Empty);
 		Test("   ", new Token("   ", TokenType.WhiteSpace, 0));
 		Test("[Xyz]", new Token("Xyz", TokenType.Bracketed, 0));
-		Test("Abc", new Token("Abc", TokenType.Text, 0));
+		Test("Abc", new Token("Abc"));
 
 		Test(
 			"[C] N.C.",
@@ -59,10 +59,10 @@ public class LexerTests
 	{
 		Lexer lexer = new("Test");
 		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
-		lexer.Token.ShouldBe(new Token("Test", TokenType.Text, 0));
+		lexer.Token.ShouldBe(new Token("Test"));
 		lexer.Reset();
 		lexer.Read(skipLeadingWhiteSpace: false).ShouldBeTrue();
-		lexer.Token.ShouldBe(new Token("Test", TokenType.Text, 0));
+		lexer.Token.ShouldBe(new Token("Test"));
 
 		lexer = new("  Test  ");
 		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
@@ -94,13 +94,13 @@ public class LexerTests
 	{
 		Lexer lexer = new("abc");
 		lexer.Read().ShouldBeTrue();
-		lexer.Token.ShouldBe(new Token("abc", TokenType.Text, 0));
+		lexer.Token.ShouldBe(new Token("abc"));
 
 		lexer.Reset();
 		lexer.Token.ShouldBe(default);
 
 		lexer.Read().ShouldBeTrue();
-		lexer.Token.ShouldBe(new Token("abc", TokenType.Text, 0));
+		lexer.Token.ShouldBe(new Token("abc"));
 	}
 
 	#endregion
