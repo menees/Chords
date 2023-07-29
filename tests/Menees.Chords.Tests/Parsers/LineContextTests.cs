@@ -32,6 +32,24 @@ public sealed class LineContextTests
 		}
 	}
 
+	[TestMethod]
+	public void CreateLexer()
+	{
+		LineContext context = Create("Test");
+
+		// Consecutive calls should get the same instance due to caching.
+		Lexer lexer1 = context.CreateLexer();
+		Lexer lexer2 = context.CreateLexer();
+		lexer2.ShouldBe(lexer1);
+		lexer1.Read().ShouldBeTrue();
+		lexer1.Token.ShouldBe(new Token("Test", TokenType.Text, 0));
+
+		// Reset should have been called.
+		Lexer lexer3 = context.CreateLexer();
+		lexer3.ShouldBe(lexer1);
+		lexer3.Token.ShouldBe(default);
+	}
+
 	#endregion
 
 	#region Internal Methods

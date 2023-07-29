@@ -77,6 +77,15 @@ public sealed class Lexer
 		return ch != null;
 	}
 
+	/// <summary>
+	/// Moves the lexer back to the start of the text.
+	/// </summary>
+	public void Reset()
+	{
+		this.index = 0;
+		this.Token = default;
+	}
+
 	#endregion
 
 	#region Private Methods

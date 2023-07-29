@@ -16,6 +16,7 @@ public sealed class LineContext
 	#region Private Data Members
 
 	private Dictionary<string, object>? state;
+	private Lexer? lexer;
 
 	#endregion
 
@@ -59,6 +60,22 @@ public sealed class LineContext
 
 	#endregion
 
+	#region Public Methods
+
+	/// <summary>
+	/// Gets a newly initialized <see cref="Lexer"/> for the current <see cref="LineText"/>.
+	/// </summary>
+	public Lexer CreateLexer()
+	{
+		// We'll cache the lexer for use by multiple line parsers, but we'll Reset before returning the lexer.
+		// This way each line parser starts from the beginning of the text.
+		this.lexer ??= new(this.LineText);
+		this.lexer.Reset();
+		return this.lexer;
+	}
+
+	#endregion
+
 	#region Internal Methods
 
 	internal void SetLine(string lineText)
@@ -66,6 +83,9 @@ public sealed class LineContext
 		// Make line number 1-based.
 		this.LineNumber++;
 		this.LineText = lineText;
+
+		// We'll need a new lexer on the next request.
+		this.lexer = null;
 	}
 
 	#endregion

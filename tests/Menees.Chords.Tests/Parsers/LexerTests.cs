@@ -3,6 +3,8 @@
 [TestClass]
 public class LexerTests
 {
+	#region Public Methods
+
 	[TestMethod]
 	public void Read()
 	{
@@ -51,4 +53,20 @@ public class LexerTests
 			}
 		}
 	}
+
+	[TestMethod]
+	public void Reset()
+	{
+		Lexer lexer = new("abc");
+		lexer.Read().ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("abc", TokenType.Text, 0));
+
+		lexer.Reset();
+		lexer.Token.ShouldBe(default);
+
+		lexer.Read().ShouldBeTrue();
+		lexer.Token.ShouldBe(new Token("abc", TokenType.Text, 0));
+	}
+
+	#endregion
 }
