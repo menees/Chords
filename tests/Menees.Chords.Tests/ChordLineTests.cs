@@ -19,6 +19,9 @@ public class ChordLineTests
 		Test("[D7]        [G]", "D7", "G");
 		Test("C       C*   G*", "C", "C", "G");
 
+		// If we're not in a ChordPro sog/eog environment, then chord grid lines are chord lines.
+		Test("| Am . | B . |", "Am", "B");
+
 		ChordLine line = Test("G  G2  D/F#  Em  C  Cmaj5 (2x)", "G", "G2", "D/F#", "Em", "C", "Cmaj5");
 		line.Annotations.Count.ShouldBe(1);
 		Comment comment = line.Annotations[0].ShouldBeOfType<Comment>();

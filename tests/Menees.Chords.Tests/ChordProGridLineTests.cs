@@ -7,7 +7,7 @@ using Shouldly;
 public class ChordProGridLineTests
 {
 	[TestMethod]
-	public void TryParseFail()
+	public void TryParseInvalid()
 	{
 		const string Text = "|| A . . . | E . . . |";
 		LineContext context = LineContextTests.Create(Text);
@@ -19,7 +19,7 @@ public class ChordProGridLineTests
 	}
 
 	[TestMethod]
-	public void TryParseSuccess()
+	public void TryParseValid()
 	{
 		const string Text = "| A . | D . | E . |";
 		Document doc = Document.Parse("{sog}\n" + Text + "\n{eog}\n" + Text);
@@ -27,6 +27,6 @@ public class ChordProGridLineTests
 		doc.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().LongName.ShouldBe("start_of_grid");
 		doc.Entries[1].ShouldBeOfType<ChordProGridLine>().Text.ShouldBe(Text);
 		doc.Entries[2].ShouldBeOfType<ChordProDirectiveLine>().LongName.ShouldBe("end_of_grid");
-		doc.Entries[3].ShouldBeOfType<LyricLine>().Text.ShouldBe(Text);
+		doc.Entries[3].ShouldBeOfType<ChordLine>().ToString().ShouldBe(Text);
 	}
 }
