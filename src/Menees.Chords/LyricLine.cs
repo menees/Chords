@@ -36,8 +36,11 @@ public sealed class LyricLine : TextEntry
 	/// <returns>A new instance.</returns>
 	public static LyricLine Parse(LineContext context)
 	{
-		// TODO: Look for Comment and ChordDefinitions at the end of the line. [Bill, 7/21/2023]
-		LyricLine result = new(context.LineText);
+		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
+		string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
+
+		LyricLine result = new(line);
+		result.AddAnnotations(annotations);
 		return result;
 	}
 

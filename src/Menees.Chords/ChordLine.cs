@@ -50,9 +50,8 @@ public sealed class ChordLine : Entry
 	{
 		ChordLine? result = null;
 
-		// TODO: Parse comments and definitions off the end of the line (e.g., in Hey There Delilah). [Bill, 7/29/2023]
 		List<TextSegment> segments = new();
-		Lexer lexer = context.CreateLexer();
+		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
 		while (lexer.Read())
 		{
 			if (lexer.Token.Type == TokenType.WhiteSpace)
@@ -85,6 +84,7 @@ public sealed class ChordLine : Entry
 		if (segments.Count > 0)
 		{
 			result = new(segments);
+			result.AddAnnotations(annotations);
 		}
 
 		return result;

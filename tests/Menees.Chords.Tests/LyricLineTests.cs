@@ -1,6 +1,7 @@
 ﻿namespace Menees.Chords;
 
 using Menees.Chords.Parsers;
+using Shouldly;
 
 [TestClass]
 public class LyricLineTests
@@ -17,5 +18,14 @@ public class LyricLineTests
 	{
 		LineContext context = LineContextTests.Create("Testing");
 		LyricLine.Parse(context).Text.ShouldBe("Testing");
+
+		context = LineContextTests.Create("Test (with comment)");
+		LyricLine line = LyricLine.Parse(context);
+		line.Text.ShouldBe("Test");
+		line.Annotations.Count.ShouldBe(1);
+		Comment comment = line.Annotations[0].ShouldBeOfType<Comment>();
+		comment.Text.ShouldBe("with comment");
+		comment.Prefix.ShouldBe("(");
+		comment.Suffix.ShouldBe(")");
 	}
 }

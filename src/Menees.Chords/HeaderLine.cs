@@ -40,8 +40,7 @@ public sealed class HeaderLine : TextEntry
 		//
 		// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt" [Bill, 7/21/2023]
 		// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
-		// TODO: Finish TryParse. [Bill, 7/21/2023]
-		// TODO: Look for Comment and ChordDefinitions at the end of the line. [Bill, 7/21/2023]
+		// TODO: Finish TryParse using CreateLexer(out IReadOnlyList<Entry> annotations) and AddAnnotations. [Bill, 7/21/2023]
 		//
 		// This is used for cases like "[Verse (Softer)]", "[Verse - Softer]" and "[Verse] - Softer" where
 		// "Verse" is the header label, and "Softer" is the header comment.

@@ -2,9 +2,11 @@
 
 #region Using Directives
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Text.RegularExpressions;
 
 #endregion
 
@@ -15,8 +17,18 @@ public sealed class LineContext
 {
 	#region Private Data Members
 
+	private const string EndOfLineAnnotationPattern = @"(?imnx) # Apply this with RegexOptions.RightToLeft"
+		+ "\r\n" + @"^.* # Ignore anything to the beginning of the line"
+		+ "\r\n" + @"((?<comment>(\(.*?\))|(\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **"
+		+ "\r\n" + @"|((?<separator>,\s*)?(?<chord>[A-GIV1-79][a-z1-79#\-\+\^/]*)\s*=?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})) # [Chord [=]] x or digit..."
+		+ "\r\n" + @"\s*$ # Ignore trailing whitespace";
+
+	private static readonly Regex EndOfLineAnnotation = new(EndOfLineAnnotationPattern, RegexOptions.RightToLeft | RegexOptions.Compiled);
+
 	private Dictionary<string, object>? state;
 	private Lexer? lexer;
+	private IReadOnlyList<Entry>? annotations;
+	private Lexer? unannotatedLexer;
 
 	#endregion
 
@@ -74,7 +86,28 @@ public sealed class LineContext
 		return this.lexer;
 	}
 
-	#endregion
+	/// <summary>
+	/// Gets a newly initialized <see cref="Lexer"/> for the current line text after
+	/// <paramref name="annotations"/> have been removed from the end of it.
+	/// </summary>
+	/// <param name="annotations">Returns any annotation entries that were removed from the end of the text line.</param>
+	/// <returns>A new lexer over the text after annotations are removed.</returns>
+	public Lexer CreateLexer(out IReadOnlyList<Entry> annotations)
+	{
+		// We'll cache these for future requests since it's not cheap to split these off.
+		if (this.annotations == null || this.unannotatedLexer == null)
+		{
+			this.annotations = this.SplitAnnotations(out int annotationStartIndex);
+			string unannotated = this.LineText[0..annotationStartIndex];
+			this.unannotatedLexer = new(unannotated);
+		}
+
+		annotations = this.annotations;
+		Lexer result = this.unannotatedLexer;
+		return result;
+	}
+
+#endregion
 
 	#region Internal Methods
 
@@ -86,6 +119,43 @@ public sealed class LineContext
 
 		// We'll need a new lexer on the next request.
 		this.lexer = null;
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private IReadOnlyList<Entry> SplitAnnotations(out int annotationStartIndex)
+	{
+		List<Entry> result = new();
+		annotationStartIndex = this.LineText.Length;
+
+		Match match;
+		while ((match = EndOfLineAnnotation.Match(this.LineText, annotationStartIndex)).Success)
+		{
+			if (match.Groups.Count <= 1)
+			{
+				break;
+			}
+
+			Group group;
+			if ((group = match.Groups["comment"]).Success)
+			{
+				// TODO: Create Comment. [Bill, 7/30/2023]
+			}
+			else if ((group = match.Groups["definition"]).Success)
+			{
+				Group chordGroup = match.Groups["chord"];
+				if (chordGroup.Success && Chord.TryParse(chordGroup.Value, out Chord? chord))
+				{
+					// TODO: Create ChordDefinitions [Bill, 7/30/2023]
+				}
+			}
+
+			annotationStartIndex = match.Index;
+		}
+
+		return result;
 	}
 
 	#endregion
