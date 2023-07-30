@@ -117,8 +117,10 @@ public sealed class LineContext
 		this.LineNumber++;
 		this.LineText = lineText;
 
-		// We'll need a new lexer on the next request.
+		// We'll need new lexers on the next request.
 		this.lexer = null;
+		this.unannotatedLexer = null;
+		this.annotations = null;
 	}
 
 	#endregion
