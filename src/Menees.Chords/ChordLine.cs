@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -93,7 +94,22 @@ public sealed class ChordLine : Entry
 	/// <summary>
 	/// Gets chord line text.
 	/// </summary>
-	public override string ToString() => string.Concat(this.Segments);
+	public override string ToString()
+	{
+		StringBuilder sb = new();
+		foreach (TextSegment segment in this.Segments)
+		{
+			sb.Append(segment);
+		}
+
+		foreach (Entry annotation in this.Annotations)
+		{
+			sb.Append(annotation);
+		}
+
+		string result = sb.ToString();
+		return result;
+	}
 
 	#endregion
 }

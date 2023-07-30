@@ -50,6 +50,13 @@ public sealed class LineContextTests
 		lexer3.Token.ShouldBe(default);
 	}
 
+	[TestMethod]
+	public void CreateLexerWithAnnotations()
+	{
+		// TODO: Finish CreateLexerWithAnnotations. [Bill, 7/30/2023]
+		Assert.Fail();
+	}
+
 	#endregion
 
 	#region Internal Methods

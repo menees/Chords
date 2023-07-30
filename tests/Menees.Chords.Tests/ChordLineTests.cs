@@ -20,7 +20,10 @@ public class ChordLineTests
 		Test("C       C*   G*", "C", "C", "G");
 
 		ChordLine line = Test("G  G2  D/F#  Em  C  Cmaj5 (2x)", "G", "G2", "D/F#", "Em", "C", "Cmaj5");
-		Test("C *          G     Am          Em    (*high e)", "C", "G", "Am", "Em");
+		line.Annotations.ShouldBe(new[] { new Comment("2x", "(", ")") });
+
+		line = Test("C *          G     Am          Em    (*high e)", "C", "G", "Am", "Em");
+		line.Annotations.ShouldBe(new[] { new Comment("*high e", "(", ")") });
 
 		static ChordLine Test(string text, params string[] expectedChordNames)
 		{

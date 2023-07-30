@@ -19,7 +19,7 @@ public sealed class LineContext
 
 	private const string EndOfLineAnnotationPattern = @"(?imnx) # Apply this with RegexOptions.RightToLeft"
 		+ "\r\n" + @"^.* # Ignore anything to the beginning of the line"
-		+ "\r\n" + @"((?<comment>(\(.*?\))|(\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **"
+		+ "\r\n" + @"(((?<parencomment>\(.*?\))|(?<starcomment>\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **"
 		+ "\r\n" + @"|((?<separator>,\s*)?(?<chord>[A-GIV1-79][a-z1-79#\-\+\^/]*)\s*=?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})) # [Chord [=]] x or digit..."
 		+ "\r\n" + @"\s*$ # Ignore trailing whitespace";
 
@@ -125,9 +125,20 @@ public sealed class LineContext
 
 	#region Private Methods
 
+	private static Comment CreateComment(string text, string start, string end)
+	{
+		string trimStart = text.TrimStart();
+		string trimmed = trimStart.TrimEnd();
+		string prefix = start + text.Substring(0, text.Length - trimStart.Length);
+		string suffix = text.Substring(text.Length - (trimStart.Length - trimmed.Length)) + end;
+		Comment result = new(trimmed, prefix, suffix);
+		return result;
+	}
+
 	private IReadOnlyList<Entry> SplitAnnotations(out int annotationStartIndex)
 	{
 		List<Entry> result = new();
+		List<ChordDefinition>? definitions = null;
 		annotationStartIndex = this.LineText.Length;
 
 		Match match;
@@ -139,20 +150,43 @@ public sealed class LineContext
 			}
 
 			Group group;
-			if ((group = match.Groups["comment"]).Success)
+			if ((group = match.Groups["parencomment"]).Success)
 			{
-				// TODO: Create Comment. [Bill, 7/30/2023]
+				result.Add(CreateComment(group.Value, "(", ")"));
+				annotationStartIndex = group.Index;
+			}
+			else if ((group = match.Groups["starcomment"]).Success)
+			{
+				result.Add(CreateComment(group.Value, "**", "**"));
+				annotationStartIndex = group.Index;
 			}
 			else if ((group = match.Groups["definition"]).Success)
 			{
-				Group chordGroup = match.Groups["chord"];
-				if (chordGroup.Success && Chord.TryParse(chordGroup.Value, out Chord? chord))
+				Group chord = match.Groups["chord"];
+				ChordDefinition? chordDefinition;
+				if (chord.Success && (chordDefinition = ChordDefinition.TryParse(chord.Value, group.Value)) != null)
 				{
-					// TODO: Create ChordDefinitions [Bill, 7/30/2023]
+					definitions ??= new();
+					definitions.Add(chordDefinition);
+					Group separator = match.Groups["separator"];
+					annotationStartIndex = separator.Success ? separator.Index : chord.Index;
+				}
+				else
+				{
+					// We'll stop if we see an unnamed definition because it might just be a short tab notation. (e.g., 1-2-3).
+					break;
 				}
 			}
+			else
+			{
+				// If we hit this, then the regex was probably updated without updating the code above.
+				throw new InvalidOperationException($"End of line annotation matched {match.Value} but without a support group.");
+			}
+		}
 
-			annotationStartIndex = match.Index;
+		if (definitions != null && definitions.Count > 0)
+		{
+			result.Add(new ChordDefinitions(definitions));
 		}
 
 		return result;
