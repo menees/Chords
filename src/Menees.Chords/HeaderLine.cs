@@ -33,19 +33,33 @@ public sealed class HeaderLine : TextEntry
 	/// <returns>A new instance if <paramref name="context"/>'s line was parsed. Null otherwise.</returns>
 	public static HeaderLine? TryParse(LineContext context)
 	{
-		// Criteria: Only one '[' and only one ']'. Text in brackets is not a chord.
-		// Label: Text inside brackets excluding any trailing comment.
-		// Comment: Parenthesized text inside brackets. Text after '-' inside brackets. Or text after brackets.
-		// Known: Intro, Outro, Verse, Verse #, Chorus, Interlude, Bridge, Pre-Chorus, Solo, Solo #, Break, Post-Chorus, Pre-Verse
-		//
-		// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt" [Bill, 7/21/2023]
-		// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
-		// TODO: Finish TryParse using CreateLexer(out IReadOnlyList<Entry> annotations) and AddAnnotations. [Bill, 7/21/2023]
-		//
-		// This is used for cases like "[Verse (Softer)]", "[Verse - Softer]" and "[Verse] - Softer" where
-		// "Verse" is the header label, and "Softer" is the header comment.
-		context.GetHashCode();
-		return null;
+		HeaderLine? result = null;
+
+		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
+		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Bracketed)
+		{
+			string headerText = lexer.Token.Text;
+
+			// Since annotations were removed earlier, make sure there's nothing else on the line.
+			// And make sure the header text isn't a chord.
+			if ((!lexer.Read() || string.IsNullOrEmpty(lexer.ReadToEnd(skipTrailingWhiteSpace: true))) && !Chord.TryParse(headerText, out _))
+			{
+				// TODO: Handle other special header cases? [Bill, 7/30/2023]
+				// Label: Text inside brackets excluding any trailing comment.
+				// Comment: Parenthesized text inside brackets. Text after '-' inside brackets. Or text after brackets.
+				// Known: Intro, Outro, Verse, Verse #, Chorus, Interlude, Bridge, Pre-Chorus, Solo, Solo #, Break, Post-Chorus, Pre-Verse
+				//
+				// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt" [Bill, 7/21/2023]
+				// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
+				//
+				// This is used for cases like "[Verse (Softer)]", "[Verse - Softer]" and "[Verse] - Softer" where
+				// "Verse" is the header label, and "Softer" is the header comment.
+				result = new(headerText);
+				result.AddAnnotations(annotations);
+			}
+		}
+
+		return result;
 	}
 
 	#endregion

@@ -104,6 +104,7 @@ public sealed class LineContext
 
 		annotations = this.annotations;
 		Lexer result = this.unannotatedLexer;
+		result.Reset();
 		return result;
 	}
 
