@@ -53,8 +53,50 @@ public sealed class LineContextTests
 	[TestMethod]
 	public void CreateLexerWithAnnotations()
 	{
-		// TODO: Finish CreateLexerWithAnnotations. [Bill, 7/30/2023]
-		Assert.Fail();
+		Test("This (a) has (comment)", "This (a) has ", new[] { "(comment)" });
+		Test("This (also) has one ** here **", "This (also) has one ", new[] { "** here **" });
+		Test("This has (a) Cmaj7/F=1-3-2-0-0-0", "This has ", new[] { "(a)" }, "Cmaj7/F 132000");
+		Test("High chord: Dm x-x-12-10-10-10", "High chord: ", expectedDefinitions: "Dm x-x-12-10-10-10");
+		Test("I play Em7 several ways: Em7 020000", "I play Em7 several ways: ", expectedDefinitions: "Em7 020000");
+		Test("I play Em7 several ways: Em7 = 022030", "I play Em7 several ways: ", expectedDefinitions: "Em7 022030");
+		Test("I play Em7 several ways: Em7 020003, Em7 = 020030", "I play Em7 several ways: ", expectedDefinitions: "Em7 020003, Em7 020030");
+
+		Test("This doesn't. )", "This doesn't. )");
+		Test("A Bm C Db F#", "A Bm C Db F#");
+		Test("I also love this unnamed D chord ... x54030", "I also love this unnamed D chord ... x54030");
+
+		static IReadOnlyList<Entry> Test(
+			string text,
+			string expectUnannotated,
+			string[]? expectedComments = null,
+			string? expectedDefinitions = null)
+		{
+			LineContext context = Create(text);
+			Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
+			string unannotated = lexer.ReadToEnd();
+			unannotated.ShouldBe(expectUnannotated);
+
+			annotations.Count.ShouldBe((expectedComments?.Length ?? 0) + (expectedDefinitions != null ? 1 : 0));
+
+			int commentIndex = 0;
+			foreach (Entry annotation in annotations)
+			{
+				if (annotation is Comment comment)
+				{
+					comment.ToString().ShouldBe(expectedComments?[commentIndex++]);
+				}
+				else if (annotation is ChordDefinitions definitions)
+				{
+					definitions.ToString().ShouldBe(expectedDefinitions);
+				}
+				else
+				{
+					Assert.Fail($"Unexpected annotation type: {annotation} ({annotation.GetType()}).");
+				}
+			}
+
+			return annotations;
+		}
 	}
 
 	#endregion

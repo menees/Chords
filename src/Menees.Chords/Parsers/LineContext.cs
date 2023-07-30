@@ -127,10 +127,11 @@ public sealed class LineContext
 
 	private static Comment CreateComment(string text, string start, string end)
 	{
-		string trimStart = text.TrimStart();
+		string comment = text[start.Length..^end.Length];
+		string trimStart = comment.TrimStart();
 		string trimmed = trimStart.TrimEnd();
-		string prefix = start + text.Substring(0, text.Length - trimStart.Length);
-		string suffix = text.Substring(text.Length - (trimStart.Length - trimmed.Length)) + end;
+		string prefix = start + comment.Substring(0, comment.Length - trimStart.Length);
+		string suffix = comment.Substring(comment.Length - (trimStart.Length - trimmed.Length)) + end;
 		Comment result = new(trimmed, prefix, suffix);
 		return result;
 	}
@@ -142,7 +143,7 @@ public sealed class LineContext
 		annotationStartIndex = this.LineText.Length;
 
 		Match match;
-		while ((match = EndOfLineAnnotation.Match(this.LineText, annotationStartIndex)).Success)
+		while ((match = EndOfLineAnnotation.Match(this.LineText.Substring(0, annotationStartIndex))).Success)
 		{
 			if (match.Groups.Count <= 1)
 			{
@@ -186,6 +187,7 @@ public sealed class LineContext
 
 		if (definitions != null && definitions.Count > 0)
 		{
+			definitions.Reverse();
 			result.Add(new ChordDefinitions(definitions));
 		}
 

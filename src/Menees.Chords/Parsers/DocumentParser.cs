@@ -29,9 +29,10 @@ public sealed class DocumentParser
 
 	private static readonly Func<LineContext, Entry?>[] DefaultLineParsers = new Func<LineContext, Entry?>[]
 	{
-		// TODO: Add other default line parsers in order. [Bill, 7/21/2023]
+		// Add line parsers in order from most specific syntax to least specific syntax.
 		HeaderLine.TryParse,
 		Comment.TryParse,
+		ChordDefinitions.TryParse,
 
 		// Note: We omit ChordProRemarkLine.TryParse because Comment.TryParse will consume any #-prefixed remark lines.
 		ChordProDirectiveLine.TryParse,
