@@ -6,26 +6,44 @@ using Menees.Chords.Parsers;
 public class HeaderLineTests
 {
 	[TestMethod]
-	public void TryParse()
+	public void TryParseValid()
 	{
-		Assert.Fail();
+		Test("[Intro] (+ Hook)", "Intro", "(+ Hook)");
+		Test("[Intro (with open \"D D\" string)]", "Intro (with open \"D D\" string)");
+		Test("[Verse 1]", "Verse 1");
+		Test("[Interlude (hammering chords)]", "Interlude (hammering chords)");
+		Test("[Bridge (N.C.)]", "Bridge (N.C.)");
+		Test("[Outro (heavy chords with open \"D D\" string)]", "Outro (heavy chords with open \"D D\" string)");
+		Test("[Verse] (+ Hook)", "Verse", "(+ Hook)");
+		Test("[Solo Lead – Relative to capo]", "Solo Lead – Relative to capo");
+		Test("[Chorus] (a cappella with hand claps)", "Chorus", "(a cappella with hand claps)");
 
-		// TODO: Finish TryParse unit test. [Bill, 7/30/2023]
-		/*
-		Test("[Intro] (+ Hook)");
-		Test("[Intro (with open \"D D\" string)]");
-		Test("[Verse 1]");
-		Test("[Interlude (hammering chords)]");
-		Test("[Bridge (N.C.)]");
-		Test("[Outro (heavy chords with open \"D D\" string)]");
-		Test("[Verse] (+ Hook)");
-		Test("[Solo Lead – Relative to capo]");
-		Test("[Chorus] (a cappella with hand claps)");
+		static void Test(string text, string header, string? comment = null)
+		{
+			LineContext context = LineContextTests.Create(text);
+			HeaderLine headerLine = HeaderLine.TryParse(context).ShouldNotBeNull();
+			headerLine.Text.ShouldBe(header);
+			if (comment is not null)
+			{
+				headerLine.Annotations.Count.ShouldBe(1);
+				headerLine.Annotations[0].ShouldBeOfType<Comment>().ToString().ShouldBe(comment);
+			}
+		}
+	}
+
+	[TestMethod]
+	public void TryParseInvalid()
+	{
+		Test("Not a header");
+		Test("[A#]");
+		Test("[Test] Plus");
+		Test("[Verse][Chorus]");
 
 		static void Test(string text)
 		{
 			LineContext context = LineContextTests.Create(text);
+			HeaderLine? headerLine = HeaderLine.TryParse(context);
+			headerLine.ShouldBeNull();
 		}
-		*/
 	}
 }
