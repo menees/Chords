@@ -8,6 +8,8 @@ public class HeaderLineTests
 	[TestMethod]
 	public void TryParseValid()
 	{
+		// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt"
+		// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
 		Test("[Intro] (+ Hook)", "Intro", "(+ Hook)");
 		Test("[Intro (with open \"D D\" string)]", "Intro (with open \"D D\" string)");
 		Test("[Verse 1]", "Verse 1");
