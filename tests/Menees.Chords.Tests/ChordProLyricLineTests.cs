@@ -4,7 +4,13 @@
 public class ChordProLyricLineTests
 {
 	[TestMethod]
-	public void TryParse()
+	public void TryParseValid()
+	{
+		Assert.Fail();
+	}
+
+	[TestMethod]
+	public void TryParseInvalid()
 	{
 		Assert.Fail();
 	}

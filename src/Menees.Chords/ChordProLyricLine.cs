@@ -9,12 +9,12 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// A line of interlaced lyrics and chords in ChordPro format.
 /// </summary>
-public sealed class ChordProLyricLine : TextEntry
+public sealed class ChordProLyricLine : SegmentedEntry
 {
 	#region Constructors
 
-	private ChordProLyricLine(string text)
-		: base(text)
+	private ChordProLyricLine(IReadOnlyList<TextSegment> segments)
+		: base(segments)
 	{
 	}
 
@@ -29,12 +29,19 @@ public sealed class ChordProLyricLine : TextEntry
 	/// <returns>A new instance if the line contains interlaced chords and lyrics.</returns>
 	public static ChordProLyricLine? TryParse(LineContext context)
 	{
-		ChordProLyricLine? result = null;
+		IReadOnlyList<TextSegment> segments = ChordLine.TryGetSegments(
+			context,
+			token => new TextSegment(token.Text, token.Index),
+			out IReadOnlyList<Entry> annotations);
 
-		// Line with embedded [id] tokens.
-		// Also construct from ChordLine and ChordLyricPair
-		// TODO: TryParse using Regex.Split? [Bill, 7/21/2023]
-		context.GetHashCode();
+		ChordProLyricLine? result = null;
+		if (segments.OfType<ChordSegment>().Any())
+		{
+			result = new(segments);
+			result.AddAnnotations(annotations);
+		}
+
+		// TODO: Also construct from ChordLine and ChordLyricPair [Bill, 7/31/2023]
 		return result;
 	}
 
