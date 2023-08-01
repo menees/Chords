@@ -37,12 +37,9 @@ public sealed class DocumentParser
 		// Note: We omit ChordProRemarkLine.TryParse because Comment.TryParse will consume any #-prefixed remark lines.
 		ChordProDirectiveLine.TryParse,
 		ChordProGridLine.TryParse,
-		TablatureLine.TryParse,
-
-		// The more specific line type syntaxes should be above this. Below this the line type syntaxes are more loose.
-		// Any ChordLine is also a valid ChordProLyricLine but not vice versa. So, ChordLine needs to come first.
-		ChordLine.TryParse,
 		ChordProLyricLine.TryParse,
+		TablatureLine.TryParse,
+		ChordLine.TryParse,
 		LyricLine.Parse,
 	};
 
@@ -118,7 +115,7 @@ public sealed class DocumentParser
 
 		string? result = text;
 
-		if (text != null && text.Contains("\t"))
+		if (text != null && text.Contains('\t'))
 		{
 			StringBuilder sb = new(text.Length);
 			foreach (char ch in text)

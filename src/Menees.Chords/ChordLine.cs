@@ -7,7 +7,7 @@ using Menees.Chords.Parsers;
 #endregion
 
 /// <summary>
-/// A line of chord names and optional annotations (e.g., N.C.).
+/// A line of unbracketed chord names and optional notes (e.g., N.C.) and annotations.
 /// </summary>
 public sealed class ChordLine : SegmentedEntry
 {
@@ -29,7 +29,7 @@ public sealed class ChordLine : SegmentedEntry
 	/// <returns>A new instance if the line was parsed as whitespace and chords. Null otherwise.</returns>
 	public static ChordLine? TryParse(LineContext context)
 	{
-		IReadOnlyList<TextSegment> segments = TryGetSegments(context, null, out IReadOnlyList<Entry> annotations);
+		IReadOnlyList<TextSegment> segments = TryGetSegments(context, false, null, out IReadOnlyList<Entry> annotations);
 
 		ChordLine? result = null;
 		if (segments.Count > 0)

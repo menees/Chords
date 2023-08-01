@@ -78,9 +78,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="PolySharp" Version="1.7.1">
+		<PackageReference Include="Meziantou.Polyfill" Version="1.0.18">
 			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
 

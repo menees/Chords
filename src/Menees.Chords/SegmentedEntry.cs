@@ -76,16 +76,19 @@ public abstract class SegmentedEntry : Entry
 	/// Tries to split the current line into segments.
 	/// </summary>
 	/// <param name="context">The current parsing context.</param>
+	/// <param name="requiredBracketedChords">Whether chord names are required to be in brackets.</param>
 	/// <param name="getSegment">An optional lambda to handle unrecognized <see cref="TextSegment"/>s.
 	/// If the lambda returns null for a text token (or the lambda is null), then no segments are returned.</param>
 	/// <param name="annotations">Returns any annotation entries parsed off the end of the line.</param>
 	/// <returns>The list of segments from the line. This can be empty if <paramref name="getSegment"/> returned null.</returns>
 	protected static IReadOnlyList<TextSegment> TryGetSegments(
 		LineContext context,
+		bool requiredBracketedChords,
 		Func<Token, TextSegment?>? getSegment,
 		out IReadOnlyList<Entry> annotations)
 	{
 		List<TextSegment> result = new();
+		TokenType chordTokenType = requiredBracketedChords ? TokenType.Bracketed : TokenType.Text;
 
 		Lexer lexer = context.CreateLexer(out annotations);
 		while (lexer.Read())
@@ -101,12 +104,12 @@ public abstract class SegmentedEntry : Entry
 				// Allow tokens with no letter (e.g., ~↑↓*), pseudo-chords, or annotations in parentheses.
 				result.Add(new TextSegment(lexer.Token.ToString(), lexer.Token.Index));
 			}
-			else if (lexer.Token.Text[^1] == '*' && Chord.TryParse(lexer.Token.Text[0..^1], out Chord? chord))
+			else if (lexer.Token.Type == chordTokenType && lexer.Token.Text[^1] == '*' && Chord.TryParse(lexer.Token.Text[0..^1], out Chord? chord))
 			{
 				// Allow chords to end with an asterisk since they probably relate to a comment or footnote later.
 				result.Add(new ChordSegment(chord, lexer.Token.Index, lexer.Token.ToString()));
 			}
-			else if (Chord.TryParse(lexer.Token.Text, out chord))
+			else if (lexer.Token.Type == chordTokenType && Chord.TryParse(lexer.Token.Text, out chord))
 			{
 				result.Add(new ChordSegment(chord, lexer.Token.Index, lexer.Token.ToString()));
 			}

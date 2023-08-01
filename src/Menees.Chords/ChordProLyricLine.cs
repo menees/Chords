@@ -29,11 +29,16 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new instance if the line contains interlaced chords and lyrics.</returns>
 	public static ChordProLyricLine? TryParse(LineContext context)
 	{
-		IReadOnlyList<TextSegment> segments = ChordLine.TryGetSegments(
+		// If we see a bracketed token that's not a chord, then skip this line.
+		// This doesn't try to handle ChordPro preprocessor conditional chords.
+		// https://www.chordpro.org/chordpro/support-hints-and-tips/
+		IReadOnlyList<TextSegment> segments = TryGetSegments(
 			context,
-			token => new TextSegment(token.Text, token.Index),
+			true,
+			token => token.Type == TokenType.Text ? new TextSegment(token.Text, token.Index) : null,
 			out IReadOnlyList<Entry> annotations);
 
+		// If there are no chords, then skip this line.
 		ChordProLyricLine? result = null;
 		if (segments.OfType<ChordSegment>().Any())
 		{

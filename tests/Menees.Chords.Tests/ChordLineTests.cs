@@ -16,7 +16,7 @@ public class ChordLineTests
 	{
 		Test("Em          C     C/B          Am", "Em", "C", "C/B", "Am");
 		Test("         Am               B", "Am", "B");
-		Test("[D7]        [G]", "D7", "G");
+		Test(" D7        G  ", "D7", "G");
 		Test("C       C*   G*", "C", "C", "G");
 
 		// If we're not in a ChordPro sog/eog environment, then chord grid lines are chord lines.
