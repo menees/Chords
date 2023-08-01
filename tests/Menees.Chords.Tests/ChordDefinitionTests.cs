@@ -8,6 +8,7 @@ public class ChordDefinitionTests
 	{
 		Test("Am", "x02210", null, 0, 2, 2, 1, 0);
 		Test("A/C#", "x42220", null, 4, 2, 2, 2, 0);
+		Test("A/C#", "_4222_", null, 4, 2, 2, 2, null);
 		Test("G7", "320001", 3, 2, 0, 0, 0, 1);
 
 		static void Test(string name, string defintion, params byte?[] expectedDefinition)
@@ -31,5 +32,6 @@ public class ChordDefinitionTests
 	{
 		ChordDefinition.TryParse("C", "x-3-2-0-1-0").ShouldNotBeNull().ToString().ShouldBe("C x32010");
 		ChordDefinition.TryParse("D/F#", "200121").ShouldNotBeNull().ToString().ShouldBe("D/F# 200121");
+		ChordDefinition.TryParse("A/C#", "_4222_").ShouldNotBeNull().ToString().ShouldBe("A/C# x4222x");
 	}
 }
