@@ -18,10 +18,10 @@ public sealed class LineContext
 	#region Private Data Members
 
 	private const string EndOfLineAnnotationPattern = @"(?imnx) # Apply this with RegexOptions.RightToLeft"
-		+ "\r\n" + @"^.* # Ignore anything to the beginning of the line"
-		+ "\r\n" + @"(((?<parencomment>\(.*?\))|(?<starcomment>\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **"
-		+ "\r\n" + @"|((?<separator>,\s*)?(?<chord>[A-GIV1-79][a-z1-79#\-\+\^/]*)\s*=?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})) # [Chord [=]] x or digit..."
-		+ "\r\n" + @"\s*$ # Ignore trailing whitespace";
+	+ "\r\n" + @"^.* # Ignore anything to the beginning of the line"
+	+ "\r\n" + @"(((?<parencomment>\(.*?\))|(?<starcomment>\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **"
+	+ "\r\n" + @"|((?<chord>[A-GIV1-79][a-z1-79#\-\+\^/]*)\s*=?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})(\s*[,;]\s*)?) # [Chord [=]] x or digit..."
+	+ "\r\n" + @"\s*$ # Ignore trailing whitespace";
 
 	private static readonly Regex EndOfLineAnnotation = new(EndOfLineAnnotationPattern, RegexOptions.RightToLeft | RegexOptions.Compiled);
 
@@ -172,8 +172,7 @@ public sealed class LineContext
 				{
 					definitions ??= new();
 					definitions.Add(chordDefinition);
-					Group separator = match.Groups["separator"];
-					annotationStartIndex = separator.Success ? separator.Index : chord.Index;
+					annotationStartIndex = chord.Index;
 				}
 				else
 				{
