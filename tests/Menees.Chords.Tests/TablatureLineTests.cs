@@ -37,11 +37,14 @@ public class TablatureLineTests
 	[TestMethod]
 	public void TryParseEnvironment()
 	{
-		Document doc = Document.Parse("{start_of_tab}\n|--1-2-3---|\n{end_of_tab}\nNot tab", DocumentParserTests.Ungrouped());
-		doc.Entries.Count.ShouldBe(4);
-		doc.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().Name.ShouldBe("start_of_tab");
-		doc.Entries[1].ShouldBeOfType<TablatureLine>().Text.ShouldBe("|--1-2-3---|");
-		doc.Entries[2].ShouldBeOfType<ChordProDirectiveLine>().Name.ShouldBe("end_of_tab");
-		doc.Entries[3].ShouldBeOfType<LyricLine>().Text.ShouldBe("Not tab");
+		Document doc = Document.Parse("{start_of_tab}\n|--1-2-3---|\n{end_of_tab}\nNot tab");
+		doc.Entries.Count.ShouldBe(2);
+
+		Section tab = doc.Entries[0].ShouldBeOfType<Section>();
+		tab.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().Name.ShouldBe("start_of_tab");
+		tab.Entries[1].ShouldBeOfType<TablatureLine>().Text.ShouldBe("|--1-2-3---|");
+		tab.Entries[2].ShouldBeOfType<ChordProDirectiveLine>().Name.ShouldBe("end_of_tab");
+
+		doc.Entries[1].ShouldBeOfType<LyricLine>().Text.ShouldBe("Not tab");
 	}
 }
