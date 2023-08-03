@@ -58,5 +58,19 @@ public class ChordProLyricLineTests
 		}
 	}
 
+	[TestMethod]
+	public void ConvertChordLine()
+	{
+		// TODO: Finish ConvertChordLine. [Bill, 8/2/2023]
+		Assert.Fail();
+	}
+
+	[TestMethod]
+	public void ConvertChordLyricPair()
+	{
+		// TODO: Finish ConvertChordLyricPair. [Bill, 8/2/2023]
+		Assert.Fail();
+	}
+
 	#endregion
 }

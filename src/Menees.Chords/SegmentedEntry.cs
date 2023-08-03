@@ -102,16 +102,16 @@ public abstract class SegmentedEntry : Entry
 				|| (lexer.Token.Text[0] == '(' && lexer.Token.Text[^1] == ')'))
 			{
 				// Allow tokens with no letter (e.g., ~↑↓*), pseudo-chords, or annotations in parentheses.
-				result.Add(new TextSegment(lexer.Token.ToString(), lexer.Token.Index));
+				result.Add(new TextSegment(lexer.Token.ToString()));
 			}
 			else if (lexer.Token.Type == chordTokenType && lexer.Token.Text[^1] == '*' && Chord.TryParse(lexer.Token.Text[0..^1], out Chord? chord))
 			{
 				// Allow chords to end with an asterisk since they probably relate to a comment or footnote later.
-				result.Add(new ChordSegment(chord, lexer.Token.Index, lexer.Token.ToString()));
+				result.Add(new ChordSegment(chord, lexer.Token.ToString()));
 			}
 			else if (lexer.Token.Type == chordTokenType && Chord.TryParse(lexer.Token.Text, out chord))
 			{
-				result.Add(new ChordSegment(chord, lexer.Token.Index, lexer.Token.ToString()));
+				result.Add(new ChordSegment(chord, lexer.Token.ToString()));
 			}
 			else
 			{

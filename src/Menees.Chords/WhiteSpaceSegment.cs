@@ -11,9 +11,8 @@ public sealed class WhiteSpaceSegment : TextSegment
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="whiteSpace">The segment's whitespace</param>
-	/// <param name="index">The segment's start index in the line it was extracted from.</param>
-	public WhiteSpaceSegment(string whiteSpace, int index = 0)
-		: base(whiteSpace, index)
+	public WhiteSpaceSegment(string whiteSpace)
+		: base(whiteSpace)
 	{
 	}
 

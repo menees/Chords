@@ -11,11 +11,10 @@ public sealed class ChordSegment : TextSegment
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="chord">The chord name in the text segment.</param>
-	/// <param name="index">The segment's start index in the line it was extracted from.</param>
 	/// <param name="text">The text for the chord (e.g., if it was originally bracketed).
 	/// If this is null, then <see cref="Chord.Name"/> is used.</param>
-	public ChordSegment(Chord chord, int index = 0, string? text = null)
-		: base(text ?? chord?.Name!, index)
+	public ChordSegment(Chord chord, string? text = null)
+		: base(text ?? chord?.Name!)
 	{
 		this.Chord = chord ?? throw new ArgumentNullException(nameof(chord));
 	}

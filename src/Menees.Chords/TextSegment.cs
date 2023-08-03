@@ -11,11 +11,9 @@ public class TextSegment
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="text">The segment's text content.</param>
-	/// <param name="index">The segment's start index in the line it was extracted from.</param>
-	public TextSegment(string text, int index = 0)
+	public TextSegment(string text)
 	{
 		this.Text = text ?? string.Empty;
-		this.Index = index;
 	}
 
 	#endregion
@@ -26,11 +24,6 @@ public class TextSegment
 	/// Gets the segment's text content.
 	/// </summary>
 	public string Text { get; }
-
-	/// <summary>
-	/// Gets the segment's start index in the line it was extracted from.
-	/// </summary>
-	public int Index { get; }
 
 	#endregion
 
