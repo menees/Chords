@@ -43,17 +43,16 @@ public sealed class DocumentParser
 		LyricLine.Parse,
 	};
 
-	private static readonly Func<LineContext, Entry?>[] ChordProParsersArray = new Func<LineContext, Entry?>[]
+	private static readonly Func<GroupContext, IReadOnlyList<Entry>>[] DefaultGroupers = new Func<GroupContext, IReadOnlyList<Entry>>[]
 	{
-		ChordProRemarkLine.TryParse,
-		ChordProDirectiveLine.TryParse,
-		ChordProGridLine.TryParse,
-		ChordProLyricLine.TryParse,
-		TablatureLine.TryParse,
-		LyricLine.Parse,
+		Parsers.GroupEntries.ByChordLinePair,
+		Parsers.GroupEntries.ByChordProEnvironment,
+		Parsers.GroupEntries.ByHeaderLine,
+		Parsers.GroupEntries.ByBlankLine,
 	};
 
 	private readonly Func<LineContext, Entry?>[] lineParsers;
+	private readonly Func<GroupContext, IReadOnlyList<Entry>>[] groupers;
 
 	#endregion
 
@@ -69,13 +68,19 @@ public sealed class DocumentParser
 	/// <para/>
 	/// If this parameter is null, then a default set of line parsers is used that tries to handle everything in a reasonable
 	/// precendence order.</param>
+	/// <param name="groupers">An ordered array of grouping logic to use. This allows you to customize the way
+	/// entries are grouped together (e.g., into <see cref="Section"/> and <see cref="ChordLyricPair"/>) entries.
+	/// <para />
+	/// If this is null, then a default set of groupers is used.</param>
 	/// <param name="tabWidth">An optional tab width to use if tabs need to be converted to spaces. Pass null to
 	/// skip converting tabs to spaces.</param>
 	public DocumentParser(
 		IEnumerable<Func<LineContext, Entry?>>? lineParsers = null,
+		IEnumerable<Func<GroupContext, IReadOnlyList<Entry>>>? groupers = null,
 		int? tabWidth = DefaultTabWidth)
 	{
 		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
+		this.groupers = groupers != null ? groupers.ToArray() : DefaultGroupers;
 		this.TabWidth = tabWidth;
 	}
 
@@ -86,7 +91,15 @@ public sealed class DocumentParser
 	/// <summary>
 	/// Gets a collection of line parsers to use when processing input that's known to be in ChordPro format.
 	/// </summary>
-	public static IEnumerable<Func<LineContext, Entry?>> ChordProLineParsers => ChordProParsersArray;
+	public static IEnumerable<Func<LineContext, Entry?>> ChordProLineParsers { get; } = new Func<LineContext, Entry?>[]
+	{
+		ChordProRemarkLine.TryParse,
+		ChordProDirectiveLine.TryParse,
+		ChordProGridLine.TryParse,
+		ChordProLyricLine.TryParse,
+		TablatureLine.TryParse,
+		LyricLine.Parse,
+	};
 
 	#endregion
 
@@ -149,9 +162,8 @@ public sealed class DocumentParser
 
 	internal IReadOnlyList<Entry> Parse(TextReader reader)
 	{
-		IReadOnlyList<Entry> result = this.ParseLines(reader);
-
-		// TODO: Support custom section groupers. [Bill, 7/21/2023]
+		IReadOnlyList<Entry> lineEntries = this.ParseLines(reader);
+		IReadOnlyList<Entry> result = this.GroupEntries(lineEntries);
 		return result;
 	}
 
@@ -194,6 +206,20 @@ public sealed class DocumentParser
 					throw new FormatException($"Line {context.LineNumber} could not be parsed: {context.LineText}");
 				}
 			}
+		}
+
+		return result;
+	}
+
+	private IReadOnlyList<Entry> GroupEntries(IReadOnlyList<Entry> entries)
+	{
+		IReadOnlyList<Entry> result = entries;
+
+		GroupContext groupContext = new(this);
+		foreach (Func<GroupContext, IReadOnlyList<Entry>> grouper in this.groupers)
+		{
+			groupContext.Entries = result;
+			result = grouper(groupContext);
 		}
 
 		return result;
