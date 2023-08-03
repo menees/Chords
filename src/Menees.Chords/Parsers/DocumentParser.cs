@@ -91,15 +91,22 @@ public sealed class DocumentParser
 	/// <summary>
 	/// Gets a collection of line parsers to use when processing input that's known to be in ChordPro format.
 	/// </summary>
-	public static IEnumerable<Func<LineContext, Entry?>> ChordProLineParsers { get; } = new Func<LineContext, Entry?>[]
-	{
-		ChordProRemarkLine.TryParse,
-		ChordProDirectiveLine.TryParse,
-		ChordProGridLine.TryParse,
-		ChordProLyricLine.TryParse,
-		TablatureLine.TryParse,
-		LyricLine.Parse,
-	};
+	public static IEnumerable<Func<LineContext, Entry?>> ChordProLineParsers { get; }
+		= new Func<LineContext, Entry?>[]
+		{
+			ChordProRemarkLine.TryParse,
+			ChordProDirectiveLine.TryParse,
+			ChordProGridLine.TryParse,
+			ChordProLyricLine.TryParse,
+			TablatureLine.TryParse,
+			LyricLine.Parse,
+		};
+
+	/// <summary>
+	/// Gets an empty collection of groupers to use when processing input where grouping isn't desired.
+	/// </summary>
+	public static IEnumerable<Func<GroupContext, IReadOnlyList<Entry>>> Ungrouped { get; }
+		= Enumerable.Empty<Func<GroupContext, IReadOnlyList<Entry>>>();
 
 	#endregion
 

@@ -12,7 +12,7 @@ public sealed class LineContextTests
 
 		// The parser variable must be assigned something first so the CheckContext local method can safely capture the variable.
 		DocumentParser parser = null!;
-		parser = new(new[] { CheckContext });
+		parser = new(new[] { CheckContext }, DocumentParser.Ungrouped);
 
 		Document doc = Document.Parse("Line 1\nLine\t2\r\nLine 3\n  ", parser);
 		doc.ShouldNotBeNull();

@@ -3,6 +3,8 @@
 [TestClass]
 public sealed class DocumentParserTests
 {
+	#region Public Methods
+
 	[TestMethod]
 	public void ConvertTabsToSpaces()
 	{
@@ -16,4 +18,12 @@ public sealed class DocumentParserTests
 		DocumentParser.ConvertTabsToSpaces("xxx\tx", DocumentParser.DefaultTabWidth).ShouldBe("xxx x");
 		DocumentParser.ConvertTabsToSpaces("xxxx\tx", DocumentParser.DefaultTabWidth).ShouldBe("xxxx    x");
 	}
+
+	#endregion
+
+	#region Internal Methods
+
+	internal static DocumentParser Ungrouped() => new DocumentParser(groupers: DocumentParser.Ungrouped);
+
+	#endregion
 }

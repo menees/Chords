@@ -22,7 +22,7 @@ public class ChordProGridLineTests
 	public void TryParseValid()
 	{
 		const string Text = "| A . | D . | E . |";
-		Document doc = Document.Parse("{sog}\n" + Text + "\n{eog}\n" + Text);
+		Document doc = Document.Parse("{sog}\n" + Text + "\n{eog}\n" + Text, DocumentParserTests.Ungrouped());
 		doc.Entries.Count.ShouldBe(4);
 		doc.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().LongName.ShouldBe("start_of_grid");
 		doc.Entries[1].ShouldBeOfType<ChordProGridLine>().Text.ShouldBe(Text);

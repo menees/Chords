@@ -138,6 +138,9 @@ public static class GroupEntries
 			if (section != null)
 			{
 				result.Add(section.Count == 1 ? section[0] : new Section(section));
+#pragma warning disable IDE0059 // Unnecessary assignment of a value. Code may change later. It's safer to leave this to help maintainability.
+				section = null;
+#pragma warning restore IDE0059 // Unnecessary assignment of a value
 			}
 		}
 
@@ -181,6 +184,7 @@ public static class GroupEntries
 			if (section != null)
 			{
 				result.Add(section.Count == 1 ? section[0] : new Section(section));
+				section = null;
 			}
 		}
 
