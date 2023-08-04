@@ -39,7 +39,7 @@ public class ChordLineTests
 		static ChordLine Test(string text, params string[] expectedChordNames)
 		{
 			LineContext context = LineContextTests.Create(text);
-			ChordLine? line = ChordLine.TryParse(context).ShouldNotBeNull(text);
+			ChordLine line = ChordLine.TryParse(context).ShouldNotBeNull(text);
 			line.Segments.Count.ShouldBeGreaterThan(0);
 			line.ToString().ShouldBe(text);
 			line.Segments.OfType<ChordSegment>().Zip(expectedChordNames, (first, second) => (first, second))

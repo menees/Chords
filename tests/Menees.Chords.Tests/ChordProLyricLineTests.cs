@@ -61,15 +61,53 @@ public class ChordProLyricLineTests
 	[TestMethod]
 	public void ConvertChordLine()
 	{
-		// TODO: Finish ConvertChordLine. [Bill, 8/2/2023]
-		Assert.Fail();
+		Test(" D7        G  ", " [D7]        [G]  ");
+		Test("C       C*   G*", "[C]       [C*]   [G*]");
+		Test("A Bb B   (Half steps)", "[A] [Bb] [B]   (Half steps)");
+
+		static void Test(string text, string expectedText)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordLine line = ChordLine.TryParse(context).ShouldNotBeNull(text);
+			ChordProLyricLine actual = ChordProLyricLine.Convert(line);
+			actual.ToString().ShouldBe(expectedText);
+		}
 	}
 
 	[TestMethod]
 	public void ConvertChordLyricPair()
 	{
-		// TODO: Finish ConvertChordLyricPair. [Bill, 8/2/2023]
-		Assert.Fail();
+		Test(
+			"""
+			A        G
+			All right now
+			""",
+			"[A]All right[G] now");
+
+		Test(
+			"""
+			           D/F#      A
+			Baby, it's all right now
+			""",
+			"Baby, it's [D/F#]all right [A]now");
+
+		// TODO: Fix this test. [Bill, 8/3/2023]
+		Test(
+			"""
+			A5 Dadd11 D/A A5          A5       D/F#      A5
+			                There she stood in the street
+			""",
+			"[A5] [Dadd11] [D/A] [A5]There she [A5]stood in [D/F#]the street[A5]");
+
+		// TODO: Add test where chord line is longer than lyrics. [Bill, 8/3/2023]
+		static void Test(string chordLyricLines, string expectedText)
+		{
+			Document doc = Document.Parse(chordLyricLines);
+			doc.Entries.Count.ShouldBe(1);
+			ChordLyricPair pair = doc.Entries[0].ShouldBeOfType<ChordLyricPair>();
+			ChordProLyricLine actual = ChordProLyricLine.Convert(pair);
+			actual.ToString().ShouldBe(expectedText);
+		}
 	}
 
 	#endregion
