@@ -91,15 +91,27 @@ public class ChordProLyricLineTests
 			""",
 			"Baby, it's [D/F#]all right [A]now");
 
-		// TODO: Fix this test. [Bill, 8/3/2023]
 		Test(
 			"""
 			A5 Dadd11 D/A A5          A5       D/F#      A5
 			                There she stood in the street
 			""",
-			"[A5] [Dadd11] [D/A] [A5]There she [A5]stood in [D/F#]the street[A5]");
+			"[A5]   [Dadd11]       [D/A]    [A5]  There she [A5]stood in [D/F#]the street[A5]");
 
-		// TODO: Add test where chord line is longer than lyrics. [Bill, 8/3/2023]
+		Test(
+			"""
+			Dadd11   Cmaj7   A#m7
+			   Overlap is hard.
+			""",
+			"[Dadd11]   Overla[Cmaj7]p is har[A#m7]d.");
+
+		Test(
+			"""
+			      D          G    D
+			Swing low, sweet chariot,
+			""",
+			"Swing [D]low, sweet [G]chari[D]ot,");
+
 		static void Test(string chordLyricLines, string expectedText)
 		{
 			Document doc = Document.Parse(chordLyricLines);

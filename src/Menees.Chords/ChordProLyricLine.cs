@@ -62,7 +62,6 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		List<TextSegment> segments = new();
 		string lyricText = pair.Lyrics.Text;
 		int lyricIndex = 0;
-		int outputIndex = 0;
 
 		// Examples:
 		// A        G
@@ -73,32 +72,31 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		{
 			if (inputSegment is WhiteSpaceSegment whiteSpace)
 			{
-				AddLyricsOrPadding(whiteSpace.Text.Length);
-			}
-			else if (inputSegment is ChordSegment chordSegment)
-			{
-				string originalText = chordSegment.Text;
-				string bracketed = IsBracketed(originalText) ? originalText : $"[{originalText}]";
-				segments.Add(new ChordSegment(chordSegment.Chord, bracketed));
-				AddLyricsOrPadding(originalText.Length);
+				AddLyrics(whiteSpace.Text.Length);
 			}
 			else
 			{
+				string originalText = inputSegment.Text;
+				ChordSegment? chordSegment = inputSegment as ChordSegment;
+
 				// Format non-chord text from the chord line as a ChordPro [*text] annotation.
 				// https://www.chordpro.org/chordpro/chordpro-introduction/
-				string originalText = inputSegment.Text;
-				string bracketed = IsBracketed(originalText) ? originalText : $"[*{originalText}]";
-				segments.Add(new TextSegment(bracketed));
-				AddLyricsOrPadding(originalText.Length);
+				string marker = chordSegment is not null ? string.Empty : "*";
+				string bracketed = IsBracketed(originalText) ? originalText : $"[{marker}{originalText}]";
+
+				segments.Add(chordSegment is not null
+					? new ChordSegment(chordSegment.Chord, bracketed)
+					: new TextSegment(bracketed));
+				AddLyrics(originalText.Length);
 			}
 		}
 
 		if (lyricIndex < lyricText.Length)
 		{
-			AddLyricsOrPadding(lyricText.Length - lyricIndex);
+			AddLyrics(lyricText.Length - lyricIndex);
 		}
 
-		void AddLyricsOrPadding(int length)
+		void AddLyrics(int length)
 		{
 			if (lyricIndex + length <= lyricText.Length)
 			{
@@ -113,11 +111,14 @@ public sealed class ChordProLyricLine : SegmentedEntry
 				segments.Add(new WhiteSpaceSegment(new string(' ', padding)));
 				lyricIndex += remainingLyrics;
 			}
-
-			outputIndex += length;
 		}
 
-		// TODO: Remove trailing whitespace segments? [Bill, 8/3/2023]
+		// Remove trailing whitespace segment(s).
+		while (segments.Count > 0 && segments[^1] is WhiteSpaceSegment)
+		{
+			segments.RemoveAt(segments.Count - 1);
+		}
+
 		ChordProLyricLine result = new(segments);
 		result.AddAnnotations(pair.Chords.Annotations);
 		result.AddAnnotations(pair.Lyrics.Annotations);
