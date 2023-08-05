@@ -16,12 +16,13 @@ public sealed class Chord
 {
 	#region Constructors
 
-	internal Chord(string name, string root, IReadOnlyList<string> modifiers, string? bass, Notation notation)
+	internal Chord(string name, string root, IReadOnlyList<string> modifiers, string? bass, string? annotation, Notation notation)
 	{
 		this.Name = name;
 		this.Root = root;
 		this.Modifiers = modifiers;
 		this.Bass = bass;
+		this.Annotation = annotation;
 		this.Notation = notation;
 	}
 
@@ -41,7 +42,7 @@ public sealed class Chord
 	public string Root { get; }
 
 	/// <summary>
-	/// Gets any modifiers use in the chord <see cref="Name"/> between the <see cref="Root"/> and <see cref="Bass"/>.
+	/// Gets any modifiers used in the chord <see cref="Name"/> between the <see cref="Root"/> and <see cref="Bass"/>.
 	/// </summary>
 	public IReadOnlyList<string> Modifiers { get; }
 
@@ -51,6 +52,15 @@ public sealed class Chord
 	/// <seealso cref="Notation"/>
 	/// <seealso href="https://en.wikipedia.org/wiki/Chord_notation#Slash_chords"/>
 	public string? Bass { get; }
+
+	/// <summary>
+	/// Gets any short suffix used to indicate a footnote or special chord.
+	/// </summary>
+	/// <remarks>
+	/// This will typically be a single character like '*', '~', '←', '↑', '↓', or '→'.
+	/// This may be extended to allow other known multi-character suffxes in the future.
+	/// </remarks>
+	public string? Annotation { get; }
 
 	/// <summary>
 	/// Gets the notation system used to transcribe the chord.
@@ -134,7 +144,7 @@ public sealed class Chord
 					sb.Append(normalizedBass);
 				}
 
-				result = new(sb.ToString(), normalizedRoot, this.Modifiers, normalizedBass, this.Notation);
+				result = new(sb.ToString(), normalizedRoot, this.Modifiers, normalizedBass, this.Annotation, this.Notation);
 			}
 		}
 

@@ -24,7 +24,7 @@ public class ChordProLyricLineTests
 		Test("Comin’ for to [A7]carry me [D]home.", "A7", "D");
 		Test("[E]Dreaming, [A/C#]Dreaming, [B]Just go on", "E", "A/C#", "B");
 		Test("[Em]  [C]   [C/B]    [Am]", "Em", "C", "C/B", "Am");
-		Test("  [C]   [C*] [G*]", "C", "C", "G");
+		Test("  [C]   [C*] [G*]", "C", "C*", "G*");
 
 		static ChordProLyricLine Test(string text, params string[] expectedChordNames)
 		{
@@ -77,6 +77,7 @@ public class ChordProLyricLineTests
 	[TestMethod]
 	public void ConvertChordLyricPair()
 	{
+		// Chords and lyrics start together.
 		Test(
 			"""
 			A        G
@@ -84,6 +85,7 @@ public class ChordProLyricLineTests
 			""",
 			"[A]All right[G] now");
 
+		// Lyrics start before chords. Lyrics end after chords.
 		Test(
 			"""
 			           D/F#      A
@@ -91,6 +93,7 @@ public class ChordProLyricLineTests
 			""",
 			"Baby, it's [D/F#]all right [A]now");
 
+		// Chords start before lyrics. Chords end after lyrics.
 		Test(
 			"""
 			A5 Dadd11 D/A A5          A5       D/F#      A5
@@ -98,6 +101,7 @@ public class ChordProLyricLineTests
 			""",
 			"[A5]   [Dadd11]       [D/A]    [A5]  There she [A5]stood in [D/F#]the street[A5]");
 
+		// Chords overlap lyric word boundaries.
 		Test(
 			"""
 			Dadd11   Cmaj7   A#m7
@@ -105,12 +109,21 @@ public class ChordProLyricLineTests
 			""",
 			"[Dadd11]   Overla[Cmaj7]p is har[A#m7]d.");
 
+		// Lyrics start before chords. Lyrics end after chords. One chord is mid-word.
 		Test(
 			"""
 			      D          G    D
 			Swing low, sweet chariot,
 			""",
 			"Swing [D]low, sweet [G]chari[D]ot,");
+
+		// Use markup and annotations on each line.
+		Test(
+			"""
+			      D ↓        G↑   D*  (* Use higher D second time) D* = x57775
+			Swing low, sweet chariot,  ** Sing "low" as bass **
+			""",
+			"Swing [D]lo[*↓]w, sweet [G↑]chari[D*]ot, (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **");
 
 		static void Test(string chordLyricLines, string expectedText)
 		{

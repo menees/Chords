@@ -50,6 +50,12 @@ public sealed class ChordParser
 		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns
 	};
 
+	private static readonly ISet<char> KnownAnnotations = new HashSet<char>
+	{
+		// Note: If you add an entry here, also update the LineContext.EndOfLineAnnotationPattern regex.
+		'*', '~', '←', '↑', '↓', '→',
+	};
+
 	private readonly List<string> errors = new();
 	private Notation notation;
 	private int index;
@@ -227,6 +233,10 @@ public sealed class ChordParser
 
 			string? bass = this.TryParseBass();
 
+			// Allow chords to end with an asterisk or other short annotation
+			// since they probably relate to a comment or footnote later.
+			string? annotation = this.TryParseAnnotation();
+
 			if (this.index < this.Text.Length)
 			{
 				this.errors.Add($"Unsupported characters at the end of chord \"{this.Text}\": {this.Text.Substring(this.index)}");
@@ -234,7 +244,7 @@ public sealed class ChordParser
 
 			if (this.errors.Count == 0)
 			{
-				this.Chord = new(this.Text, root, modifiers, bass, this.notation);
+				this.Chord = new(this.Text, root, modifiers, bass, annotation, this.notation);
 			}
 		}
 		else
@@ -320,6 +330,20 @@ public sealed class ChordParser
 				result = this.Text.Substring(startIndex, bassLength);
 				this.index = startIndex + bassLength;
 			}
+		}
+
+		return result;
+	}
+
+	private string? TryParseAnnotation()
+	{
+		string? result = null;
+
+		char? ch = this.Peek();
+		if (ch != null && KnownAnnotations.Contains(ch.Value))
+		{
+			result = ch.ToString();
+			this.index++;
 		}
 
 		return result;
