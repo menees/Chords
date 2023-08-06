@@ -105,6 +105,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			}
 			else
 			{
+				// Whitespace is significant. See comments in ConvertChordLyricPair unit test.
 				int remainingLyrics = Math.Max(0, lyricText.Length - lyricIndex);
 				int padding = length - remainingLyrics;
 				segments.Add(new TextSegment(lyricText.Substring(lyricIndex, remainingLyrics)));

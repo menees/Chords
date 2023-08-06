@@ -94,6 +94,13 @@ public class ChordProLyricLineTests
 			"Baby, it's [D/F#]all right [A]now");
 
 		// Chords start before lyrics. Chords end after lyrics.
+		// The leading lyric whitespace is significant. We need to preserve WS gaps wide
+		// enough for the chords to go over when the ChordProLyricLine is rendered as
+		// chords-over-text. Technically, we could collapse the WS between two chords
+		// (e.g., between [A5] and [Dadd11] in this example), but we can't collapse WS
+		// between chords and text (e.g., [A5] and "There"). Most renderers would expand
+		// the WS between two chords so they didn't overlap, but we must have two spaces
+		// to ensure that A5 displays over the spaces and prior to the lyrics starting.
 		Test(
 			"""
 			A5 Dadd11 D/A A5          A5       D/F#      A5

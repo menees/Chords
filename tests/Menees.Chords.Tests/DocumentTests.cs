@@ -73,7 +73,12 @@ public class DocumentTests
 	{
 		document.Entries.Count.ShouldBe(9);
 
-		// TODO: Test more. [Bill, 8/6/2023]
+		document.Entries[0].ShouldBeOfType<Section>()
+			.Entries[0].ShouldBeOfType<Comment>()
+			.Text.ShouldBe("A simple ChordPro song.");
+
+		document.Entries[8].ShouldBeOfType<ChordProDirectiveLine>()
+			.Name.ShouldBe("comment");
 	}
 
 	#endregion
