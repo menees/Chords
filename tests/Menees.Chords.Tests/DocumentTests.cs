@@ -1,15 +1,29 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
+using System;
+using System.IO;
 using Menees.Chords.Parsers;
 using Shouldly;
+
+#endregion
 
 [TestClass]
 public class DocumentTests
 {
+	#region Private Data Members
+
+	private static readonly string SwingLogSweetChariotFileName = GetSampleFileName("Swing Low Sweet Chariot.cho");
+
+	#endregion
+
+	#region Public Methods
+
 	[TestMethod]
 	public void ChordProLineParsers()
 	{
-		DocumentParser parser = new DocumentParser(DocumentParser.ChordProLineParsers);
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers);
 		Document document = Document.Parse(
 			"""
 			[Verse]
@@ -28,18 +42,39 @@ public class DocumentTests
 	[TestMethod]
 	public void LoadFile()
 	{
-		Assert.Fail();
+		Document document = Document.Load(SwingLogSweetChariotFileName);
+		TestSwingLowSweetChariot(document);
 	}
 
 	[TestMethod]
 	public void LoadReader()
 	{
-		Assert.Fail();
+		using StreamReader reader = new(SwingLogSweetChariotFileName);
+		Document document = Document.Load(reader);
+		TestSwingLowSweetChariot(document);
 	}
 
 	[TestMethod]
 	public void Parse()
 	{
-		Assert.Fail();
+		string text = File.ReadAllText(SwingLogSweetChariotFileName);
+		Document document = Document.Parse(text);
+		TestSwingLowSweetChariot(document);
 	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static string GetSampleFileName(string fileName)
+		=> Path.Combine("Samples", fileName);
+
+	private static void TestSwingLowSweetChariot(Document document)
+	{
+		document.Entries.Count.ShouldBe(9);
+
+		// TODO: Test more. [Bill, 8/6/2023]
+	}
+
+	#endregion
 }

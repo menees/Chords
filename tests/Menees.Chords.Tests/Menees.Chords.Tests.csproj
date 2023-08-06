@@ -5,6 +5,14 @@
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>
 	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="Samples\Swing Low Sweet Chariot.cho" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Content Include="Samples\Swing Low Sweet Chariot.cho">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\src\Menees.Chords\Menees.Chords.csproj" />
@@ -12,6 +20,6 @@
 
 	<ItemGroup>
 		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
-		<Using Include="Shouldly"/>
+		<Using Include="Shouldly" />
 	</ItemGroup>
 </Project>
