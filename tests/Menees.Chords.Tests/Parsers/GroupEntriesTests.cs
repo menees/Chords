@@ -40,18 +40,30 @@ public class GroupEntriesTests
 			I'm [Cadd9]wanted[G]  [F]dead or [D]alive
 			[Cadd9]Wanted[G]  [F]dead or [D]alive
 			{end_of_chorus}
+
+			{start_of_tab}
+			A|---0-0|
 			""",
 			GroupEntries.ByChordProEnvironment);
 
-		entries.Count.ShouldBe(3);
+		entries.Count.ShouldBe(5);
 		Section section = entries[0].ShouldBeOfType<Section>();
 		section.Entries.Count.ShouldBe(7);
 		section.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().ShortName.ShouldBe("sov");
 
 		entries[1].ShouldBeOfType<BlankLine>();
+
 		section = entries[2].ShouldBeOfType<Section>();
 		section.Entries.Count.ShouldBe(5);
 		section.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().ShortName.ShouldBe("soc");
+
+		entries[3].ShouldBeOfType<BlankLine>();
+
+		// The last environment is unclosed because it's missing an end_of_tab directive.
+		// However, the ByBlankLine grouper will make it into its own section.
+		section = entries[4].ShouldBeOfType<Section>();
+		section.Entries.Count.ShouldBe(2);
+		section.Entries[0].ShouldBeOfType<ChordProDirectiveLine>().ShortName.ShouldBe("sot");
 	}
 
 	[TestMethod]

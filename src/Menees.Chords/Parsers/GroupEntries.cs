@@ -112,39 +112,48 @@ public static class GroupEntries
 	public static IReadOnlyList<Entry> ByHeaderLine(GroupContext context)
 	{
 		IReadOnlyList<Entry> entries = context.Entries;
-		int entryCount = entries.Count;
-		List<Entry> result = new(entryCount);
-
-		List<Entry>? section = null;
-		for (int index = 0; index < entryCount; index++)
+		IReadOnlyList<Entry> result;
+		if (!entries.OfType<HeaderLine>().Any())
 		{
-			Entry entry = entries[index];
-
-			if (entry is HeaderLine header)
-			{
-				FinishSection();
-				section = new() { header };
-			}
-			else
-			{
-				AddEntry(entry);
-			}
+			result = entries;
 		}
-
-		FinishSection();
-
-		void FinishSection()
+		else
 		{
-			if (section != null)
+			int entryCount = entries.Count;
+			List<Entry> grouped = new(entryCount);
+			result = grouped;
+
+			List<Entry>? section = null;
+			for (int index = 0; index < entryCount; index++)
 			{
-				result.Add(section.Count == 1 ? section[0] : new Section(section));
+				Entry entry = entries[index];
+
+				if (entry is HeaderLine header)
+				{
+					FinishSection();
+					section = new() { header };
+				}
+				else
+				{
+					AddEntry(entry);
+				}
+			}
+
+			FinishSection();
+
+			void FinishSection()
+			{
+				if (section != null)
+				{
+					grouped.Add(section.Count == 1 ? section[0] : new Section(section));
 #pragma warning disable IDE0059 // Unnecessary assignment of a value. Code may change later. It's safer to leave this to help maintainability.
-				section = null;
+					section = null;
 #pragma warning restore IDE0059 // Unnecessary assignment of a value
+				}
 			}
-		}
 
-		void AddEntry(Entry entry) => (section ?? result).Add(entry);
+			void AddEntry(Entry entry) => (section ?? grouped).Add(entry);
+		}
 
 		return result;
 	}
@@ -157,38 +166,47 @@ public static class GroupEntries
 	public static IReadOnlyList<Entry> ByBlankLine(GroupContext context)
 	{
 		IReadOnlyList<Entry> entries = context.Entries;
-		int entryCount = entries.Count;
-		List<Entry> result = new(entryCount);
-
-		List<Entry>? section = null;
-		for (int index = 0; index < entryCount; index++)
+		IReadOnlyList<Entry> result;
+		if (!entries.OfType<BlankLine>().Any())
 		{
-			Entry entry = entries[index];
-
-			if (entry is BlankLine or Section)
-			{
-				FinishSection();
-				AddEntry(entry);
-			}
-			else
-			{
-				section ??= new();
-				AddEntry(entry);
-			}
+			result = entries;
 		}
-
-		FinishSection();
-
-		void FinishSection()
+		else
 		{
-			if (section != null)
-			{
-				result.Add(section.Count == 1 ? section[0] : new Section(section));
-				section = null;
-			}
-		}
+			int entryCount = entries.Count;
+			List<Entry> grouped = new(entryCount);
+			result = grouped;
 
-		void AddEntry(Entry entry) => (section ?? result).Add(entry);
+			List<Entry>? section = null;
+			for (int index = 0; index < entryCount; index++)
+			{
+				Entry entry = entries[index];
+
+				if (entry is BlankLine or Section)
+				{
+					FinishSection();
+					AddEntry(entry);
+				}
+				else
+				{
+					section ??= new();
+					AddEntry(entry);
+				}
+			}
+
+			FinishSection();
+
+			void FinishSection()
+			{
+				if (section != null)
+				{
+					grouped.Add(section.Count == 1 ? section[0] : new Section(section));
+					section = null;
+				}
+			}
+
+			void AddEntry(Entry entry) => (section ?? grouped).Add(entry);
+		}
 
 		return result;
 	}
