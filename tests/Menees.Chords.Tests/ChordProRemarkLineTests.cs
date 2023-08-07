@@ -6,7 +6,7 @@ using Menees.Chords.Parsers;
 public class ChordProRemarkLineTests
 {
 	[TestMethod]
-	public void TryParse()
+	public void TryParseTest()
 	{
 		Test("Not a remark", false);
 		Test("# Remark", true);

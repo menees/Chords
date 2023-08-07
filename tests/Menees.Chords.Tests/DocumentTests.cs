@@ -12,16 +12,10 @@ using Shouldly;
 [TestClass]
 public class DocumentTests
 {
-	#region Private Data Members
-
-	private static readonly string SwingLogSweetChariotFileName = GetSampleFileName("Swing Low Sweet Chariot.cho");
-
-	#endregion
-
 	#region Public Methods
 
 	[TestMethod]
-	public void ChordProLineParsers()
+	public void ChordProLineParsersTest()
 	{
 		DocumentParser parser = new(DocumentParser.ChordProLineParsers);
 		Document document = Document.Parse(
@@ -40,24 +34,24 @@ public class DocumentTests
 	}
 
 	[TestMethod]
-	public void LoadFile()
+	public void LoadFileTest()
 	{
-		Document document = Document.Load(SwingLogSweetChariotFileName);
+		Document document = Document.Load(TestUtility.SwingLowSweetChariotFileName);
 		TestSwingLowSweetChariot(document);
 	}
 
 	[TestMethod]
-	public void LoadReader()
+	public void LoadReaderTest()
 	{
-		using StreamReader reader = new(SwingLogSweetChariotFileName);
+		using StreamReader reader = new(TestUtility.SwingLowSweetChariotFileName);
 		Document document = Document.Load(reader);
 		TestSwingLowSweetChariot(document);
 	}
 
 	[TestMethod]
-	public void Parse()
+	public void ParseTest()
 	{
-		string text = File.ReadAllText(SwingLogSweetChariotFileName);
+		string text = File.ReadAllText(TestUtility.SwingLowSweetChariotFileName);
 		Document document = Document.Parse(text);
 		TestSwingLowSweetChariot(document);
 	}
@@ -65,9 +59,6 @@ public class DocumentTests
 	#endregion
 
 	#region Private Methods
-
-	private static string GetSampleFileName(string fileName)
-		=> Path.Combine("Samples", fileName);
 
 	private static void TestSwingLowSweetChariot(Document document)
 	{

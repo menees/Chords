@@ -10,7 +10,7 @@ using System.Linq;
 /// <summary>
 /// An explicit or implicit group of <see cref="Entry"/>s within a <see cref="Document"/>.
 /// </summary>
-public sealed class Section : Entry
+public sealed class Section : Entry, IEntryContainer
 {
 	#region Constructors
 
@@ -28,7 +28,7 @@ public sealed class Section : Entry
 	#region Public Properties
 
 	/// <summary>
-	/// Gets the entries within the current section.
+	/// Gets the ordered collection of entries within the current section.
 	/// </summary>
 	public IReadOnlyList<Entry> Entries { get; }
 

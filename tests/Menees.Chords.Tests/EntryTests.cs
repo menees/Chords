@@ -6,7 +6,7 @@ public class EntryTests
 	#region Public Methods
 
 	[TestMethod]
-	public void Annotations()
+	public void AnnotationsTest()
 	{
 		TestEntry testEntry = new(new Comment("Testing"), new LyricLine("Lyrics!"));
 		testEntry.Annotations.Count.ShouldBe(2);

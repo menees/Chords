@@ -4,7 +4,7 @@
 public class ChordDefinitionTests
 {
 	[TestMethod]
-	public void TryParseValid()
+	public void TryParseValidTest()
 	{
 		Test("Am", "x02210", null, 0, 2, 2, 1, 0);
 		Test("A/C#", "x42220", null, 4, 2, 2, 2, 0);
@@ -26,7 +26,7 @@ public class ChordDefinitionTests
 	}
 
 	[TestMethod]
-	public void TryParseInvalid()
+	public void TryParseInvalidTest()
 	{
 		ChordDefinition.TryParse("?", "0000").ShouldBeNull();
 		ChordDefinition.TryParse("Open", "0000").ShouldBeNull();

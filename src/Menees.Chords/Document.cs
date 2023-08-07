@@ -12,11 +12,11 @@ using Menees.Chords.Parsers;
 /// The parsed body of a chord sheet file or text stream as an
 /// immutable, ordered collection of <see cref="Entry"/>s.
 /// </summary>
-public sealed class Document
+public sealed class Document : IEntryContainer
 {
 	#region Constructors
 
-	private Document(IReadOnlyList<Entry> entries, string? fileName)
+	internal Document(IReadOnlyList<Entry> entries, string? fileName)
 	{
 		this.Entries = entries;
 		this.FileName = fileName;

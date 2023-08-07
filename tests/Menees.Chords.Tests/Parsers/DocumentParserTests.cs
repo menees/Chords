@@ -6,7 +6,7 @@ public sealed class DocumentParserTests
 	#region Public Methods
 
 	[TestMethod]
-	public void ConvertTabsToSpaces()
+	public void ConvertTabsToSpacesTest()
 	{
 		DocumentParser.ConvertTabsToSpaces(null, DocumentParser.DefaultTabWidth).ShouldBeNull();
 		DocumentParser.ConvertTabsToSpaces(string.Empty, 3).ShouldBeEmpty();

@@ -4,7 +4,7 @@
 public class TokenTests
 {
 	[TestMethod]
-	public void ConstructorDefaults()
+	public void ConstructorDefaultsTest()
 	{
 		// Other tests ensure the constructor works when all args are specified.
 		// So, we'll just check the defaulted arg logic here.
@@ -18,7 +18,7 @@ public class TokenTests
 	}
 
 	[TestMethod]
-	public void Properties()
+	public void PropertiesTest()
 	{
 		Token token = default;
 		token.Text.ShouldBe(string.Empty);
@@ -32,7 +32,7 @@ public class TokenTests
 	}
 
 	[TestMethod]
-	public void Operators()
+	public void OperatorsTest()
 	{
 		// The default token has a null this.text member, and here we pass in "".
 		Token empty = new(string.Empty, TokenType.None, 0);

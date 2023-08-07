@@ -6,7 +6,7 @@ using Menees.Chords.Parsers;
 public class TablatureLineTests
 {
 	[TestMethod]
-	public void TryParseFormat()
+	public void TryParseFormatTest()
 	{
 		Test("e|--1--", "e");
 		Test("B|--1--|", "B");
@@ -35,7 +35,7 @@ public class TablatureLineTests
 	}
 
 	[TestMethod]
-	public void TryParseEnvironment()
+	public void TryParseEnvironmentTest()
 	{
 		Document doc = Document.Parse("{start_of_tab}\n|--1-2-3---|\n{end_of_tab}\nNot tab");
 		doc.Entries.Count.ShouldBe(2);

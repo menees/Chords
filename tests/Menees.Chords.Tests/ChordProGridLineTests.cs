@@ -7,7 +7,7 @@ using Shouldly;
 public class ChordProGridLineTests
 {
 	[TestMethod]
-	public void TryParseInvalid()
+	public void TryParseInvalidTest()
 	{
 		const string Text = "|| A . . . | E . . . |";
 		LineContext context = LineContextTests.Create(Text);
@@ -19,7 +19,7 @@ public class ChordProGridLineTests
 	}
 
 	[TestMethod]
-	public void TryParseValid()
+	public void TryParseValidTest()
 	{
 		const string Text = "| A . | D . | E . |";
 		Document doc = Document.Parse("{sog}\n" + Text + "\n{eog}\n" + Text, DocumentParserTests.Ungrouped());

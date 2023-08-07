@@ -4,7 +4,7 @@
 public class TextEntryTests
 {
 	[TestMethod]
-	public void Text()
+	public void TextTest()
 	{
 		const string Expected = " Testing\t";
 		LyricLine line = new(Expected);

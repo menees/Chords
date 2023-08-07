@@ -6,7 +6,7 @@ public sealed class LineContextTests
 	#region Public Methods
 
 	[TestMethod]
-	public void LineNumber()
+	public void LineNumberTest()
 	{
 		int expectedLineNumber = 0;
 
@@ -33,7 +33,7 @@ public sealed class LineContextTests
 	}
 
 	[TestMethod]
-	public void CreateLexer()
+	public void CreateLexerTest()
 	{
 		LineContext context = Create("Test");
 
@@ -51,7 +51,7 @@ public sealed class LineContextTests
 	}
 
 	[TestMethod]
-	public void CreateLexerWithAnnotations()
+	public void CreateLexerWithAnnotationsTest()
 	{
 		Test("This (a) has (comment)", "This (a) has ", new[] { "(comment)" });
 		Test("This (also) has one ** here **", "This (also) has one ", new[] { "** here **" });

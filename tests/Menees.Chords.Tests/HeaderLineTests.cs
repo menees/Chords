@@ -6,7 +6,7 @@ using Menees.Chords.Parsers;
 public class HeaderLineTests
 {
 	[TestMethod]
-	public void TryParseValid()
+	public void TryParseValidTest()
 	{
 		// "Alone With You - Outfield.docx" has some inside the brackets. Also, "Jack and Diane - John Mellencamp.txt"
 		// "Line A Stone - Original.docx" has some outside the brackets. Also, "Authority Song - John Mellencamp.docx"
@@ -34,7 +34,7 @@ public class HeaderLineTests
 	}
 
 	[TestMethod]
-	public void TryParseInvalid()
+	public void TryParseInvalidTest()
 	{
 		Test("Not a header");
 		Test("[A#]");

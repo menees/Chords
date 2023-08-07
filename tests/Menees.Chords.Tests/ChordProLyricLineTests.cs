@@ -12,7 +12,7 @@ public class ChordProLyricLineTests
 	#region Public Methods
 
 	[TestMethod]
-	public void TryParseValid()
+	public void TryParseValidTest()
 	{
 		Test("Swing [D]low, sweet [G]chari[D]ot,", "D", "G", "D");
 		Test("Comin’ for to carry me [A7]home.", "A7");
@@ -39,7 +39,7 @@ public class ChordProLyricLineTests
 	}
 
 	[TestMethod]
-	public void TryParseInvalid()
+	public void TryParseInvalidTest()
 	{
 		Test("A test line");
 		Test("B# N.C.");
@@ -59,7 +59,7 @@ public class ChordProLyricLineTests
 	}
 
 	[TestMethod]
-	public void ConvertChordLine()
+	public void ConvertChordLineTest()
 	{
 		Test(" D7        G  ", " [D7]        [G]  ");
 		Test("C       C*   G*", "[C]       [C*]   [G*]");
@@ -75,7 +75,7 @@ public class ChordProLyricLineTests
 	}
 
 	[TestMethod]
-	public void ConvertChordLyricPair()
+	public void ConvertChordLyricPairTest()
 	{
 		// Chords and lyrics start together.
 		Test(

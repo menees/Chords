@@ -6,7 +6,7 @@ using Menees.Chords.Parsers;
 public class ChordDefinitionsTests
 {
 	[TestMethod]
-	public void TryParseValid()
+	public void TryParseValidTest()
 	{
 		Test1("A/C# _4222_", "A/C# x4222x");
 		Test1("C# = x46664", "C# x46664");
@@ -28,7 +28,7 @@ public class ChordDefinitionsTests
 	}
 
 	[TestMethod]
-	public void TryParseInvalid()
+	public void TryParseInvalidTest()
 	{
 		Test("C#");
 		Test("This has A = x02220 in it.");

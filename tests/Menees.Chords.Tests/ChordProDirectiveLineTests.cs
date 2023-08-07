@@ -6,7 +6,7 @@ using Menees.Chords.Parsers;
 public class ChordProDirectiveLineTests
 {
 	[TestMethod]
-	public void TryParse()
+	public void TryParseTest()
 	{
 		Test("{name}", "name");
 		Test("{name: argument}", "name", "argument");

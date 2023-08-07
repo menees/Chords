@@ -12,7 +12,7 @@ public class CommentTests
 	}
 
 	[TestMethod]
-	public void TryParse()
+	public void TryParseTest()
 	{
 		Test("Not a comment", null);
 		Test("I like C#", null);

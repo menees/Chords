@@ -6,7 +6,7 @@ public class LexerTests
 	#region Public Methods
 
 	[TestMethod]
-	public void Read()
+	public void ReadTest()
 	{
 		Test(string.Empty);
 		Test("   ", new Token("   ", TokenType.WhiteSpace, 0));
@@ -55,7 +55,7 @@ public class LexerTests
 	}
 
 	[TestMethod]
-	public void ReadSkipLeadingWhiteSpace()
+	public void ReadSkipLeadingWhiteSpaceTest()
 	{
 		Lexer lexer = new("Test");
 		lexer.Read(skipLeadingWhiteSpace: true).ShouldBeTrue();
@@ -73,7 +73,7 @@ public class LexerTests
 	}
 
 	[TestMethod]
-	public void ReadToEnd()
+	public void ReadToEndTest()
 	{
 		Lexer lexer = new("  A [B] C  ");
 		lexer.ReadToEnd().ShouldBe("  A [B] C  ");
@@ -90,7 +90,7 @@ public class LexerTests
 	}
 
 	[TestMethod]
-	public void Reset()
+	public void ResetTest()
 	{
 		Lexer lexer = new("abc");
 		lexer.Read().ShouldBeTrue();

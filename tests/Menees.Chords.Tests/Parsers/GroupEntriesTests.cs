@@ -6,7 +6,7 @@ public class GroupEntriesTests
 	#region Public Methods
 
 	[TestMethod]
-	public void ByChordLinePair()
+	public void ByChordLinePairTest()
 	{
 		IReadOnlyList<Entry> entries = GetEntries(
 			"""
@@ -23,7 +23,7 @@ public class GroupEntriesTests
 	}
 
 	[TestMethod]
-	public void ByChordProEnvironment()
+	public void ByChordProEnvironmentTest()
 	{
 		IReadOnlyList<Entry> entries = GetEntries(
 			"""
@@ -67,7 +67,7 @@ public class GroupEntriesTests
 	}
 
 	[TestMethod]
-	public void ByHeaderLine()
+	public void ByHeaderLineTest()
 	{
 		IReadOnlyList<Entry> entries = GetEntries(
 			"""
@@ -92,7 +92,7 @@ public class GroupEntriesTests
 	}
 
 	[TestMethod]
-	public void ByBlankLine()
+	public void ByBlankLineTest()
 	{
 		IReadOnlyList<Entry> entries = GetEntries(
 			"""

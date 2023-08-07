@@ -12,7 +12,7 @@ public class ChordParserTests
 	#region Public Methods
 
 	[TestMethod]
-	public void GetNoteLength()
+	public void GetNoteLengthTest()
 	{
 		ChordParser.GetNoteLength(string.Empty).ShouldBe(0);
 		ChordParser.GetNoteLength("X").ShouldBe(0);
@@ -37,7 +37,7 @@ public class ChordParserTests
 	}
 
 	[TestMethod]
-	public void Valid()
+	public void ValidTest()
 	{
 		Test("A");
 		Test("D/F#", root: "D", bass: "F#");
@@ -83,7 +83,7 @@ public class ChordParserTests
 	}
 
 	[TestMethod]
-	public void Invalid()
+	public void InvalidTest()
 	{
 		Test("Not");
 		Test("A/");

@@ -13,7 +13,7 @@ public class ChordLineTests
 	#region Public Methods
 
 	[TestMethod]
-	public void TryParseValid()
+	public void TryParseValidTest()
 	{
 		Test("Em          C     C/B          Am", "Em", "C", "C/B", "Am");
 		Test("         Am               B", "Am", "B");
@@ -66,7 +66,7 @@ public class ChordLineTests
 	}
 
 	[TestMethod]
-	public void TryParseInvalid()
+	public void TryParseInvalidTest()
 	{
 		Test("A test line");
 		Test("From N.C.");

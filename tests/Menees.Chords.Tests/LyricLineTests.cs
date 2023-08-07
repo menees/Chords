@@ -14,7 +14,7 @@ public class LyricLineTests
 	}
 
 	[TestMethod]
-	public void Parse()
+	public void ParseTest()
 	{
 		LineContext context = LineContextTests.Create("Testing");
 		LyricLine.Parse(context).Text.ShouldBe("Testing");

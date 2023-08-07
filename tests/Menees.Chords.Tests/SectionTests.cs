@@ -4,7 +4,7 @@
 public class SectionTests
 {
 	[TestMethod]
-	public void Section()
+	public void SectionTest()
 	{
 		LyricLine line1 = new("Line 1");
 		LyricLine line2 = new("Line 2");

@@ -4,7 +4,7 @@
 public class ChordTests
 {
 	[TestMethod]
-	public void Parse()
+	public void ParseTest()
 	{
 		Chord.Parse("d").Name.ShouldBe("d");
 		Chord.Parse("Bb").Name.ShouldBe("Bb");
@@ -13,7 +13,7 @@ public class ChordTests
 	}
 
 	[TestMethod]
-	public void TryParse()
+	public void TryParseTest()
 	{
 		Chord.TryParse("Nope", out Chord? chord).ShouldBeFalse();
 
@@ -30,7 +30,7 @@ public class ChordTests
 	}
 
 	[TestMethod]
-	public void Normalize()
+	public void NormalizeTest()
 	{
 		Test("B#", "C");
 		Test("E#/Cb", "F/B");

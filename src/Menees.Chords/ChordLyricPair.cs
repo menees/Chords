@@ -1,9 +1,15 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
+using System.Collections.Generic;
+
+#endregion
+
 /// <summary>
 /// A sequential <see cref="ChordLine"/> and <see cref="LyricLine"/> pair.
 /// </summary>
-public sealed class ChordLyricPair : Entry
+public sealed class ChordLyricPair : Entry, IEntryContainer
 {
 	#region Constructors
 
@@ -31,6 +37,8 @@ public sealed class ChordLyricPair : Entry
 	/// Gets the line of lyrics.
 	/// </summary>
 	public LyricLine Lyrics { get; }
+
+	IReadOnlyList<Entry> IEntryContainer.Entries => new Entry[] { this.Chords, this.Lyrics };
 
 	#endregion
 
