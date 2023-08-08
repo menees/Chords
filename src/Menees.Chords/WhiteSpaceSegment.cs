@@ -14,6 +14,9 @@ public sealed class WhiteSpaceSegment : TextSegment
 	public WhiteSpaceSegment(string whiteSpace)
 		: base(whiteSpace)
 	{
+		Conditions.RequireArgument(
+			whiteSpace != null && whiteSpace.Length > 0 && string.IsNullOrWhiteSpace(whiteSpace),
+			"Text must be non-empty whitespace.");
 	}
 
 	#endregion

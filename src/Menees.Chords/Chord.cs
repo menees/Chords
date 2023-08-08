@@ -79,6 +79,8 @@ public sealed class Chord
 	/// <exception cref="FormatException"><paramref name="text"/> is not a valid chord name.</exception>
 	public static Chord Parse(string text)
 	{
+		Conditions.RequireNonWhiteSpace(text);
+
 		ChordParser parser = new(text ?? string.Empty);
 		if (parser.Chord is null)
 		{

@@ -34,6 +34,8 @@ public sealed class ChordProGridLine : TextEntry
 	/// <returns>A new instance if the line is inside a start_of_grid section that hasn't had a matching end_of_grid.</returns>
 	public static ChordProGridLine? TryParse(LineContext context)
 	{
+		Conditions.RequireReference(context);
+
 		ChordProGridLine? result = null;
 
 		// The ChordPro grid line syntax is very loose, and ChordPro's examples include things

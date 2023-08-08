@@ -112,6 +112,8 @@ public sealed class ChordProDirectiveLine : Entry
 	/// <returns>A new instance if the line is in "{name}" or "{name: argument}" format.</returns>
 	public static ChordProDirectiveLine? TryParse(LineContext context)
 	{
+		Conditions.RequireReference(context);
+
 		ChordProDirectiveLine? result = null;
 
 		Lexer lexer = context.CreateLexer();

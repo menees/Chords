@@ -121,6 +121,8 @@ public sealed class ChordParser
 	/// <returns>1 for a single letter note match (e.g., A, G), 2 for a sharp or flat match (e.g., A#, Bb), or 0 if no match.</returns>
 	public static int GetNoteLength(string text, int startIndex = 0)
 	{
+		Conditions.RequireReference(text);
+
 		int result = 0;
 
 		if (text.Length > startIndex)

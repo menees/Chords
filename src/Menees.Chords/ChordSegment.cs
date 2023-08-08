@@ -16,7 +16,8 @@ public sealed class ChordSegment : TextSegment
 	public ChordSegment(Chord chord, string? text = null)
 		: base(text ?? chord?.Name!)
 	{
-		this.Chord = chord ?? throw new ArgumentNullException(nameof(chord));
+		Conditions.RequireReference(chord);
+		this.Chord = chord;
 	}
 
 	#endregion

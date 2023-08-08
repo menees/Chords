@@ -51,7 +51,7 @@ public sealed class Document : IEntryContainer
 	/// <returns>A new document instance.</returns>
 	public static Document Load(string fileName, DocumentParser? parser = null)
 	{
-		// TODO: Add Conditions checks everywhere. [Bill, 8/7/2023]
+		Conditions.RequireNonWhiteSpace(fileName);
 		parser ??= new();
 		using StreamReader reader = new(fileName);
 		IReadOnlyList<Entry> entries = parser.Parse(reader);
@@ -67,6 +67,8 @@ public sealed class Document : IEntryContainer
 	/// <returns>A new document instance.</returns>
 	public static Document Load(TextReader reader, DocumentParser? parser = null)
 	{
+		Conditions.RequireReference(reader);
+
 		parser ??= new();
 		IReadOnlyList<Entry> entries = parser.Parse(reader);
 		Document result = new(entries, null);
@@ -81,6 +83,8 @@ public sealed class Document : IEntryContainer
 	/// <returns>A new document instance.</returns>
 	public static Document Parse(string text, DocumentParser? parser = null)
 	{
+		Conditions.RequireNonWhiteSpace(text);
+
 		parser ??= new();
 		using StringReader reader = new(text);
 		IReadOnlyList<Entry> entries = parser.Parse(reader);

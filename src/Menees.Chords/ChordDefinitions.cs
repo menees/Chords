@@ -40,6 +40,8 @@ public sealed class ChordDefinitions : Entry
 	/// <returns>A new instance of the line was parsed as a sequence of chord definitions. Null otherwise.</returns>
 	public static ChordDefinitions? TryParse(LineContext context)
 	{
+		Conditions.RequireReference(context);
+
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
 
 		ChordDefinitions? result = annotations.OfType<ChordDefinitions>().FirstOrDefault();

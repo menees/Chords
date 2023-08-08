@@ -51,6 +51,8 @@ public sealed class Comment : TextEntry
 	/// <returns>A new comment if the line starts with "#", "*", or is surrounded by parentheses.</returns>
 	public static Comment? TryParse(LineContext context)
 	{
+		Conditions.RequireReference(context);
+
 		Comment? result = null;
 
 		Lexer lexer = context.CreateLexer();

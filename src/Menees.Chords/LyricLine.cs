@@ -36,6 +36,8 @@ public sealed class LyricLine : TextEntry
 	/// <returns>A new instance.</returns>
 	public static LyricLine Parse(LineContext context)
 	{
+		Conditions.RequireReference(context);
+
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
 		string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
 

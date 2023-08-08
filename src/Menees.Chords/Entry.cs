@@ -78,6 +78,7 @@ public abstract class Entry
 	/// <param name="annotation">The sub-entry to add.</param>
 	protected void AddAnnotation(Entry annotation)
 	{
+		Conditions.RequireReference(annotation);
 		this.annotations ??= new();
 		this.annotations.Add(annotation);
 	}
@@ -88,6 +89,7 @@ public abstract class Entry
 	/// <param name="annotations">The sub-entries to add.</param>
 	protected void AddAnnotations(IEnumerable<Entry> annotations)
 	{
+		Conditions.RequireReference(annotations);
 		this.annotations ??= new();
 		this.annotations.AddRange(annotations);
 	}

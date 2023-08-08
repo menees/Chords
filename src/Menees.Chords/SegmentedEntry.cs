@@ -28,6 +28,7 @@ public abstract class SegmentedEntry : Entry
 	/// <param name="segments">The segments that make up the current line.</param>
 	protected SegmentedEntry(IReadOnlyList<TextSegment> segments)
 	{
+		Conditions.RequireCollection(segments);
 		this.Segments = segments;
 	}
 
@@ -92,6 +93,8 @@ public abstract class SegmentedEntry : Entry
 		Func<Token, TextSegment?>? getSegment,
 		out IReadOnlyList<Entry> annotations)
 	{
+		Conditions.RequireReference(context);
+
 		List<TextSegment> result = new();
 		TokenType chordTokenType = requiredBracketedChords ? TokenType.Bracketed : TokenType.Text;
 

@@ -30,6 +30,8 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new ChordPro line with bracketed chords.</returns>
 	public static ChordProLyricLine Convert(ChordLine chords)
 	{
+		Conditions.RequireReference(chords);
+
 		List<TextSegment> segments = new(chords.Segments.Count);
 
 		foreach (TextSegment segment in chords.Segments)
@@ -59,6 +61,8 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new ChordPro lyric line with bracketed chords inline with lyrics.</returns>
 	public static ChordProLyricLine Convert(ChordLyricPair pair)
 	{
+		Conditions.RequireReference(pair);
+
 		List<TextSegment> segments = new();
 		string lyricText = pair.Lyrics.Text;
 		int lyricIndex = 0;
@@ -100,7 +104,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		{
 			if (lyricIndex + length <= lyricText.Length)
 			{
-				segments.Add(new TextSegment(lyricText.Substring(lyricIndex, length)));
+				segments.Add(TextSegment.Create(lyricText.Substring(lyricIndex, length)));
 				lyricIndex += length;
 			}
 			else
@@ -108,7 +112,11 @@ public sealed class ChordProLyricLine : SegmentedEntry
 				// Whitespace is significant. See comments in ConvertChordLyricPair unit test.
 				int remainingLyrics = Math.Max(0, lyricText.Length - lyricIndex);
 				int padding = length - remainingLyrics;
-				segments.Add(new TextSegment(lyricText.Substring(lyricIndex, remainingLyrics)));
+				if (remainingLyrics > 0)
+				{
+					segments.Add(TextSegment.Create(lyricText.Substring(lyricIndex, remainingLyrics)));
+				}
+
 				segments.Add(new WhiteSpaceSegment(new string(' ', padding)));
 				lyricIndex += remainingLyrics;
 			}
@@ -133,6 +141,8 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new instance if the line contains interlaced chords and lyrics.</returns>
 	public static ChordProLyricLine? TryParse(LineContext context)
 	{
+		Conditions.RequireReference(context);
+
 		// If we see a bracketed token that's not a chord, then skip this line.
 		// This doesn't try to handle ChordPro preprocessor conditional chords.
 		// https://www.chordpro.org/chordpro/support-hints-and-tips/

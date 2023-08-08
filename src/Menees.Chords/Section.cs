@@ -20,6 +20,7 @@ public sealed class Section : Entry, IEntryContainer
 	/// <param name="entries">The values to include in <see cref="Entries"/>.</param>
 	public Section(IEnumerable<Entry> entries)
 	{
+		Conditions.RequireCollection(entries);
 		this.Entries = entries.ToList();
 	}
 

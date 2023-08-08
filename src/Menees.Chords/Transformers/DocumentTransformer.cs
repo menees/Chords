@@ -18,6 +18,7 @@ public abstract class DocumentTransformer
 	/// </remarks>
 	protected DocumentTransformer(Document document)
 	{
+		Conditions.RequireReference(document);
 		this.Document = document;
 	}
 
@@ -45,6 +46,7 @@ public abstract class DocumentTransformer
 	/// <returns>A flattened list of entries.</returns>
 	public static IReadOnlyList<Entry> Flatten(IReadOnlyList<Entry> entries, bool includeAnnotations = false)
 	{
+		Conditions.RequireReference(entries);
 		HashSet<Entry> visited = new();
 		List<Entry> result = new(entries.Count);
 		Flatten(entries, includeAnnotations, visited, result);
@@ -69,6 +71,7 @@ public abstract class DocumentTransformer
 	/// <returns>The current transformer.</returns>
 	public DocumentTransformer SetEntries(IReadOnlyList<Entry> entries)
 	{
+		Conditions.RequireReference(entries);
 		this.Document = new(entries, this.Document.FileName);
 		return this;
 	}

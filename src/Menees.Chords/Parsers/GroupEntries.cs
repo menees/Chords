@@ -23,6 +23,8 @@ public static class GroupEntries
 	/// <returns>A new list of entries with <see cref="ChordLyricPair"/>s where possible.</returns>
 	public static IReadOnlyList<Entry> ByChordLinePair(GroupContext context)
 	{
+		Conditions.RequireReference(context);
+
 		IReadOnlyList<Entry> entries = context.Entries;
 		int entryCount = entries.Count;
 		List<Entry> result = new(entryCount);
@@ -53,6 +55,8 @@ public static class GroupEntries
 	/// <seealso href="https://www.chordpro.org/chordpro/directives-env/"/>
 	public static IReadOnlyList<Entry> ByChordProEnvironment(GroupContext context)
 	{
+		Conditions.RequireReference(context);
+
 		IReadOnlyList<Entry> entries = context.Entries;
 		int entryCount = entries.Count;
 		List<Entry> result = new(entryCount);
@@ -111,6 +115,8 @@ public static class GroupEntries
 	/// <returns>A new list of entries with <see cref="Section"/>s for headered entry blocks.</returns>
 	public static IReadOnlyList<Entry> ByHeaderLine(GroupContext context)
 	{
+		Conditions.RequireReference(context);
+
 		IReadOnlyList<Entry> entries = context.Entries;
 		IReadOnlyList<Entry> result;
 		if (!entries.OfType<HeaderLine>().Any())
@@ -165,6 +171,8 @@ public static class GroupEntries
 	/// <returns>A new list of entries with <see cref="Section"/>s for headered entry blocks.</returns>
 	public static IReadOnlyList<Entry> ByBlankLine(GroupContext context)
 	{
+		Conditions.RequireReference(context);
+
 		IReadOnlyList<Entry> entries = context.Entries;
 		IReadOnlyList<Entry> result;
 		if (!entries.OfType<BlankLine>().Any())

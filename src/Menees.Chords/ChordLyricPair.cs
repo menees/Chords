@@ -20,6 +20,9 @@ public sealed class ChordLyricPair : Entry, IEntryContainer
 	/// <param name="lyrics">The lyric line (i.e., bottom line).</param>
 	public ChordLyricPair(ChordLine chords, LyricLine lyrics)
 	{
+		Conditions.RequireReference(chords);
+		Conditions.RequireReference(lyrics);
+
 		this.Chords = chords;
 		this.Lyrics = lyrics;
 	}
