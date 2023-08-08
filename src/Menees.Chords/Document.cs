@@ -51,6 +51,7 @@ public sealed class Document : IEntryContainer
 	/// <returns>A new document instance.</returns>
 	public static Document Load(string fileName, DocumentParser? parser = null)
 	{
+		// TODO: Add Conditions checks everywhere. [Bill, 8/7/2023]
 		parser ??= new();
 		using StreamReader reader = new(fileName);
 		IReadOnlyList<Entry> entries = parser.Parse(reader);

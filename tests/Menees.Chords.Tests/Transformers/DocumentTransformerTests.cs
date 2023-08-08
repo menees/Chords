@@ -17,6 +17,8 @@ public class DocumentTransformerTests
 		Document document = TestUtility.LoadSwingLowSweetChariot();
 		IReadOnlyList<Entry> entries = DocumentTransformer.Flatten(document.Entries);
 		entries.Count.ShouldBe(18);
+
+		// TODO: Test with includeAnnotations. [Bill, 8/7/2023]
 	}
 
 	[TestMethod]

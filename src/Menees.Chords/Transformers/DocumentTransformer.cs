@@ -39,24 +39,28 @@ public abstract class DocumentTransformer
 	/// so that all <see cref="Entry"/>s are in the returned list.
 	/// </summary>
 	/// <param name="entries">The entries list to flatten.</param>
+	/// <param name="includeAnnotations">Whether <see cref="Entry.Annotations"/> should be included
+	/// by cloning each <see cref="Entry"/> to remove its annotations and then adding them as top-level
+	/// entries after their original parent entry.</param>
 	/// <returns>A flattened list of entries.</returns>
-	public static IReadOnlyList<Entry> Flatten(IReadOnlyList<Entry> entries)
+	public static IReadOnlyList<Entry> Flatten(IReadOnlyList<Entry> entries, bool includeAnnotations = false)
 	{
 		HashSet<Entry> visited = new();
 		List<Entry> result = new(entries.Count);
-		Flatten(entries, visited, result);
+		Flatten(entries, includeAnnotations, visited, result);
 		return result;
-
-		// TODO: Flatten annotations too? [Bill, 8/7/2023]
 	}
 
 	/// <summary>
 	/// Clones <see cref="Document"/> and recursively flattens all <see cref="IEntryContainer"/> entries
 	/// so that all <see cref="Entry"/>s are in the new <see cref="Document.Entries"/> list.
 	/// </summary>
+	/// <param name="includeAnnotations">Whether <see cref="Entry.Annotations"/> should be included
+	/// by cloning each <see cref="Entry"/> to remove its annotations and then adding them as top-level
+	/// entries after their original parent entry.</param>
 	/// <returns>The current transformer.</returns>
-	public DocumentTransformer Flatten()
-		=> this.SetEntries(Flatten(this.Document.Entries));
+	public DocumentTransformer Flatten(bool includeAnnotations = false)
+		=> this.SetEntries(Flatten(this.Document.Entries, includeAnnotations));
 
 	/// <summary>
 	/// Clones <see cref="Document"/> and changes its <see cref="Document.Entries"/> to <paramref name="entries"/>.
@@ -84,20 +88,34 @@ public abstract class DocumentTransformer
 
 	#region Private Methods
 
-	private static void Flatten(IReadOnlyList<Entry> input, HashSet<Entry> visited, List<Entry> output)
+	private static void Flatten(IReadOnlyList<Entry> input, bool includeAnnotations, HashSet<Entry> visited, List<Entry> output)
 	{
 		foreach (Entry entry in input)
 		{
 			if (!visited.Contains(entry))
 			{
 				visited.Add(entry);
-				if (entry is IEntryContainer container)
+
+				Entry outputEntry = entry;
+				IReadOnlyList<Entry>? annotations = null;
+				if (includeAnnotations)
 				{
-					Flatten(container.Entries, visited, output);
+					annotations = entry.Annotations;
+					outputEntry = entry.Clone(null);
+				}
+
+				if (outputEntry is IEntryContainer container)
+				{
+					Flatten(container.Entries, includeAnnotations, visited, output);
 				}
 				else
 				{
-					output.Add(entry);
+					output.Add(outputEntry);
+				}
+
+				if (annotations != null)
+				{
+					Flatten(annotations, includeAnnotations, visited, output);
 				}
 			}
 		}

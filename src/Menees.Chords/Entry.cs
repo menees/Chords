@@ -36,7 +36,7 @@ public abstract class Entry
 	/// </summary>
 	/// <remarks>
 	/// This is useful for entries like a <see cref="HeaderLine"/> that also contains a <see cref="Comment"/>,
-	/// and for when <see cref="ChordDefinitions"/> are at the end of <see cref="ChordLine"/>.
+	/// and for when <see cref="ChordDefinitions"/> are at the end of a <see cref="ChordLine"/>.
 	/// </remarks>
 	public IReadOnlyList<Entry> Annotations => this.annotations ?? (IReadOnlyList<Entry>)Array.Empty<Entry>();
 
@@ -52,6 +52,25 @@ public abstract class Entry
 	#endregion
 
 	#region Protected Methods
+
+	/// <summary>
+	/// Makes a shallow copy of the current entry and sets the result's annotations.
+	/// </summary>
+	/// <param name="annotations">The annotations to assign to the result's <see cref="Annotations"/>.</param>
+	/// <returns>A new shallow copied instance with <see cref="Annotations"/> set to <paramref name="annotations"/>.</returns>
+	protected internal Entry Clone(IEnumerable<Entry>? annotations)
+	{
+		Entry result = (Entry)this.MemberwiseClone();
+		result.annotations = annotations?.ToList();
+		return result;
+	}
+
+	/// <summary>
+	/// Makes a shallow copy of the current entry
+	/// </summary>
+	/// <returns>A new shallow copied instance</returns>
+	protected Entry Clone()
+		=> this.Clone(this.annotations);
 
 	/// <summary>
 	/// Adds a sub-entry that's on the same line as the current entry.
