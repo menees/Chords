@@ -65,8 +65,8 @@ public class DocumentTests
 		document.Entries.Count.ShouldBe(9);
 
 		document.Entries[0].ShouldBeOfType<Section>()
-			.Entries[0].ShouldBeOfType<Comment>()
-			.Text.ShouldBe("A simple ChordPro song.");
+			.Entries[0].ShouldBeOfType<ChordProRemarkLine>()
+			.Text.ShouldBe("# A simple ChordPro song.");
 
 		document.Entries[8].ShouldBeOfType<ChordProDirectiveLine>()
 			.Name.ShouldBe("comment");

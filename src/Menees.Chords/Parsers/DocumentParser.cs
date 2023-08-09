@@ -31,10 +31,9 @@ public sealed class DocumentParser
 	{
 		// Add line parsers in order from most specific syntax to least specific syntax.
 		HeaderLine.TryParse,
+		ChordProRemarkLine.TryParse, // This will parse #-prefixed lines before Comment.TryParse gets them.
 		Comment.TryParse,
 		ChordDefinitions.TryParse,
-
-		// Note: We omit ChordProRemarkLine.TryParse because Comment.TryParse will consume any #-prefixed remark lines.
 		ChordProDirectiveLine.TryParse,
 		ChordProGridLine.TryParse,
 		ChordProLyricLine.TryParse,
