@@ -168,7 +168,26 @@ public sealed class ChordProDirectiveLine : Entry
 	/// Gets the ChordPro directive in {<see cref="Name"/>} or {<see cref="Name"/>: <see cref="Argument"/>} format.
 	/// </summary>
 	public override string ToString()
-		=> "{" + this.Name + (string.IsNullOrEmpty(this.Argument) ? string.Empty : (": " + this.Argument)) + "}";
+		=> this.ToString(this.Name);
+
+	/// <summary>
+	/// Gets the ChordPro directive in {<see cref="LongName"/>} or {<see cref="LongName"/>: <see cref="Argument"/>} format.
+	/// </summary>
+	public string ToLongString()
+		=> this.ToString(this.LongName);
+
+	/// <summary>
+	/// Gets the ChordPro directive in {<see cref="ShortName"/>} or {<see cref="ShortName"/>: <see cref="Argument"/>} format.
+	/// </summary>
+	public string ToShortString()
+		=> this.ToString(this.ShortName);
+
+	#endregion
+
+	#region Private Methods
+
+	private string ToString(string name)
+		=> "{" + name + (string.IsNullOrEmpty(this.Argument) ? string.Empty : (": " + this.Argument)) + "}";
 
 	#endregion
 }

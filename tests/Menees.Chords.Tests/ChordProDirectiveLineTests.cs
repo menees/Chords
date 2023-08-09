@@ -61,4 +61,40 @@ public class ChordProDirectiveLineTests
 			line.ToString().ShouldBe(expectedText ?? text);
 		}
 	}
+
+	[TestMethod]
+	public void ToLongStringTest()
+	{
+		Test("{name}");
+		Test("{name: argument}");
+		Test("{soc}", "{start_of_chorus}");
+		Test("{soc: argument}", "{start_of_chorus: argument}");
+		Test("{sot:argument}", "{start_of_tab: argument}");
+		Test(" { sov : argument } ", "{start_of_verse: argument}");
+
+		static void Test(string text, string? expectedText = null)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordProDirectiveLine line = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			line.ToLongString().ShouldBe(expectedText ?? text);
+		}
+	}
+
+	[TestMethod]
+	public void ToShortStringTest()
+	{
+		Test("{name}");
+		Test("{name: argument}");
+		Test("{start_of_chorus}", "{soc}");
+		Test("{start_of_chorus: argument}", "{soc: argument}");
+		Test("{start_of_tab:argument}", "{sot: argument}");
+		Test(" { start_of_verse : argument } ", "{sov: argument}");
+
+		static void Test(string text, string? expectedText = null)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordProDirectiveLine line = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			line.ToShortString().ShouldBe(expectedText ?? text);
+		}
+	}
 }
