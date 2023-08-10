@@ -14,26 +14,26 @@ public class TextFormatterTests
 	[TestMethod]
 	public void TabIndentedTest()
 	{
-		Format("\t").ShouldContain("\t");
+		Test("\t").ShouldContain("\t");
 	}
 
 	[TestMethod]
 	public void SpecialIndentedTest()
 	{
-		Format("...@").ShouldContain("...@");
+		Test("...@").ShouldContain("...@");
 	}
 
 	[TestMethod]
 	public void UnindentedTest()
 	{
-		Format(null).ShouldNotContain("\t");
+		Test(null).ShouldNotContain("\t");
 	}
 
 	#endregion
 
 	#region Private Methods
 
-	private static string Format(string? indent)
+	private static string Test(string? indent)
 	{
 		Document document = TestUtility.LoadSwingLowSweetChariot();
 		TextFormatter formatter = new(document, indent);

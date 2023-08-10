@@ -7,7 +7,7 @@ public abstract class ContainerFormatter
 {
 	#region Private Data Members
 
-	private readonly IEntryContainer container;
+	private readonly IEntryContainer rootContainer;
 
 	#endregion
 
@@ -20,7 +20,7 @@ public abstract class ContainerFormatter
 	protected ContainerFormatter(IEntryContainer container)
 	{
 		Conditions.RequireReference(container);
-		this.container = container;
+		this.rootContainer = container;
 	}
 
 	#endregion
@@ -42,7 +42,7 @@ public abstract class ContainerFormatter
 	protected void Format()
 	{
 		Stack<IEntryContainer> stack = new();
-		this.Format(this.container, stack);
+		this.Format(this.rootContainer, stack);
 	}
 
 	/// <summary>
@@ -80,16 +80,20 @@ public abstract class ContainerFormatter
 
 	private void Format(IEntryContainer container, Stack<IEntryContainer> stack)
 	{
+		Conditions.RequireState(!stack.Contains(container), "A container should not recursively contain itself.");
 		this.BeginContainer(container, stack);
 		stack.Push(container);
 		try
 		{
-			foreach (Entry entry in this.container.Entries)
+			foreach (Entry entry in container.Entries)
 			{
-				this.Format(entry, stack);
-				if (entry is IEntryContainer childContainer && !stack.Contains(childContainer))
+				if (entry is IEntryContainer childContainer)
 				{
 					this.Format(childContainer, stack);
+				}
+				else
+				{
+					this.Format(entry, stack);
 				}
 			}
 		}

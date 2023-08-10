@@ -97,7 +97,11 @@ public sealed class XmlFormatter : ContainerFormatter
 		// Ideally, we'd deep serialize out the public properties, but that's complicated.
 		// We'll keep this really simple for now.
 		XElement element = new(entry.GetType().Name);
-		element.Add(new XCData(entry.ToString()));
+		string text = entry.ToString();
+		if (!string.IsNullOrEmpty(text))
+		{
+			element.Add(new XCData(text));
+		}
 
 		foreach (Entry annotation in entry.Annotations)
 		{

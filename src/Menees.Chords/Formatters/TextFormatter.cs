@@ -18,6 +18,7 @@ public sealed class TextFormatter : ContainerFormatter
 	private readonly string indent;
 	private string? text;
 	private IndentedTextWriter? writer;
+	private int level = -1;
 
 	#endregion
 
@@ -66,9 +67,9 @@ public sealed class TextFormatter : ContainerFormatter
 	{
 		base.BeginContainer(container, hierarchy);
 
-		// StringWriter's Dispose does nothing of consequence (just sets a bool).
+		// StringWriter's Dispose does nothing of consequence (i.e., it just sets a bool).
 		this.writer ??= new(new StringWriter(), this.indent);
-		this.writer.Indent = hierarchy.Count;
+		this.writer.Indent = ++this.level;
 	}
 
 	/// <inheritdoc/>
@@ -77,7 +78,8 @@ public sealed class TextFormatter : ContainerFormatter
 		Conditions.RequireReference(this.writer);
 		base.EndContainer(container, hierarchy);
 
-		this.writer.Indent = hierarchy.Count;
+		// TODO: Something is wrong with text indentation. [Bill, 8/10/2023]
+		this.writer.Indent = --this.level;
 		if (hierarchy.Count == 0)
 		{
 			this.text = this.writer.InnerWriter.ToString();
