@@ -14,35 +14,43 @@ public class TextFormatterTests
 	[TestMethod]
 	public void TabIndentedTest()
 	{
-		Test("\t").ShouldContain("\t");
+		string[] lines = Test("\t");
+		lines.ShouldContain("\t# A simple ChordPro song.");
 	}
 
 	[TestMethod]
 	public void SpecialIndentedTest()
 	{
-		Test("...@").ShouldContain("...@");
+		string[] lines = Test("...@");
+		lines.ShouldContain("...@{start_of_chorus}");
 	}
 
 	[TestMethod]
 	public void UnindentedTest()
 	{
-		Test(null).ShouldNotContain("\t");
+		string[] lines = Test(null);
+		lines.Any(line => line.Contains('\t')).ShouldBeFalse();
 	}
 
 	#endregion
 
 	#region Private Methods
 
-	private static string Test(string? indent)
+	private static string[] Test(string? indent)
 	{
 		Document document = TestUtility.LoadSwingLowSweetChariot();
 		TextFormatter formatter = new(document, indent);
 		string text = formatter.ToString();
 		Debug.WriteLine(text);
 		text.ShouldContain("{title: Swing Low Sweet Chariot}");
-		string[] lines = text.Split('\n');
+		if (indent != null && !string.IsNullOrEmpty(indent))
+		{
+			text.ShouldContain(indent);
+		}
+
+		string[] lines = text.Split('\n').Select(line => line.TrimEnd()).ToArray();
 		lines.Length.ShouldBe(19);
-		return text;
+		return lines;
 	}
 
 	#endregion

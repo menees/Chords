@@ -2,9 +2,8 @@
 
 #region Using Directives
 
-using System.CodeDom.Compiler;
 using System.Collections.Generic;
-using System.IO;
+using System.Text;
 
 #endregion
 
@@ -15,10 +14,12 @@ public sealed class TextFormatter : ContainerFormatter
 {
 	#region Private Data Members
 
-	private readonly string indent;
-	private string? text;
-	private IndentedTextWriter? writer;
+	private readonly string? indent;
+
+	// Start at -1 so we'll be at level 0 when we begin the root container.
 	private int level = -1;
+	private string? text;
+	private StringBuilder? builder;
 
 	#endregion
 
@@ -33,7 +34,7 @@ public sealed class TextFormatter : ContainerFormatter
 	public TextFormatter(IEntryContainer container, string? indent = null)
 		: base(container)
 	{
-		this.indent = indent ?? string.Empty;
+		this.indent = indent;
 	}
 
 	#endregion
@@ -58,8 +59,17 @@ public sealed class TextFormatter : ContainerFormatter
 	/// <inheritdoc/>
 	protected override void Format(Entry entry, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(this.writer);
-		this.writer.WriteLine(entry);
+		Conditions.RequireReference(this.builder);
+
+		if (!string.IsNullOrEmpty(this.indent))
+		{
+			for (int i = 0; i < this.level; i++)
+			{
+				this.builder.Append(this.indent);
+			}
+		}
+
+		this.builder.Append(entry).AppendLine();
 	}
 
 	/// <inheritdoc/>
@@ -67,22 +77,21 @@ public sealed class TextFormatter : ContainerFormatter
 	{
 		base.BeginContainer(container, hierarchy);
 
-		// StringWriter's Dispose does nothing of consequence (i.e., it just sets a bool).
-		this.writer ??= new(new StringWriter(), this.indent);
-		this.writer.Indent = ++this.level;
+		this.builder ??= new();
+		this.level++;
 	}
 
 	/// <inheritdoc/>
 	protected override void EndContainer(IEntryContainer container, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(this.writer);
+		Conditions.RequireReference(this.builder);
 		base.EndContainer(container, hierarchy);
 
-		// TODO: Something is wrong with text indentation. [Bill, 8/10/2023]
-		this.writer.Indent = --this.level;
+		this.level--;
+
 		if (hierarchy.Count == 0)
 		{
-			this.text = this.writer.InnerWriter.ToString();
+			this.text = this.builder.ToString();
 		}
 	}
 
