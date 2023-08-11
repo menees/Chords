@@ -28,8 +28,6 @@ public sealed class XmlFormatter : ContainerFormatter
 	public XmlFormatter(IEntryContainer container)
 		: base(container)
 	{
-		// TODO: Constructor arg for enum EntryContent { CData, Text, Attribute } [Bill, 8/10/2023]
-		// TODO: Or take a lambda that converts Entry to XNode. [Bill, 8/10/2023]
 	}
 
 	#endregion
@@ -102,8 +100,12 @@ public sealed class XmlFormatter : ContainerFormatter
 		string text = entry.ToString();
 		if (!string.IsNullOrEmpty(text))
 		{
-			// TODO: Pulling element.Value concats nested CDatas. This needs a sub-element. [Bill, 8/10/2023]
-			element.Add(new XCData(text));
+			// With no annotations, a text subnode is unambiguous. If there are annotations,
+			// then those entries will text subnodes too, and we don't want XElement.Value
+			// to merge them all together.
+			XCData data = new(text);
+			XNode content = entry.Annotations.Count == 0 ? data : new XElement(nameof(ToString), data);
+			element.Add(content);
 		}
 
 		foreach (Entry annotation in entry.Annotations)
