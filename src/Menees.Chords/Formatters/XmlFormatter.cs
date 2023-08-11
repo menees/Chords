@@ -28,6 +28,8 @@ public sealed class XmlFormatter : ContainerFormatter
 	public XmlFormatter(IEntryContainer container)
 		: base(container)
 	{
+		// TODO: Constructor arg for enum EntryContent { CData, Text, Attribute } [Bill, 8/10/2023]
+		// TODO: Or take a lambda that converts Entry to XNode. [Bill, 8/10/2023]
 	}
 
 	#endregion
@@ -100,6 +102,7 @@ public sealed class XmlFormatter : ContainerFormatter
 		string text = entry.ToString();
 		if (!string.IsNullOrEmpty(text))
 		{
+			// TODO: Pulling element.Value concats nested CDatas. This needs a sub-element. [Bill, 8/10/2023]
 			element.Add(new XCData(text));
 		}
 

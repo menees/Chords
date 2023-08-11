@@ -61,15 +61,33 @@ public sealed class TextFormatter : ContainerFormatter
 	{
 		Conditions.RequireReference(this.builder);
 
-		if (!string.IsNullOrEmpty(this.indent))
+		Indent();
+
+		string text = entry.ToString();
+		foreach (char ch in text)
 		{
-			for (int i = 0; i < this.level; i++)
+			this.builder.Append(ch);
+
+			// If a formatted entry spans multiple lines, then we need to indent subsequent lines too.
+			// Inspired by Hans: https://stackoverflow.com/a/2547800/1882616
+			if (ch == '\n')
 			{
-				this.builder.Append(this.indent);
+				Indent();
 			}
 		}
 
-		this.builder.Append(entry).AppendLine();
+		this.builder.AppendLine();
+
+		void Indent()
+		{
+			if (!string.IsNullOrEmpty(this.indent))
+			{
+				for (int i = 0; i < this.level; i++)
+				{
+					this.builder.Append(this.indent);
+				}
+			}
+		}
 	}
 
 	/// <inheritdoc/>

@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Diagnostics;
+using Menees.Chords.Parsers;
 
 #endregion
 
@@ -30,6 +31,18 @@ public class TextFormatterTests
 	{
 		string[] lines = Test(null);
 		lines.Any(line => line.Contains('\t')).ShouldBeFalse();
+	}
+
+	[TestMethod]
+	public void IndentWithNewLineTest()
+	{
+		LyricLine line = new("Line 1\r\nLine 2");
+		Section inner = new(new[] { line });
+		Section outer = new(new[] { inner });
+		TextFormatter formatter = new(outer, "\t");
+		string text = formatter.ToString();
+		Debug.WriteLine(text);
+		text.ShouldBe("\tLine 1\r\n\tLine 2\r\n");
 	}
 
 	#endregion
