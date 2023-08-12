@@ -67,7 +67,7 @@ public sealed class Document : IEntryContainer
 	/// <returns>A new document instance.</returns>
 	public static Document Load(TextReader reader, DocumentParser? parser = null)
 	{
-		Conditions.RequireReference(reader);
+		Conditions.RequireNonNull(reader);
 
 		parser ??= new();
 		IReadOnlyList<Entry> entries = parser.Parse(reader);

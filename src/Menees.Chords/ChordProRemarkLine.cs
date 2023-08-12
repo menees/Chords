@@ -42,7 +42,7 @@ public sealed class ChordProRemarkLine : TextEntry
 	/// <returns>A new instance if the current trimmed line starts with '#'.</returns>
 	public static ChordProRemarkLine? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		ChordProRemarkLine? result = null;
 

@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Collections.Generic;
+using System.IO;
 
 #endregion
 
@@ -20,8 +21,8 @@ public sealed class ChordLyricPair : Entry, IEntryContainer
 	/// <param name="lyrics">The lyric line (i.e., bottom line).</param>
 	public ChordLyricPair(ChordLine chords, LyricLine lyrics)
 	{
-		Conditions.RequireReference(chords);
-		Conditions.RequireReference(lyrics);
+		Conditions.RequireNonNull(chords);
+		Conditions.RequireNonNull(lyrics);
 
 		this.Chords = chords;
 		this.Lyrics = lyrics;
@@ -49,9 +50,25 @@ public sealed class ChordLyricPair : Entry, IEntryContainer
 
 	/// <summary>
 	/// Concatenates the <see cref="Chords"/> and <see cref="Lyrics"/> lines
-	/// with an <see cref="Environment.NewLine"/> separator.
+	/// with a <see cref="TextWriter.WriteLine()"/> separator.
 	/// </summary>
-	public override string ToString() => $"{this.Chords}{Environment.NewLine}{this.Lyrics}";
+	/// <param name="writer">Used to write the output.</param>
+	/// <param name="includeAnnotations">Whether annotations should be appended at the end of the entries.</param>
+	public override void Write(TextWriter writer, bool includeAnnotations)
+	{
+		Conditions.RequireNonNull(writer);
+		this.Chords.Write(writer, includeAnnotations);
+		writer.WriteLine();
+		this.Lyrics.Write(writer, includeAnnotations);
+	}
+
+	#endregion
+
+	#region Protected Methods
+
+	/// <inheritdoc/>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+		=> this.Write(writer, false);
 
 	#endregion
 }

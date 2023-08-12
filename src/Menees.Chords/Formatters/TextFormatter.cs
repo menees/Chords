@@ -59,7 +59,7 @@ public sealed class TextFormatter : ContainerFormatter
 	/// <inheritdoc/>
 	protected override void Format(Entry entry, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(this.builder);
+		Conditions.RequireNonNull(this.builder);
 
 		Indent();
 
@@ -102,7 +102,7 @@ public sealed class TextFormatter : ContainerFormatter
 	/// <inheritdoc/>
 	protected override void EndContainer(IEntryContainer container, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(this.builder);
+		Conditions.RequireNonNull(this.builder);
 		base.EndContainer(container, hierarchy);
 
 		this.level--;

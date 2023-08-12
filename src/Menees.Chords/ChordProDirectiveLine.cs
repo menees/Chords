@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.IO;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -112,7 +113,7 @@ public sealed class ChordProDirectiveLine : Entry
 	/// <returns>A new instance if the line is in "{name}" or "{name: argument}" format.</returns>
 	public static ChordProDirectiveLine? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		ChordProDirectiveLine? result = null;
 
@@ -165,12 +166,6 @@ public sealed class ChordProDirectiveLine : Entry
 	}
 
 	/// <summary>
-	/// Gets the ChordPro directive in {<see cref="Name"/>} or {<see cref="Name"/>: <see cref="Argument"/>} format.
-	/// </summary>
-	public override string ToString()
-		=> this.ToString(this.Name);
-
-	/// <summary>
 	/// Gets the ChordPro directive in {<see cref="LongName"/>} or {<see cref="LongName"/>: <see cref="Argument"/>} format.
 	/// </summary>
 	public string ToLongString()
@@ -181,6 +176,20 @@ public sealed class ChordProDirectiveLine : Entry
 	/// </summary>
 	public string ToShortString()
 		=> this.ToString(this.ShortName);
+
+	#endregion
+
+	#region Protected Methods
+
+	/// <summary>
+	/// Writes the ChordPro directive in {<see cref="Name"/>} or {<see cref="Name"/>: <see cref="Argument"/>} format.
+	/// </summary>
+	/// <param name="writer">Used to write the output.</param>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+	{
+		Conditions.RequireNonNull(writer);
+		writer.Write(this.ToString(this.Name));
+	}
 
 	#endregion
 

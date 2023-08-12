@@ -30,7 +30,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new ChordPro line with bracketed chords.</returns>
 	public static ChordProLyricLine Convert(ChordLine chords)
 	{
-		Conditions.RequireReference(chords);
+		Conditions.RequireNonNull(chords);
 
 		List<TextSegment> segments = new(chords.Segments.Count);
 
@@ -61,7 +61,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new ChordPro lyric line with bracketed chords inline with lyrics.</returns>
 	public static ChordProLyricLine Convert(ChordLyricPair pair)
 	{
-		Conditions.RequireReference(pair);
+		Conditions.RequireNonNull(pair);
 
 		List<TextSegment> segments = new();
 		string lyricText = pair.Lyrics.Text;
@@ -122,10 +122,13 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			}
 		}
 
-		// Remove trailing whitespace segment(s).
-		while (segments.Count > 0 && segments[^1] is WhiteSpaceSegment)
+		// Remove trailing whitespace segment(s) if we don't have any annotations to append to formatted output.
+		if (pair.Chords.Annotations.Count == 0 && pair.Lyrics.Annotations.Count == 0)
 		{
-			segments.RemoveAt(segments.Count - 1);
+			while (segments.Count > 0 && segments[^1] is WhiteSpaceSegment)
+			{
+				segments.RemoveAt(segments.Count - 1);
+			}
 		}
 
 		ChordProLyricLine result = new(segments);
@@ -141,7 +144,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	/// <returns>A new instance if the line contains interlaced chords and lyrics.</returns>
 	public static ChordProLyricLine? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		// If we see a bracketed token that's not a chord, then skip this line.
 		// This doesn't try to handle ChordPro preprocessor conditional chords.

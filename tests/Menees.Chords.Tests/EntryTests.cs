@@ -1,5 +1,11 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
+using System.IO;
+
+#endregion
+
 [TestClass]
 public class EntryTests
 {
@@ -54,9 +60,18 @@ public class EntryTests
 
 		#region Public Methods
 
-		public override string ToString() => string.Join(Environment.NewLine, this.Annotations);
-
 		public new TestEntry Clone(IEnumerable<Entry>? annotations) => (TestEntry)base.Clone(annotations);
+
+		public override void Write(TextWriter writer, bool includeAnnotations)
+			=> WriteJoin(writer, this.Annotations, (w, annotation) => annotation.Write(w, includeAnnotations));
+
+		#endregion
+
+		#region Protected Methods
+
+		protected override void WriteWithoutAnnotations(TextWriter writer)
+		{
+		}
 
 		#endregion
 	}

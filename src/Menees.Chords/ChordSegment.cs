@@ -16,7 +16,7 @@ public sealed class ChordSegment : TextSegment
 	public ChordSegment(Chord chord, string? text = null)
 		: base(text ?? chord?.Name!)
 	{
-		Conditions.RequireReference(chord);
+		Conditions.RequireNonNull(chord);
 		this.Chord = chord;
 	}
 

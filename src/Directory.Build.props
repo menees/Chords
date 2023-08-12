@@ -78,7 +78,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Meziantou.Polyfill" Version="1.0.18">
+		<PackageReference Include="Meziantou.Polyfill" Version="1.0.26">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>

@@ -19,7 +19,7 @@ public abstract class ContainerFormatter
 	/// <param name="container">The container to format.</param>
 	protected ContainerFormatter(IEntryContainer container)
 	{
-		Conditions.RequireReference(container);
+		Conditions.RequireNonNull(container);
 		this.rootContainer = container;
 	}
 
@@ -59,8 +59,8 @@ public abstract class ContainerFormatter
 	/// <param name="hierarchy">The stack of containers up to but not including <paramref name="container"/>.</param>
 	protected virtual void BeginContainer(IEntryContainer container, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(container);
-		Conditions.RequireReference(hierarchy);
+		Conditions.RequireNonNull(container);
+		Conditions.RequireNonNull(hierarchy);
 	}
 
 	/// <summary>
@@ -70,8 +70,8 @@ public abstract class ContainerFormatter
 	/// <param name="hierarchy">The stack of containers up to but not including <paramref name="container"/>.</param>
 	protected virtual void EndContainer(IEntryContainer container, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(container);
-		Conditions.RequireReference(hierarchy);
+		Conditions.RequireNonNull(container);
+		Conditions.RequireNonNull(hierarchy);
 	}
 
 	#endregion

@@ -4,6 +4,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 
 #endregion
 
@@ -45,9 +47,38 @@ public abstract class Entry
 	#region Public Methods
 
 	/// <summary>
-	/// Gets the text representation of the current entry.
+	/// Gets the text representation of the current entry including its annotations.
 	/// </summary>
-	public abstract override string ToString();
+	public sealed override string ToString() => this.ToString(true);
+
+	/// <summary>
+	/// Gets the text representation of the current entry optionally including annotations.
+	/// </summary>
+	/// <param name="includeAnnotations">Whether annotations should be appended at the end of the entry.</param>
+	public string ToString(bool includeAnnotations)
+	{
+		using StringWriter writer = new();
+		this.Write(writer, includeAnnotations);
+		string result = writer.ToString();
+		return result;
+	}
+
+	/// <summary>
+	/// Renders the text representation of the current entry optionally including annotations.
+	/// </summary>
+	/// <param name="writer">Used to write the output.</param>
+	/// <param name="includeAnnotations">Whether annotations should be appended at the end of the entry.</param>
+	public virtual void Write(TextWriter writer, bool includeAnnotations)
+	{
+		Conditions.RequireNonNull(writer);
+
+		this.WriteWithoutAnnotations(writer);
+
+		if (includeAnnotations && this.Annotations.Count > 0)
+		{
+			WriteJoin(writer, this.Annotations, w => w.Write(' '), (w, annotation) => annotation.Write(w, includeAnnotations));
+		}
+	}
 
 	#endregion
 
@@ -66,6 +97,53 @@ public abstract class Entry
 	}
 
 	/// <summary>
+	/// Writes a collection of <paramref name="items"/> to <paramref name="writer"/>
+	/// with <see cref="TextWriter.WriteLine()"/> between each.
+	/// </summary>
+	/// <typeparam name="T">The type of item to write.</typeparam>
+	/// <param name="writer">Used to write the output.</param>
+	/// <param name="items">The collection of items to write.</param>
+	/// <param name="writeItem">Called to write each item.</param>
+	protected static void WriteJoin<T>(
+		TextWriter writer,
+		IEnumerable<T> items,
+		Action<TextWriter, T> writeItem)
+		=> WriteJoin(writer, items, w => w.WriteLine(), writeItem);
+
+	/// <summary>
+	/// Writes a collection of <paramref name="items"/> to <paramref name="writer"/>
+	/// with a custom separator between each.
+	/// </summary>
+	/// <typeparam name="T">The type of item to write.</typeparam>
+	/// <param name="writer">Used to write the output.</param>
+	/// <param name="items">The collection of items to write.</param>
+	/// <param name="writeSeparator">Called to write a separator between items.</param>
+	/// <param name="writeItem">Called to write each item.</param>
+	protected static void WriteJoin<T>(
+		TextWriter writer,
+		IEnumerable<T> items,
+		Action<TextWriter> writeSeparator,
+		Action<TextWriter, T> writeItem)
+	{
+		Conditions.RequireNonNull(writer);
+		Conditions.RequireNonNull(items);
+		Conditions.RequireNonNull(writeSeparator);
+		Conditions.RequireNonNull(writeItem);
+
+		bool first = true;
+		foreach (T item in items)
+		{
+			if (!first)
+			{
+				writeSeparator(writer);
+			}
+
+			writeItem(writer, item);
+			first = false;
+		}
+	}
+
+	/// <summary>
 	/// Makes a shallow copy of the current entry
 	/// </summary>
 	/// <returns>A new shallow copied instance</returns>
@@ -78,7 +156,7 @@ public abstract class Entry
 	/// <param name="annotation">The sub-entry to add.</param>
 	protected void AddAnnotation(Entry annotation)
 	{
-		Conditions.RequireReference(annotation);
+		Conditions.RequireNonNull(annotation);
 		this.annotations ??= new();
 		this.annotations.Add(annotation);
 	}
@@ -89,10 +167,16 @@ public abstract class Entry
 	/// <param name="annotations">The sub-entries to add.</param>
 	protected void AddAnnotations(IEnumerable<Entry> annotations)
 	{
-		Conditions.RequireReference(annotations);
+		Conditions.RequireNonNull(annotations);
 		this.annotations ??= new();
 		this.annotations.AddRange(annotations);
 	}
+
+	/// <summary>
+	/// Renders the text representation of the current entry without annotations.
+	/// </summary>
+	/// <param name="writer">Used to write the output.</param>
+	protected abstract void WriteWithoutAnnotations(TextWriter writer);
 
 	#endregion
 }

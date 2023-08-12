@@ -29,7 +29,7 @@ public sealed class ChordLine : SegmentedEntry
 	/// <returns>A new instance if the line was parsed as whitespace and chords. Null otherwise.</returns>
 	public static ChordLine? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		IReadOnlyList<TextSegment> segments = TryGetSegments(context, false, null, out IReadOnlyList<Entry> annotations);
 

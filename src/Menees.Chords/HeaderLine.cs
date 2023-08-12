@@ -33,7 +33,7 @@ public sealed class HeaderLine : TextEntry
 	/// <returns>A new instance if <paramref name="context"/>'s line was parsed. Null otherwise.</returns>
 	public static HeaderLine? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		HeaderLine? result = null;
 

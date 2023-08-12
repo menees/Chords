@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.IO;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -51,7 +52,7 @@ public sealed class Comment : TextEntry
 	/// <returns>A new comment if the line starts with "#", "*", or is surrounded by parentheses.</returns>
 	public static Comment? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		Comment? result = null;
 
@@ -95,10 +96,21 @@ public sealed class Comment : TextEntry
 		}
 	}
 
+	#endregion
+
+	#region Protected Methods
+
 	/// <summary>
-	/// Gets the formatted comment text including <see cref="Prefix"/> and <see cref="Suffix"/>.
+	/// Writes the formatted comment text including <see cref="Prefix"/> and <see cref="Suffix"/>.
 	/// </summary>
-	public override string ToString() => $"{this.Prefix}{this.Text}{this.Suffix}";
+	/// <param name="writer">Used to write the output.</param>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+	{
+		Conditions.RequireNonNull(writer);
+		writer.Write(this.Prefix);
+		base.WriteWithoutAnnotations(writer);
+		writer.Write(this.Suffix);
+	}
 
 	#endregion
 }

@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.IO;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -40,7 +41,7 @@ public sealed class ChordDefinitions : Entry
 	/// <returns>A new instance of the line was parsed as a sequence of chord definitions. Null otherwise.</returns>
 	public static ChordDefinitions? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
 
@@ -61,10 +62,16 @@ public sealed class ChordDefinitions : Entry
 		return result;
 	}
 
+	#endregion
+
+	#region Protected Methods
+
 	/// <summary>
-	/// Gets the formatted text of the chord definitions line.
+	/// Writes the formatted text of the chord definitions line.
 	/// </summary>
-	public override string ToString() => string.Join(", ", this.Definitions);
+	/// <param name="writer">Used to write the output.</param>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+		=> WriteJoin(writer, this.Definitions, w => w.Write(", "), (w, definition) => w.Write(definition));
 
 	#endregion
 }

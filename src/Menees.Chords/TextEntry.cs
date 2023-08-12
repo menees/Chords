@@ -1,5 +1,11 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
+using System.IO;
+
+#endregion
+
 /// <summary>
 /// The base class for entries that consist of a single line of text.
 /// </summary>
@@ -32,12 +38,18 @@ public abstract class TextEntry : Entry
 
 	#endregion
 
-	#region Public Methods
+	#region Protected Methods
 
 	/// <summary>
-	/// Returns <see cref="Text"/>.
+	/// Writes <see cref="Text"/>.
 	/// </summary>
-	public override string ToString() => this.Text;
+	/// <param name="writer"></param>
+	/// <exception cref="NotImplementedException"></exception>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+	{
+		Conditions.RequireNonNull(writer);
+		writer.Write(this.Text);
+	}
 
 	#endregion
 }

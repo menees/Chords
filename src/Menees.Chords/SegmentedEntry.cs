@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using Menees.Chords.Parsers;
 
@@ -28,7 +29,7 @@ public abstract class SegmentedEntry : Entry
 	/// <param name="segments">The segments that make up the current line.</param>
 	protected SegmentedEntry(IReadOnlyList<TextSegment> segments)
 	{
-		Conditions.RequireCollection(segments);
+		Conditions.RequireNonEmpty(segments);
 		this.Segments = segments;
 	}
 
@@ -44,35 +45,6 @@ public abstract class SegmentedEntry : Entry
 	/// <see cref="TextSegment"/>, <see cref="WhiteSpaceSegment"/>).
 	/// </remarks>
 	public IReadOnlyList<TextSegment> Segments { get; }
-
-	#endregion
-
-	#region Public Methods
-
-	/// <summary>
-	/// Gets current line text.
-	/// </summary>
-	public override string ToString()
-	{
-		StringBuilder sb = new();
-		foreach (TextSegment segment in this.Segments)
-		{
-			sb.Append(segment);
-		}
-
-		foreach (Entry annotation in this.Annotations)
-		{
-			if (sb.Length > 0 && sb[^1] != ' ')
-			{
-				sb.Append(' ');
-			}
-
-			sb.Append(annotation);
-		}
-
-		string result = sb.ToString();
-		return result;
-	}
 
 	#endregion
 
@@ -93,7 +65,7 @@ public abstract class SegmentedEntry : Entry
 		Func<Token, TextSegment?>? getSegment,
 		out IReadOnlyList<Entry> annotations)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		List<TextSegment> result = new();
 		TokenType chordTokenType = requiredBracketedChords ? TokenType.Bracketed : TokenType.Text;
@@ -132,6 +104,16 @@ public abstract class SegmentedEntry : Entry
 		}
 
 		return result;
+	}
+
+	/// <inheritdoc/>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+	{
+		Conditions.RequireNonNull(writer);
+		foreach (TextSegment segment in this.Segments)
+		{
+			writer.Write(segment);
+		}
 	}
 
 	#endregion

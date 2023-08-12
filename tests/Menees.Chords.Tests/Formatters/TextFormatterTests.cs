@@ -33,6 +33,7 @@ public class TextFormatterTests
 		lines.Any(line => line.Contains('\t')).ShouldBeFalse();
 	}
 
+	// TODO: Test with annotations. [Bill, 8/12/2023]
 	[TestMethod]
 	public void IndentWithNewLineTest()
 	{

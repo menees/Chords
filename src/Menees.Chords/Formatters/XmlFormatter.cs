@@ -52,7 +52,7 @@ public sealed class XmlFormatter : ContainerFormatter
 	/// <inheritdoc/>
 	protected override void Format(Entry entry, IReadOnlyCollection<IEntryContainer> hierarchy)
 	{
-		Conditions.RequireReference(this.currentContainer);
+		Conditions.RequireNonNull(this.currentContainer);
 		AddEntry(entry, this.currentContainer);
 	}
 

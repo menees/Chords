@@ -49,7 +49,7 @@ public sealed class TablatureLine : TextEntry
 	/// or if the line starts with "Note|" or "Note:".</returns>
 	public static TablatureLine? TryParse(LineContext context)
 	{
-		Conditions.RequireReference(context);
+		Conditions.RequireNonNull(context);
 
 		TablatureLine? result = null;
 

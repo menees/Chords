@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 #endregion
@@ -20,7 +21,7 @@ public sealed class Section : Entry, IEntryContainer
 	/// <param name="entries">The values to include in <see cref="Entries"/>.</param>
 	public Section(IEnumerable<Entry> entries)
 	{
-		Conditions.RequireCollection(entries);
+		Conditions.RequireNonEmpty(entries);
 		this.Entries = entries.ToList();
 	}
 
@@ -37,10 +38,17 @@ public sealed class Section : Entry, IEntryContainer
 
 	#region Public Methods
 
-	/// <summary>
-	/// Concatenates the section's <see cref="Entries"/> using <see cref="Environment.NewLine"/> separators.
-	/// </summary>
-	public override string ToString() => string.Join(Environment.NewLine, this.Entries);
+	/// <inheritdoc/>
+	public override void Write(TextWriter writer, bool includeAnnotations)
+		=> WriteJoin(writer, this.Entries, (w, entry) => entry.Write(w, includeAnnotations));
+
+	#endregion
+
+	#region Protected Methods
+
+	/// <inheritdoc/>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+		=> this.Write(writer, false);
 
 	#endregion
 }
