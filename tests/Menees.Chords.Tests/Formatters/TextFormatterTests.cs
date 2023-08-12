@@ -33,7 +33,6 @@ public class TextFormatterTests
 		lines.Any(line => line.Contains('\t')).ShouldBeFalse();
 	}
 
-	// TODO: Test with annotations. [Bill, 8/12/2023]
 	[TestMethod]
 	public void IndentWithNewLineTest()
 	{
@@ -44,6 +43,24 @@ public class TextFormatterTests
 		string text = formatter.ToString();
 		Debug.WriteLine(text);
 		text.ShouldBe("\tLine 1\r\n\tLine 2\r\n");
+	}
+
+	[TestMethod]
+	public void AnnotatedTest()
+	{
+		Document document = TestUtility.LoadAnnotatedDoc();
+		TextFormatter formatter = new(document);
+		string text = formatter.ToString();
+		Debug.WriteLine(text);
+
+		text.ShouldBe(
+			"""
+			      D ↓        G↑   D*  (* Use higher D second time) D* x57775
+			Swing low, sweet chariot,  ** Sing "low" as bass **
+			A Bb B   (Half steps)
+			G  G2  D/F#  Em  C  Cmaj5 (2x)
+
+			""");
 	}
 
 	#endregion

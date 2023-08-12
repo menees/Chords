@@ -22,5 +22,18 @@ public static class TestUtility
 	public static Document LoadSwingLowSweetChariot()
 		=> Document.Load(SwingLowSweetChariotFileName);
 
+	public static Document LoadAnnotatedDoc()
+	{
+		Document result = Document.Parse(
+			"""
+			      D ↓        G↑   D*  (* Use higher D second time) D* = x57775
+			Swing low, sweet chariot,  ** Sing "low" as bass **
+			A Bb B   (Half steps)
+			G  G2  D/F#  Em  C  Cmaj5 (2x)
+			""");
+		result.Entries.All(e => e.Annotations.Count >= 0).ShouldBeTrue();
+		return result;
+	}
+
 	#endregion
 }

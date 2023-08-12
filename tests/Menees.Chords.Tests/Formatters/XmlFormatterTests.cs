@@ -6,7 +6,6 @@ using System.Xml.Linq;
 [TestClass]
 public class XmlFormatterTests
 {
-	// TODO: Test with annotations. [Bill, 8/12/2023]
 	[TestMethod]
 	public void ToStringTest()
 	{
@@ -18,5 +17,41 @@ public class XmlFormatterTests
 		string[] lines = text.Split('\n');
 		lines.Length.ShouldBe(26);
 		XElement.Parse(text).ShouldNotBeNull();
+	}
+
+	[TestMethod]
+	public void AnnotatedTest()
+	{
+		Document document = TestUtility.LoadAnnotatedDoc();
+		XmlFormatter formatter = new(document);
+		string text = formatter.ToString();
+		Debug.WriteLine(text);
+
+		XElement.Parse(text).ShouldNotBeNull();
+
+		text.ShouldBe(
+			"""
+			<Document>
+			  <ChordLyricPair>
+			    <ChordLine>
+			      <ToString><![CDATA[      D ↓        G↑   D*  ]]></ToString>
+			      <Comment><![CDATA[(* Use higher D second time)]]></Comment>
+			      <ChordDefinitions><![CDATA[D* x57775]]></ChordDefinitions>
+			    </ChordLine>
+			    <LyricLine>
+			      <ToString><![CDATA[Swing low, sweet chariot,  ]]></ToString>
+			      <Comment><![CDATA[** Sing "low" as bass **]]></Comment>
+			    </LyricLine>
+			  </ChordLyricPair>
+			  <ChordLine>
+			    <ToString><![CDATA[A Bb B   ]]></ToString>
+			    <Comment><![CDATA[(Half steps)]]></Comment>
+			  </ChordLine>
+			  <ChordLine>
+			    <ToString><![CDATA[G  G2  D/F#  Em  C  Cmaj5 ]]></ToString>
+			    <Comment><![CDATA[(2x)]]></Comment>
+			  </ChordLine>
+			</Document>
+			""");
 	}
 }

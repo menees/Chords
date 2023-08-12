@@ -130,7 +130,7 @@ public class ChordProLyricLineTests
 			      D ↓        G↑   D*  (* Use higher D second time) D* = x57775
 			Swing low, sweet chariot,  ** Sing "low" as bass **
 			""",
-			"Swing [D]lo[*↓]w, sweet [G↑]chari[D*]ot, (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **");
+			"Swing [D]lo[*↓]w, sweet [G↑]chari[D*]ot,  (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **");
 
 		static void Test(string chordLyricLines, string expectedText)
 		{

@@ -97,13 +97,15 @@ public sealed class XmlFormatter : ContainerFormatter
 		// Ideally, we'd deep serialize out the public properties, but that's complicated.
 		// We'll keep this really simple for now.
 		XElement element = new(entry.GetType().Name);
-		string text = entry.ToString();
+		string text = entry.ToString(includeAnnotations: false);
 		if (!string.IsNullOrEmpty(text))
 		{
-			// With no annotations, a text subnode is unambiguous. If there are annotations,
-			// then those entries will text subnodes too, and we don't want XElement.Value
-			// to merge them all together.
+			// We have to use CDATA because entries can contain significant whitespace.
 			XCData data = new(text);
+
+			// With no annotations, a single CDATA subnode is unambiguous. If there are annotations,
+			// then their elements will have CDATA subnodes too, and we don't want XElement.Value
+			// to merge them all together. So, if we have annotations, we'll use a <ToString> sub-element.
 			XNode content = entry.Annotations.Count == 0 ? data : new XElement(nameof(ToString), data);
 			element.Add(content);
 		}

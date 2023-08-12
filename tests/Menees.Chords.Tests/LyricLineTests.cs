@@ -21,7 +21,7 @@ public class LyricLineTests
 
 		context = LineContextTests.Create("Test (with comment)");
 		LyricLine line = LyricLine.Parse(context);
-		line.Text.ShouldBe("Test");
+		line.Text.ShouldBe("Test "); // Trailing whitespace is significant due to annotation.
 		line.Annotations.Count.ShouldBe(1);
 		Comment comment = line.Annotations[0].ShouldBeOfType<Comment>();
 		comment.Text.ShouldBe("with comment");

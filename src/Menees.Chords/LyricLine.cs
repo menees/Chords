@@ -39,7 +39,7 @@ public sealed class LyricLine : TextEntry
 		Conditions.RequireNonNull(context);
 
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
-		string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
+		string line = lexer.ReadToEnd(skipTrailingWhiteSpace: annotations.Count == 0);
 
 		LyricLine result = new(line);
 		result.AddAnnotations(annotations);
