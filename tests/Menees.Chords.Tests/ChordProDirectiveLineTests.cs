@@ -107,8 +107,21 @@ public class ChordProDirectiveLineTests
 	[TestMethod]
 	public void ConvertChordDefinitionTest()
 	{
-		// TODO: Finish ConvertChordDefinitionTest. [Bill, 8/13/2023]
-		Assert.Fail();
+		Test("Am", "x02210", "{define: Am base-fret 1 frets x 0 2 2 1 0}");
+		Test("A/C#", "x42220", "{define: A/C# base-fret 1 frets x 4 2 2 2 0}");
+		Test("A/C#", "_4222_", "{define: A/C# base-fret 2 frets x 4 2 2 2 x}");
+		Test("G7", "320001", "{define: G7 base-fret 1 frets 3 2 0 0 0 1}");
+		Test("C", "x-3-2-0-1-0", "{define: C base-fret 1 frets x 3 2 0 1 0}");
+		Test("D/F#", "200232", "{define: D/F# base-fret 1 frets 2 0 0 2 3 2}");
+		Test("A/C#", "_4222_", "{define: A/C# base-fret 2 frets x 4 2 2 2 x}");
+		Test("Em", "12-14-14-13-12-12", "{define: Em base-fret 12 frets 12 14 14 13 12 12}");
+
+		void Test(string name, string defintion, string expected)
+		{
+			ChordDefinition chordDefinition = ChordDefinition.TryParse(name, defintion).ShouldNotBeNull();
+			ChordProDirectiveLine directive = ChordProDirectiveLine.Convert(chordDefinition);
+			directive.ToString().ShouldBe(expected);
+		}
 	}
 
 	[TestMethod]

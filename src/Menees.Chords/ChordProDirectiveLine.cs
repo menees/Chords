@@ -177,7 +177,7 @@ public sealed class ChordProDirectiveLine : Entry
 		Conditions.RequireNonNull(definition);
 
 		IReadOnlyList<byte?> frets = definition.Definition;
-		int baseFret = Math.Max(1, frets.Select(value => value ?? -1).Max());
+		byte baseFret = Math.Max((byte)1, frets.Where(value => value != null).Select(value => value!.Value).Min());
 
 		// {define: NAME base-fret OFFSET frets POS POS … POS}
 		StringBuilder arg = new();
