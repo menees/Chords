@@ -54,6 +54,7 @@ public sealed class ChordProTransformer : DocumentTransformer
 	/// <returns>The current transformer.</returns>
 	public ChordProTransformer ToChordPro()
 	{
+		// TODO: Create tests. [Bill, 8/13/2023]
 		IReadOnlyList<Entry> input = this.GetGroupedEntries();
 		IReadOnlyList<Entry> tab = this.GroupByEnvironment<TablatureLine>(input, "tab");
 		IReadOnlyList<Entry> grid = this.GroupByEnvironment<ChordProGridLine>(tab, "grid");

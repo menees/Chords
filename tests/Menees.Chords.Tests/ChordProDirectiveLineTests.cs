@@ -116,7 +116,7 @@ public class ChordProDirectiveLineTests
 		Test("A/C#", "_4222_", "{define: A/C# base-fret 2 frets x 4 2 2 2 x}");
 		Test("Em", "12-14-14-13-12-12", "{define: Em base-fret 12 frets 12 14 14 13 12 12}");
 
-		void Test(string name, string defintion, string expected)
+		static void Test(string name, string defintion, string expected)
 		{
 			ChordDefinition chordDefinition = ChordDefinition.TryParse(name, defintion).ShouldNotBeNull();
 			ChordProDirectiveLine directive = ChordProDirectiveLine.Convert(chordDefinition);
@@ -127,8 +127,35 @@ public class ChordProDirectiveLineTests
 	[TestMethod]
 	public void ConvertHeaderLineTest()
 	{
-		// TODO: Finish ConvertHeaderLineTest. [Bill, 8/13/2023]
-		Assert.Fail();
+		Test("[Verse]", false, "{sov}");
+		Test("[Chorus]", false, "{soc}");
+		Test("[Bridge]", false, "{sob}");
+		Test("[Verse]", true, "{start_of_verse}");
+		Test("[Chorus]", true, "{start_of_chorus}");
+		Test("[Bridge]", true, "{start_of_bridge}");
+
+		Test("[Intro] (+ Hook)", null, "{start_of_bridge: Intro}");
+		Test("[Intro (with open \"D D\" string)]", true, "{start_of_bridge: Intro (with open \"D D\" string)}");
+		Test("[Verse 1]", false, "{sov: Verse 1}");
+		Test("[Interlude (hammering chords)]", null, "{start_of_bridge: Interlude (hammering chords)}");
+		Test("[Bridge (N.C.)]", true, "{start_of_bridge: Bridge (N.C.)}");
+		Test("[Outro (heavy chords with open \"D D\" string)]", false, "{sob: Outro (heavy chords with open \"D D\" string)}");
+		Test("[Verse] (+ Hook)", null, "{start_of_verse}");
+		Test("[Solo Lead – Relative to capo]", true, "{start_of_bridge: Solo Lead – Relative to capo}");
+		Test("[Chorus] (a cappella with hand claps)", false, "{soc}");
+
+		// TODO: What about missing comments/annotations? [Bill, 8/13/2023]
+		static void Test(string text, bool? preferLongNames, string expectedStart)
+		{
+			LineContext context = LineContextTests.Create(text);
+			HeaderLine header = HeaderLine.TryParse(context).ShouldNotBeNull();
+			(ChordProDirectiveLine start, ChordProDirectiveLine end) = ChordProDirectiveLine.Convert(header, preferLongNames);
+			start.ToString().ShouldBe(expectedStart);
+
+			string suffix = start.LongName.Substring("start_of_".Length);
+			string expectedEnd = preferLongNames ?? true ? $"{{end_of_{suffix}}}" : $"{{eo{suffix[0]}}}";
+			end.ToString().ShouldBe(expectedEnd);
+		}
 	}
 
 	#endregion
