@@ -84,7 +84,7 @@ public sealed class ChordDefinition
 			}
 
 			const int MinStringCount = 4;
-			if (frets != null && frets.Count >= MinStringCount)
+			if (frets != null && frets.Count >= MinStringCount && !frets.All(fret => fret is null))
 			{
 				result = new(chord, frets);
 			}

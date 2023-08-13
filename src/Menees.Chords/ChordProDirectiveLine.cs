@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.IO;
+using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -61,7 +62,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 	#region Constructors
 
-	private ChordProDirectiveLine(string name, string? argument)
+	internal ChordProDirectiveLine(string name, string? argument)
 	{
 		this.Name = name;
 		this.Argument = argument;
@@ -163,6 +164,63 @@ public sealed class ChordProDirectiveLine : Entry
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Converts a chord defintion into a ChordPro {define} directive.
+	/// </summary>
+	/// <param name="definition">The definition to convert.</param>
+	/// <returns>A new {define} directive instance.</returns>
+	/// <seealso href="https://www.chordpro.org/chordpro/directives-define/"/>
+	public static ChordProDirectiveLine Convert(ChordDefinition definition)
+	{
+		Conditions.RequireNonNull(definition);
+
+		IReadOnlyList<byte?> frets = definition.Definition;
+		int baseFret = Math.Max(1, frets.Select(value => value ?? -1).Max());
+
+		// {define: NAME base-fret OFFSET frets POS POS … POS}
+		StringBuilder arg = new();
+		arg.Append(definition.Chord.Name);
+		arg.Append(" base-fret ");
+		arg.Append(baseFret);
+		arg.Append(" frets ");
+		arg.AppendJoin(' ', frets.Select(fret => fret?.ToString() ?? "x"));
+
+		string argument = arg.ToString();
+		ChordProDirectiveLine result = new("define", argument);
+		return result;
+	}
+
+	/// <summary>
+	/// Converts a header line to a pair of ChordPro start/end environment directives.
+	/// </summary>
+	/// <param name="header">The header to convert.</param>
+	/// <param name="preferLongNames">How ChordPro directive names should be converted to text.
+	/// If null, then <see cref="Name"/> will be used if available or a long name will be generated.
+	/// If true, then <see cref="LongName"/> will be used.
+	/// If false, then <see cref="ShortName"/> will be used.</param>
+	/// <returns>A pair of new start and end directive instances.</returns>
+	/// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/#environment-directives"/>
+	public static (ChordProDirectiveLine Start, ChordProDirectiveLine End) Convert(HeaderLine header, bool? preferLongNames)
+	{
+		Conditions.RequireNonNull(header);
+
+		StringComparison comparison = ChordParser.Comparison;
+		bool StartsWith(string text)
+			=> header.Text.Equals(text, comparison) || header.Text.StartsWith(text + ' ', comparison);
+
+		string suffix = StartsWith("Chorus") ? "chorus"
+			: StartsWith("Verse") ? "verse"
+			: "bridge";
+
+		string startName = preferLongNames ?? true ? $"start_of_{suffix}" : $"so{suffix[0]}";
+		string endName = preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
+		string? startArgument = header.Text.Equals(suffix, comparison) ? null : header.Text;
+
+		ChordProDirectiveLine start = new(startName, startArgument);
+		ChordProDirectiveLine end = new(endName, null);
+		return (start, end);
 	}
 
 	/// <summary>

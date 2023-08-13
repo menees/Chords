@@ -26,7 +26,7 @@ public sealed class ChordProRemarkLine : TextEntry
 {
 	#region Constructors
 
-	private ChordProRemarkLine(string text)
+	internal ChordProRemarkLine(string text)
 		: base(text)
 	{
 	}

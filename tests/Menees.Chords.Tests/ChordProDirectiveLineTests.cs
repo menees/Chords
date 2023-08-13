@@ -1,10 +1,16 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
 using Menees.Chords.Parsers;
+
+#endregion
 
 [TestClass]
 public class ChordProDirectiveLineTests
 {
+	#region Public Methods
+
 	[TestMethod]
 	public void TryParseTest()
 	{
@@ -97,4 +103,20 @@ public class ChordProDirectiveLineTests
 			line.ToShortString().ShouldBe(expectedText ?? text);
 		}
 	}
+
+	[TestMethod]
+	public void ConvertChordDefinitionTest()
+	{
+		// TODO: Finish ConvertChordDefinitionTest. [Bill, 8/13/2023]
+		Assert.Fail();
+	}
+
+	[TestMethod]
+	public void ConvertHeaderLineTest()
+	{
+		// TODO: Finish ConvertHeaderLineTest. [Bill, 8/13/2023]
+		Assert.Fail();
+	}
+
+	#endregion
 }

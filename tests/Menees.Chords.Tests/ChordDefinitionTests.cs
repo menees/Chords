@@ -31,5 +31,6 @@ public class ChordDefinitionTests
 		ChordDefinition.TryParse("?", "0000").ShouldBeNull();
 		ChordDefinition.TryParse("Open", "0000").ShouldBeNull();
 		ChordDefinition.TryParse("C#", "xyxy_x").ShouldBeNull();
+		ChordDefinition.TryParse("A", "xxxx").ShouldBeNull();
 	}
 }

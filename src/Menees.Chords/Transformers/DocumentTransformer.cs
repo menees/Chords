@@ -1,5 +1,11 @@
 ﻿namespace Menees.Chords.Transformers;
 
+#region Using Directives
+
+using Menees.Chords.Parsers;
+
+#endregion
+
 /// <summary>
 /// Use to create new <see cref="Document"/> instances by transforming
 /// the entries from an initial <see cref="Document"/>.
@@ -85,6 +91,26 @@ public abstract class DocumentTransformer
 	{
 		this.Document = new(this.Document.Entries, fileName);
 		return this;
+	}
+
+	#endregion
+
+	#region Protected Methods
+
+	/// <summary>
+	/// Gets <see cref="Document.Entries"/> and groups them using <see cref="DocumentParser"/>'s
+	/// default groupers if they're not grouped already.
+	/// </summary>
+	protected IReadOnlyList<Entry> GetGroupedEntries()
+	{
+		IReadOnlyList<Entry> entries = this.Document.Entries;
+		if (!entries.OfType<IEntryContainer>().Any())
+		{
+			DocumentParser parser = new();
+			entries = parser.GroupEntries(entries);
+		}
+
+		return entries;
 	}
 
 	#endregion

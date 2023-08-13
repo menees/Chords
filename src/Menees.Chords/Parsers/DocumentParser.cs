@@ -173,6 +173,20 @@ public sealed class DocumentParser
 		return result;
 	}
 
+	internal IReadOnlyList<Entry> GroupEntries(IReadOnlyList<Entry> entries)
+	{
+		IReadOnlyList<Entry> result = entries;
+
+		GroupContext groupContext = new(this);
+		foreach (Func<GroupContext, IReadOnlyList<Entry>> grouper in this.groupers)
+		{
+			groupContext.Entries = result;
+			result = grouper(groupContext);
+		}
+
+		return result;
+	}
+
 	#endregion
 
 	#region Private Methods
@@ -212,20 +226,6 @@ public sealed class DocumentParser
 					throw new FormatException($"Line {context.LineNumber} could not be parsed: {context.LineText}");
 				}
 			}
-		}
-
-		return result;
-	}
-
-	private IReadOnlyList<Entry> GroupEntries(IReadOnlyList<Entry> entries)
-	{
-		IReadOnlyList<Entry> result = entries;
-
-		GroupContext groupContext = new(this);
-		foreach (Func<GroupContext, IReadOnlyList<Entry>> grouper in this.groupers)
-		{
-			groupContext.Entries = result;
-			result = grouper(groupContext);
 		}
 
 		return result;
