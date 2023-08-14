@@ -6,9 +6,21 @@
 		<IsTestProject>true</IsTestProject>
 	</PropertyGroup>
 	<ItemGroup>
+	  <None Remove="Samples\Alone With You.txt" />
+	  <None Remove="Samples\Bring Him Home.txt" />
+	  <None Remove="Samples\Every Rose Has Its Thorn.txt" />
 	  <None Remove="Samples\Swing Low Sweet Chariot.cho" />
 	</ItemGroup>
 	<ItemGroup>
+	  <Content Include="Samples\Alone With You.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Bring Him Home.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Every Rose Has Its Thorn.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
 	  <Content Include="Samples\Swing Low Sweet Chariot.cho">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>

@@ -187,7 +187,6 @@ public sealed class ChordProDirectiveLine : Entry
 		arg.Append(" frets ");
 		arg.AppendJoin(' ', frets.Select(fret => fret?.ToString() ?? "x"));
 
-		// TODO: Add annotations. [Bill, 8/13/2023]
 		string argument = arg.ToString();
 		ChordProDirectiveLine result = new("define", argument);
 		return result;
@@ -219,8 +218,8 @@ public sealed class ChordProDirectiveLine : Entry
 		string endName = preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
 		string? startArgument = header.Text.Equals(suffix, comparison) ? null : header.Text;
 
-		// TODO: Add annotations. [Bill, 8/13/2023]
 		ChordProDirectiveLine start = new(startName, startArgument);
+		start.AddAnnotations(header.Annotations);
 		ChordProDirectiveLine end = new(endName, null);
 		return (start, end);
 	}

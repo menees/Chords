@@ -35,5 +35,14 @@ public static class TestUtility
 		return result;
 	}
 
+	public static Document LoadAloneWithYou()
+		=> Document.Load(GetSampleFileName("Alone With You.txt"));
+
+	public static Document LoadBringHimHome()
+	=> Document.Load(GetSampleFileName("Bring Him Home.txt"));
+
+	public static Document LoadEveryRoseHasItsThorn()
+	=> Document.Load(GetSampleFileName("Every Rose Has Its Thorn.txt"));
+
 	#endregion
 }
