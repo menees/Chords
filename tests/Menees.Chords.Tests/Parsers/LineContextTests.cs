@@ -60,6 +60,9 @@ public sealed class LineContextTests
 		Test("I play Em7 several ways: Em7 020000", "I play Em7 several ways: ", expectedDefinitions: "Em7 020000");
 		Test("I play Em7 several ways: Em7 = 022030", "I play Em7 several ways: ", expectedDefinitions: "Em7 022030");
 		Test("I play Em7 several ways: Em7 020003, Em7 = 020030", "I play Em7 several ways: ", expectedDefinitions: "Em7 020003, Em7 020030");
+		Test("A Bm C Db F# 3x", "A Bm C Db F# ", new[] { "3x" });
+		Test("A Bm C Db F#   x12", "A Bm C Db F#   ", new[] { "x12" });
+		Test("A Bm C Db F#   x123", "A Bm C Db ", expectedDefinitions: "F# x123"); // Chord def NOT repeat 123x!
 
 		Test("This doesn't. )", "This doesn't. )");
 		Test("A Bm C Db F#", "A Bm C Db F#");
