@@ -162,8 +162,20 @@ public class ChordProDirectiveLineTests
 	[TestMethod]
 	public void ConvertMetadataEntryTest()
 	{
-		// TODO: Finish ConvertMetadataEntryTest. [Bill, 8/15/2023]
-		Assert.Fail();
+		Test("Title: Test Song", "title", "Test Song");
+		Test(" key : C ", "key", "C");
+
+		static void Test(string text, string name, string argument)
+		{
+			LineContext context = LineContextTests.Create(text);
+			MetadataEntry metadata = MetadataEntry.TryParse(context).ShouldNotBeNull();
+			metadata.Name.ShouldBe(name);
+			metadata.Argument.ShouldBe(argument);
+
+			ChordProDirectiveLine directive = ChordProDirectiveLine.Convert(metadata);
+			directive.Name.ShouldBe(metadata.Name);
+			directive.Argument.ShouldBe(metadata.Argument);
+		}
 	}
 
 	#endregion
