@@ -109,7 +109,7 @@ public sealed class ChordProTransformer : DocumentTransformer
 				case ChordDefinitions definitions:
 					foreach (ChordDefinition definition in definitions.Definitions)
 					{
-						Add(ChordProDirectiveLine.Convert(definition));
+						Add(ChordProDirectiveLine.Convert(definition, inline: true));
 					}
 
 					AddAnnotations(definitions.Annotations);

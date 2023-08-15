@@ -167,12 +167,15 @@ public sealed class ChordProDirectiveLine : Entry
 	}
 
 	/// <summary>
-	/// Converts a chord defintion into a ChordPro {define} directive.
+	/// Converts a chord defintion into a ChordPro {chord} or {define} directive.
 	/// </summary>
 	/// <param name="definition">The definition to convert.</param>
-	/// <returns>A new {define} directive instance.</returns>
+	/// <param name="inline">Pass false to create a {define} directive.
+	/// Pass true to create a {chord} directive to "display the chord
+	/// immediately in the song where the directive occurs".</param>
+	/// <returns>A new {chord} or {define} directive instance.</returns>
 	/// <seealso href="https://www.chordpro.org/chordpro/directives-define/"/>
-	public static ChordProDirectiveLine Convert(ChordDefinition definition)
+	public static ChordProDirectiveLine Convert(ChordDefinition definition, bool inline = true)
 	{
 		Conditions.RequireNonNull(definition);
 
@@ -187,8 +190,9 @@ public sealed class ChordProDirectiveLine : Entry
 		arg.Append(" frets ");
 		arg.AppendJoin(' ', frets.Select(fret => fret?.ToString() ?? "x"));
 
+		string name = inline ? "chord" : "define";
 		string argument = arg.ToString();
-		ChordProDirectiveLine result = new("define", argument);
+		ChordProDirectiveLine result = new(name, argument);
 		return result;
 	}
 
@@ -206,7 +210,7 @@ public sealed class ChordProDirectiveLine : Entry
 	{
 		Conditions.RequireNonNull(header);
 
-		StringComparison comparison = ChordParser.Comparison;
+		const StringComparison comparison = ChordParser.Comparison;
 		bool StartsWith(string text)
 			=> header.Text.Equals(text, comparison) || header.Text.StartsWith(text + ' ', comparison);
 

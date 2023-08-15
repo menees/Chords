@@ -119,8 +119,10 @@ public class ChordProDirectiveLineTests
 		static void Test(string name, string defintion, string expected)
 		{
 			ChordDefinition chordDefinition = ChordDefinition.TryParse(name, defintion).ShouldNotBeNull();
-			ChordProDirectiveLine directive = ChordProDirectiveLine.Convert(chordDefinition);
-			directive.ToString().ShouldBe(expected);
+			ChordProDirectiveLine define = ChordProDirectiveLine.Convert(chordDefinition, inline: false);
+			define.ToString().ShouldBe(expected);
+			ChordProDirectiveLine chord = ChordProDirectiveLine.Convert(chordDefinition, inline: true);
+			chord.ToString().ShouldBe(expected.Replace("{define:", "{chord:"));
 		}
 	}
 
