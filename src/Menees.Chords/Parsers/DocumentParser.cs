@@ -39,6 +39,8 @@ public sealed class DocumentParser
 		ChordProLyricLine.TryParse,
 		TablatureLine.TryParse,
 		ChordLine.TryParse,
+		TitleLine.TryParse,
+		MetadataEntry.TryParse,
 		LyricLine.Parse,
 	};
 

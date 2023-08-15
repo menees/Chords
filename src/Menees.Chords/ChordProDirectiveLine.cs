@@ -229,6 +229,18 @@ public sealed class ChordProDirectiveLine : Entry
 	}
 
 	/// <summary>
+	/// Converts a metadata entry to a ChordPro directive.
+	/// </summary>
+	/// <param name="metadata">The metadata entry to convert.</param>
+	/// <returns>A new directive instance using <paramref name="metadata"/>'s name and argument.</returns>
+	public static ChordProDirectiveLine Convert(MetadataEntry metadata)
+	{
+		Conditions.RequireNonNull(metadata);
+		ChordProDirectiveLine result = new(metadata.Name, metadata.Argument);
+		return result;
+	}
+
+	/// <summary>
 	/// Gets the ChordPro directive in {<see cref="LongName"/>} or {<see cref="LongName"/>: <see cref="Argument"/>} format.
 	/// </summary>
 	public string ToLongString()

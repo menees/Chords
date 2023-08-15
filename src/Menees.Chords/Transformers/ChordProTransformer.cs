@@ -54,7 +54,6 @@ public sealed class ChordProTransformer : DocumentTransformer
 	/// <returns>The current transformer.</returns>
 	public ChordProTransformer ToChordPro()
 	{
-		// TODO: Create tests. [Bill, 8/13/2023]
 		IReadOnlyList<Entry> input = this.GetGroupedEntries();
 		IReadOnlyList<Entry> tab = this.GroupByEnvironment<TablatureLine>(input, "tab");
 		IReadOnlyList<Entry> grid = this.GroupByEnvironment<ChordProGridLine>(tab, "grid");
@@ -113,6 +112,18 @@ public sealed class ChordProTransformer : DocumentTransformer
 					}
 
 					AddAnnotations(definitions.Annotations);
+					break;
+
+				case MetadataEntry metadata:
+					Add(ChordProDirectiveLine.Convert(metadata));
+					break;
+
+				case TitleLine title:
+					foreach (MetadataEntry titleMetadata in title.Metadata)
+					{
+						Add(ChordProDirectiveLine.Convert(titleMetadata));
+					}
+
 					break;
 
 				default:

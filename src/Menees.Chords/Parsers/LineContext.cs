@@ -17,12 +17,14 @@ public sealed class LineContext
 {
 	#region Private Data Members
 
-	private const string EndOfLineAnnotationPattern = @"(?imnx) # Apply this with RegexOptions.RightToLeft"
-	+ "\r\n" + @"^.* # Ignore anything to the beginning of the line"
-	+ "\r\n" + @"(((?<parencomment>\(.*?\))|(?<starcomment>\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **"
-	+ "\r\n" + @"|(\s+(?<repeatcomment>(\d{1,2}x|x(\d{1,2})))) # EOL comment can be xN or Nx repeats."
-	+ "\r\n" + @"|((?<chord>[A-GIV1-79][a-z1-79#\-\+\^/]*[*~←↑↓→]?)\s*=?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})(\s*[,;]\s*)?) # [Chord [=]] x or digit..."
-	+ "\r\n" + @"\s*$ # Ignore trailing whitespace";
+	private const string EndOfLineAnnotationPattern = """
+		(?imnx) # Apply this with RegexOptions.RightToLeft
+		^.* # Ignore anything to the beginning of the line
+		(((?<parencomment>\(.*?\))|(?<starcomment>\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **
+		|(\s+(?<repeatcomment>(\d{1,2}x|x(\d{1,2})))) # EOL comment can be xN or Nx repeats.
+		|((?<chord>[A-GIV1-79][a-z1-79#\-\+\^/]*[*~←↑↓→]?)\s*=?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})(\s*[,;]\s*)?) # [Chord [=]] x or digit...
+		\s*$ # Ignore trailing whitespace
+		""";
 
 	private static readonly Regex EndOfLineAnnotation = new(EndOfLineAnnotationPattern, RegexOptions.RightToLeft | RegexOptions.Compiled);
 

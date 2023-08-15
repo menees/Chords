@@ -159,5 +159,12 @@ public class ChordProDirectiveLineTests
 		}
 	}
 
+	[TestMethod]
+	public void ConvertMetadataEntryTest()
+	{
+		// TODO: Finish ConvertMetadataEntryTest. [Bill, 8/15/2023]
+		Assert.Fail();
+	}
+
 	#endregion
 }

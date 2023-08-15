@@ -36,6 +36,20 @@ public class ChordProTransformerTests
 		Test(original);
 	}
 
+	[TestMethod]
+	public void GroupTabEnvironmentTest()
+	{
+		// TODO: Finish GroupTabEnvironmentTest. [Bill, 8/15/2023]
+		Assert.Fail();
+	}
+
+	[TestMethod]
+	public void GroupGridEnvironmentTest()
+	{
+		// TODO: Finish GroupGridEnvironmentTest. [Bill, 8/15/2023]
+		Assert.Fail();
+	}
+
 	#endregion
 
 	#region Private Methods
