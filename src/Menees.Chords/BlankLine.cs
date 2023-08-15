@@ -10,10 +10,19 @@ public sealed class BlankLine : TextEntry
 {
 	#region Constructors
 
-	internal BlankLine()
+	private BlankLine()
 		: base(string.Empty)
 	{
 	}
+
+	#endregion
+
+	#region Public Properties
+
+	/// <summary>
+	/// Gets the shared blank line instance.
+	/// </summary>
+	public static BlankLine Instance { get; } = new();
 
 	#endregion
 }

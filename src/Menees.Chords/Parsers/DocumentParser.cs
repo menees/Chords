@@ -204,7 +204,7 @@ public sealed class DocumentParser
 
 			if (string.IsNullOrWhiteSpace(context.LineText))
 			{
-				result.Add(new BlankLine());
+				result.Add(BlankLine.Instance);
 			}
 			else
 			{

@@ -151,10 +151,23 @@ public static class GroupEntries
 			{
 				if (section != null)
 				{
+					// Make sure trailing blank lines aren't included in the section.
+					// They should come after it and separate it from the next section (if any).
+					List<BlankLine> blankLines = new();
+					while (section.Count > 0 && section[^1] is BlankLine)
+					{
+						blankLines.Add(BlankLine.Instance);
+						section.RemoveAt(section.Count - 1);
+					}
+
 					grouped.Add(section.Count == 1 ? section[0] : new Section(section));
-#pragma warning disable IDE0059 // Unnecessary assignment of a value. Code may change later. It's safer to leave this to help maintainability.
+					grouped.AddRange(blankLines);
+
+					// Prevent IDE0059 (Unnecessary assignment) warning about setting section = null;
+					// This is technically an unnecessary assignment of a value. However, code
+					// may change later, so it's safer to leave this to help maintainability.
 					section = null;
-#pragma warning restore IDE0059 // Unnecessary assignment of a value
+					Conditions.Unused(section);
 				}
 			}
 

@@ -81,12 +81,14 @@ public class GroupEntriesTests
 			""",
 			GroupEntries.ByHeaderLine);
 
-		entries.Count.ShouldBe(2);
+		entries.Count.ShouldBe(3);
 		Section section = entries[0].ShouldBeOfType<Section>();
-		section.Entries.Count.ShouldBe(4);
+		section.Entries.Count.ShouldBe(3);
 		section.Entries[0].ShouldBeOfType<HeaderLine>();
 
-		section = entries[1].ShouldBeOfType<Section>();
+		entries[1].ShouldBeOfType<BlankLine>();
+
+		section = entries[2].ShouldBeOfType<Section>();
 		section.Entries.Count.ShouldBe(3);
 		section.Entries[0].ShouldBeOfType<HeaderLine>();
 	}
