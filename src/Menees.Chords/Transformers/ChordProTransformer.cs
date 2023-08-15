@@ -135,10 +135,23 @@ public sealed class ChordProTransformer : DocumentTransformer
 
 		void AddAnnotations(IReadOnlyList<Entry> annotations)
 		{
-			if (annotations.Count > 0)
+			int targetIndex = output.Count - 1;
+			Entry target = output[targetIndex];
+			bool allowChordProAnnotations = target is ChordProLyricLine or ChordLine or LyricLine;
+
+			foreach (Entry annotation in annotations)
 			{
-				IReadOnlyList<Entry> converted = this.ConvertEntries(annotations);
-				output.AddRange(converted);
+				if (allowChordProAnnotations && annotation is Comment comment && comment.Annotations.Count == 0)
+				{
+					Comment chordProAnnotation = new(comment.Text, "[*", "]");
+					target = target.Clone(target.Annotations.Concat(new[] { chordProAnnotation }));
+					output[targetIndex] = target;
+				}
+				else
+				{
+					IReadOnlyList<Entry> converted = this.ConvertEntries(new[] { annotation });
+					output.AddRange(converted);
+				}
 			}
 		}
 
