@@ -19,9 +19,9 @@ public sealed class TitleLine : TextEntry
 
 	private const string TitleRegexPattern = """
 		(?inx)^\s* # Ignore leading whitespace
-		(?<title>\S.*?)(\s*[\-–—]\s*(?<artist>\S.*?))? # Title with optional artist
+		(?<title>\S.*?)(\s+[\-–—]\s+(?<artist>\S.*?))? # Title with optional artist
 		([\.,;][\t ](?<metadata>\S.*?))* # Optional other info. Change last * to ? to see all captures as one.
-		[\.;]?\s*$ # Optional final "separator" and whitespace
+		[\.;]?\s*$ # Optional trailing "separator" and whitespace
 		""";
 
 	private static readonly Regex TitleRegex = new(TitleRegexPattern, RegexOptions.Compiled);

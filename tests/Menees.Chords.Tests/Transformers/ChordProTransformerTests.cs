@@ -50,6 +50,13 @@ public class ChordProTransformerTests
 		Assert.Fail();
 	}
 
+	[TestMethod]
+	public void ConvertFolderTest()
+	{
+		// TODO: Finish ConvertFolderTest. [Bill, 8/15/2023]
+		Assert.Fail();
+	}
+
 	#endregion
 
 	#region Private Methods
