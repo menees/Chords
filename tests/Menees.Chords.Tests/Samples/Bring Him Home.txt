@@ -3,7 +3,7 @@ Bring Him Home (Les Misérables). Bpm: 64. Key: G.
 [Intro]
 G C    4x
 
- 
+
 [Verse 1]
 D       G     C        G
  God on high,  hear my prayer,
@@ -48,18 +48,18 @@ C        B   B7        Em
 
 [Outro]
 Em     C    C/B       Am
-  If I die,    let me die, 
+  If I die,    let me die,
 D7        G
   Let him live
 C          G
  Bring him home,
 C          G
- Bring him home, 
+ Bring him home,
 C       C*   G*
  Bring… him… home.
 
 
 [Notes]
 * Use higher chords:
-C*  = 8 10 10  9  8  8
-G*  = x 10 12 12 12 10  (arpeggiate slowly)
+C*  = 8-10-10-9-8-8
+G*  = x-10-12-12-12-10  (arpeggiate slowly)

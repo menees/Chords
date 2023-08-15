@@ -207,6 +207,8 @@ public sealed class ChordProTransformer : DocumentTransformer
 			}
 		}
 
+		FinishEnvironment();
+
 		void FinishEnvironment()
 		{
 			if (environment == Environment.Implicit)
