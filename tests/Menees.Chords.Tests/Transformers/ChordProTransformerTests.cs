@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Diagnostics;
+using System.IO;
 using Menees.Chords.Formatters;
 using Shouldly;
 
@@ -14,27 +15,23 @@ public class ChordProTransformerTests
 	#region Public Methods
 
 	[TestMethod]
-	public void BringHimHomeTest()
+	public void ConvertSamplesTest()
 	{
-		// TODO: Test more. [Bill, 8/13/2023]
-		Document original = TestUtility.LoadBringHimHome();
-		Test(original);
-	}
+		string samplesFolder = TestUtility.GetSampleFileName(string.Empty);
+		foreach (string textFile in Directory.EnumerateFiles(samplesFolder))
+		{
+			Document original = Document.Load(textFile);
+			Test(original, out string text);
 
-	[TestMethod]
-	public void AloneWithYouTest()
-	{
-		// TODO: Test more. [Bill, 8/13/2023]
-		Document original = TestUtility.LoadAloneWithYou();
-		Test(original);
-	}
-
-	[TestMethod]
-	public void EveryRoseHasItsThornTest()
-	{
-		// TODO: Test more. [Bill, 8/13/2023]
-		Document original = TestUtility.LoadEveryRoseHasItsThorn();
-		Test(original);
+			string expectedFileName = Path.Combine(
+				samplesFolder,
+				"Expected ChordPro",
+				Path.ChangeExtension(Path.GetFileName(textFile), ".cho"));
+			string expectedText = File.Exists(expectedFileName)
+				? File.ReadAllText(expectedFileName)
+				: File.ReadAllText(textFile);
+			text.ShouldBe(expectedText);
+		}
 	}
 
 	[TestMethod]
@@ -80,23 +77,18 @@ public class ChordProTransformerTests
 		TestGroupEnvironment<ChordProGridLine>(GridLines, "grid");
 	}
 
-	[TestMethod]
-	public void ConvertFolderTest()
-	{
-		// TODO: Finish ConvertFolderTest. [Bill, 8/15/2023]
-		Assert.Fail();
-	}
-
 	#endregion
 
 	#region Private Methods
 
-	private static Document Test(Document original)
+	private static Document Test(Document original, out string text)
 	{
 		ChordProTransformer transformer = new(original);
 		Document converted = transformer.ToChordPro().Document;
 		TextFormatter formatter = new(converted);
-		string text = formatter.ToString();
+		text = formatter.ToString();
+
+		Debug.WriteLine($"***** {original.FileName} *****");
 		Debug.WriteLine(text);
 		return converted;
 	}
@@ -104,7 +96,7 @@ public class ChordProTransformerTests
 	private static void TestGroupEnvironment<T>(string text, string suffix)
 	{
 		Document original = Document.Parse(text);
-		Document converted = Test(original);
+		Document converted = Test(original, out _);
 		converted.Entries.Count.ShouldBe(3);
 		TestSection(converted.Entries[0].ShouldBeOfType<Section>());
 		converted.Entries[1].ShouldBeOfType<BlankLine>();

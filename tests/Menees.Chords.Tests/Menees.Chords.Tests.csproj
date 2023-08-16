@@ -9,6 +9,9 @@
 	  <None Remove="Samples\Alone With You.txt" />
 	  <None Remove="Samples\Bring Him Home.txt" />
 	  <None Remove="Samples\Every Rose Has Its Thorn.txt" />
+	  <None Remove="Samples\Expected ChordPro\Alone With You.cho" />
+	  <None Remove="Samples\Expected ChordPro\Bring Him Home.cho" />
+	  <None Remove="Samples\Expected ChordPro\Every Rose Has Its Thorn.cho" />
 	  <None Remove="Samples\Swing Low Sweet Chariot.cho" />
 	</ItemGroup>
 	<ItemGroup>
@@ -19,6 +22,15 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	  <Content Include="Samples\Every Rose Has Its Thorn.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordPro\Alone With You.cho">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordPro\Bring Him Home.cho">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordPro\Every Rose Has Its Thorn.cho">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	  <Content Include="Samples\Swing Low Sweet Chariot.cho">
@@ -33,5 +45,9 @@
 	<ItemGroup>
 		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
 		<Using Include="Shouldly" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Samples\Expected MobileSheets\" />
 	</ItemGroup>
 </Project>
