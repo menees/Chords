@@ -27,31 +27,6 @@ public sealed class DocumentParser
 
 	#region Private Data Members
 
-	private static readonly Func<LineContext, Entry?>[] DefaultLineParsers = new Func<LineContext, Entry?>[]
-	{
-		// Add line parsers in order from most specific syntax to least specific syntax.
-		HeaderLine.TryParse,
-		ChordProRemarkLine.TryParse, // This will parse #-prefixed lines before Comment.TryParse gets them.
-		Comment.TryParse,
-		ChordDefinitions.TryParse,
-		ChordProDirectiveLine.TryParse,
-		ChordProGridLine.TryParse,
-		ChordProLyricLine.TryParse,
-		TablatureLine.TryParse,
-		ChordLine.TryParse,
-		MetadataEntry.TryParse,
-		TitleLine.TryParse,
-		LyricLine.Parse,
-	};
-
-	private static readonly Func<GroupContext, IReadOnlyList<Entry>>[] DefaultGroupers = new Func<GroupContext, IReadOnlyList<Entry>>[]
-	{
-		Parsers.GroupEntries.ByChordLinePair,
-		Parsers.GroupEntries.ByChordProEnvironment,
-		Parsers.GroupEntries.ByHeaderLine,
-		Parsers.GroupEntries.ByBlankLine,
-	};
-
 	private readonly Func<LineContext, Entry?>[] lineParsers;
 	private readonly Func<GroupContext, IReadOnlyList<Entry>>[] groupers;
 
@@ -101,6 +76,50 @@ public sealed class DocumentParser
 			ChordProLyricLine.TryParse,
 			TablatureLine.TryParse,
 			LyricLine.Parse,
+		};
+
+	/// <summary>
+	/// Gets the default collection of line parsers.
+	/// </summary>
+	/// <remarks>
+	/// These are designed to process input that's in human-friendly formats like
+	/// "chord over text" or "Ultimate Guitar" format, but they can also process
+	/// ChordPro format.
+	/// </remarks>
+	public static Func<LineContext, Entry?>[] DefaultLineParsers { get; } =
+		new Func<LineContext, Entry?>[]
+		{
+			// Add line parsers in order from most specific syntax to least specific syntax.
+			HeaderLine.TryParse,
+			ChordProRemarkLine.TryParse, // This will parse #-prefixed lines before Comment.TryParse gets them.
+			Comment.TryParse,
+			ChordDefinitions.TryParse,
+			ChordProDirectiveLine.TryParse,
+			ChordProGridLine.TryParse,
+			ChordProLyricLine.TryParse,
+			TablatureLine.TryParse,
+			ChordLine.TryParse,
+			MetadataEntry.TryParse,
+			TitleLine.TryParse,
+			LyricLine.Parse,
+		};
+
+	/// <summary>
+	/// Gets the default collection of <see cref="Entry"/> groupers.
+	/// </summary>
+	/// <remarks>
+	/// These are used to group <see cref="Entry"/>s into <see cref="Section"/>s
+	/// or other <see cref="IEntryContainer"/>s (e.g.., <see cref="ChordLyricPair"/>s)
+	/// after the line parsers (e.g., <see cref="DefaultLineParsers"/> or <see cref="ChordProLineParsers"/>)
+	/// convert the lines into <see cref="Entry"/>s.
+	/// </remarks>
+	public static Func<GroupContext, IReadOnlyList<Entry>>[] DefaultGroupers { get; }
+		= new Func<GroupContext, IReadOnlyList<Entry>>[]
+		{
+			Parsers.GroupEntries.ByChordLinePair,
+			Parsers.GroupEntries.ByChordProEnvironment,
+			Parsers.GroupEntries.ByHeaderLine,
+			Parsers.GroupEntries.ByBlankLine,
 		};
 
 	/// <summary>
