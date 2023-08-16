@@ -79,15 +79,12 @@ public abstract class Entry
 		}
 		else
 		{
-			// We need to write the first part into a string so we can check if it ends with whitespace.
-			// Some entry types throw away insignificant whitespace (e.g., ChordDefinitions), so we may
-			// need to add some to separate the annotations from the entry content.
-			using StringWriter stringWriter = new();
-			this.WriteWithoutAnnotations(stringWriter);
-			string withoutAnnotations = stringWriter.ToString();
-			writer.Write(withoutAnnotations);
-
-			if (withoutAnnotations.Length > 0 && !char.IsWhiteSpace(withoutAnnotations[^1]))
+			// We need to write the first part with a lookback writer so we can check if it ends with whitespace.
+			// Some entry types throw away insignificant whitespace (e.g., ChordDefinitions), so we may need to
+			// add some back to separate the annotations from the entry content.
+			using LookbackWriter lookbackWriter = new(writer);
+			this.WriteWithoutAnnotations(lookbackWriter);
+			if (lookbackWriter.LastWrite is not null && !char.IsWhiteSpace(lookbackWriter.LastWrite.Value))
 			{
 				writer.Write(' ');
 			}
@@ -193,6 +190,46 @@ public abstract class Entry
 	/// </summary>
 	/// <param name="writer">Used to write the output.</param>
 	protected abstract void WriteWithoutAnnotations(TextWriter writer);
+
+	#endregion
+
+	#region Private Types
+
+	private sealed class LookbackWriter : TextWriter
+	{
+		#region Private Data Members
+
+		private readonly TextWriter writer;
+
+		#endregion
+
+		#region Constructors
+
+		public LookbackWriter(TextWriter writer)
+		{
+			this.writer = writer;
+		}
+
+		#endregion
+
+		#region Public Properties
+
+		public char? LastWrite { get; private set; }
+
+		#endregion
+
+		#region Public Methods
+
+		public override Encoding Encoding => this.writer.Encoding;
+
+		public override void Write(char value)
+		{
+			this.writer.Write(value);
+			this.LastWrite = value;
+		}
+
+		#endregion
+	}
 
 	#endregion
 }
