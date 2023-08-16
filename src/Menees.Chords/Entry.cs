@@ -76,6 +76,7 @@ public abstract class Entry
 
 		if (includeAnnotations && this.Annotations.Count > 0)
 		{
+			// TODO: If last written char wasn't whitespace then Write(' '). [Bill, 8/15/2023]
 			WriteJoin(writer, this.Annotations, w => w.Write(' '), (w, annotation) => annotation.Write(w, includeAnnotations));
 		}
 	}

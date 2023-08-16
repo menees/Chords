@@ -37,6 +37,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			}
 			else
 			{
+				// TODO: Need space after definitions and before annotations in Bring Him Home. [Bill, 8/15/2023]
 				// MobileSheets doesn't support {chord} or {define} directives as of v3.8.12 (2023-08-15).
 				supportedInput.Add(new ChordProDirectiveLine("comment", definitions.ToString()));
 			}
@@ -60,12 +61,6 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 				string newName = directive.Name[0..^suffixLength] + "verse";
 				ChordProDirectiveLine transformed = new(newName, directive.Argument);
 				result.Add(transformed);
-			}
-			else if (directive.Name.Equals("tempo", Comparison))
-			{
-				// MobileSheets doesn't display a {tempo} directive as of v3.8.12 (2023-08-15).
-				result.Add(entry);
-				result.Add(new ChordProDirectiveLine("comment", $"BPM: {directive.Argument}"));
 			}
 			else
 			{
