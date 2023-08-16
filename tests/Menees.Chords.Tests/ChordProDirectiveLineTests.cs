@@ -136,15 +136,15 @@ public class ChordProDirectiveLineTests
 		Test("[Chorus]", true, "{start_of_chorus}");
 		Test("[Bridge]", true, "{start_of_bridge}");
 
-		Test("[Intro] (+ Hook)", null, "{start_of_bridge: Intro}(+ Hook)");
+		Test("[Intro] (+ Hook)", null, "{start_of_bridge: Intro} (+ Hook)");
 		Test("[Intro (with open \"D D\" string)]", true, "{start_of_bridge: Intro (with open \"D D\" string)}");
 		Test("[Verse 1]", false, "{sov: Verse 1}");
 		Test("[Interlude (hammering chords)]", null, "{start_of_bridge: Interlude (hammering chords)}");
 		Test("[Bridge (N.C.)]", true, "{start_of_bridge: Bridge (N.C.)}");
 		Test("[Outro (heavy chords with open \"D D\" string)]", false, "{sob: Outro (heavy chords with open \"D D\" string)}");
-		Test("[Verse] (+ Hook)", null, "{start_of_verse}(+ Hook)");
+		Test("[Verse] (+ Hook)", null, "{start_of_verse} (+ Hook)");
 		Test("[Solo Lead – Relative to capo]", true, "{start_of_bridge: Solo Lead – Relative to capo}");
-		Test("[Chorus] (a cappella with hand claps)", false, "{soc}(a cappella with hand claps)");
+		Test("[Chorus] (a cappella with hand claps)", false, "{soc} (a cappella with hand claps)");
 
 		static void Test(string text, bool? preferLongNames, string expectedStart)
 		{

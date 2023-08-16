@@ -72,11 +72,26 @@ public abstract class Entry
 	{
 		Conditions.RequireNonNull(writer);
 
-		this.WriteWithoutAnnotations(writer);
-
-		if (includeAnnotations && this.Annotations.Count > 0)
+		if (!includeAnnotations || this.Annotations.Count == 0)
 		{
-			// TODO: If last written char wasn't whitespace then Write(' '). [Bill, 8/15/2023]
+			// This is the most common case, and it can use the passed in writer directly.
+			this.WriteWithoutAnnotations(writer);
+		}
+		else
+		{
+			// We need to write the first part into a string so we can check if it ends with whitespace.
+			// Some entry types throw away insignificant whitespace (e.g., ChordDefinitions), so we may
+			// need to add some to separate the annotations from the entry content.
+			using StringWriter stringWriter = new();
+			this.WriteWithoutAnnotations(stringWriter);
+			string withoutAnnotations = stringWriter.ToString();
+			writer.Write(withoutAnnotations);
+
+			if (withoutAnnotations.Length > 0 && !char.IsWhiteSpace(withoutAnnotations[^1]))
+			{
+				writer.Write(' ');
+			}
+
 			WriteJoin(writer, this.Annotations, w => w.Write(' '), (w, annotation) => annotation.Write(w, includeAnnotations));
 		}
 	}
