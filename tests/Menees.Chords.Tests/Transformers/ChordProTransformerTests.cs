@@ -17,21 +17,7 @@ public class ChordProTransformerTests
 	[TestMethod]
 	public void ConvertSamplesTest()
 	{
-		string samplesFolder = TestUtility.GetSampleFileName(string.Empty);
-		foreach (string textFile in Directory.EnumerateFiles(samplesFolder))
-		{
-			Document original = Document.Load(textFile);
-			Test(original, out string text);
-
-			string expectedFileName = Path.Combine(
-				samplesFolder,
-				"Expected ChordPro",
-				Path.ChangeExtension(Path.GetFileName(textFile), ".cho"));
-			string expectedText = File.Exists(expectedFileName)
-				? File.ReadAllText(expectedFileName)
-				: File.ReadAllText(textFile);
-			text.ShouldBe(expectedText);
-		}
+		TestSamples("Expected ChordPro", doc => new ChordProTransformer(doc));
 	}
 
 	[TestMethod]
@@ -79,11 +65,34 @@ public class ChordProTransformerTests
 
 	#endregion
 
+	#region Internal Methods
+
+	internal static void TestSamples(string expectedFolder, Func<Document, ChordProTransformer> createTransformer)
+	{
+		string samplesFolder = TestUtility.GetSampleFileName(string.Empty);
+		foreach (string textFile in Directory.EnumerateFiles(samplesFolder).Order())
+		{
+			Document original = Document.Load(textFile);
+			Test(original, createTransformer, out string text);
+
+			string expectedFileName = Path.Combine(
+				samplesFolder,
+				expectedFolder,
+				Path.ChangeExtension(Path.GetFileName(textFile), ".cho"));
+			string expectedText = File.Exists(expectedFileName)
+				? File.ReadAllText(expectedFileName)
+				: File.ReadAllText(textFile);
+			text.ShouldBe(expectedText);
+		}
+	}
+
+	#endregion
+
 	#region Private Methods
 
-	private static Document Test(Document original, out string text)
+	private static Document Test(Document original, Func<Document, ChordProTransformer> createTransformer, out string text)
 	{
-		ChordProTransformer transformer = new(original);
+		ChordProTransformer transformer = createTransformer(original);
 		Document converted = transformer.ToChordPro().Document;
 		TextFormatter formatter = new(converted);
 		text = formatter.ToString();
@@ -96,7 +105,7 @@ public class ChordProTransformerTests
 	private static void TestGroupEnvironment<T>(string text, string suffix)
 	{
 		Document original = Document.Parse(text);
-		Document converted = Test(original, out _);
+		Document converted = Test(original, doc => new ChordProTransformer(doc), out _);
 		converted.Entries.Count.ShouldBe(3);
 		TestSection(converted.Entries[0].ShouldBeOfType<Section>());
 		converted.Entries[1].ShouldBeOfType<BlankLine>();
