@@ -27,7 +27,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{D020E797
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Menees.Chords", "src\Menees.Chords\Menees.Chords.csproj", "{CD68F697-FA6B-4762-8720-2B1514A94F8E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Menees.Chords.Tests", "tests\Menees.Chords.Tests\Menees.Chords.Tests.csproj", "{4315E768-47A9-4B49-939F-9455A01E686C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Menees.Chords.Tests", "tests\Menees.Chords.Tests\Menees.Chords.Tests.csproj", "{4315E768-47A9-4B49-939F-9455A01E686C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Menees.Chords.Cli", "src\Menees.Chords.Cli\Menees.Chords.Cli.csproj", "{69EA2AF8-8516-43DF-81A9-4F0BC100DC6B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,6 +45,10 @@ Global
 		{4315E768-47A9-4B49-939F-9455A01E686C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4315E768-47A9-4B49-939F-9455A01E686C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4315E768-47A9-4B49-939F-9455A01E686C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{69EA2AF8-8516-43DF-81A9-4F0BC100DC6B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{69EA2AF8-8516-43DF-81A9-4F0BC100DC6B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{69EA2AF8-8516-43DF-81A9-4F0BC100DC6B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{69EA2AF8-8516-43DF-81A9-4F0BC100DC6B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -50,6 +56,7 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{CD68F697-FA6B-4762-8720-2B1514A94F8E} = {804F4B06-AF8A-4136-B66F-C59939098A81}
 		{4315E768-47A9-4B49-939F-9455A01E686C} = {D020E797-377B-43A9-8744-3EE701469574}
+		{69EA2AF8-8516-43DF-81A9-4F0BC100DC6B} = {804F4B06-AF8A-4136-B66F-C59939098A81}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {075C4E5D-96BC-4445-A4E1-B4A979A43002}
