@@ -95,28 +95,35 @@ internal sealed class ConvertCommand : BaseCommand
 
 	protected override Task OnExecuteAsync()
 	{
-		using TextReader reader = new StreamReader(this.input.FullName, this.encoding, true);
-		DocumentParser parser = new(
-			this.parsers == Parsers.ChordPro
-				? DocumentParser.ChordProLineParsers
-				: DocumentParser.DefaultLineParsers);
-		Document inputDocument = Document.Load(reader, parser);
-
-		ChordProTransformer transformer = this.transformers == Transformers.MobileSheets
-			? new MobileSheetsTransformer(inputDocument)
-			: new ChordProTransformer(inputDocument);
-		Document outputDocument = transformer.ToChordPro().Document;
-
-		TextFormatter formatter = new(outputDocument);
-		string outputText = formatter.ToString();
-		if (this.output is null)
+		if (this.output is not null && this.output.Exists && !this.force)
 		{
-			this.WriteLine(outputText);
+			this.WriteErrorLine("The specified output file already exists and the --force option was not specified.");
+			this.ExitCode = 1;
 		}
 		else
 		{
-			// TODO: Check force and File.Exists. [Bill, 8/16/2023]
-			File.WriteAllText(this.output.FullName, outputText, this.encoding);
+			using TextReader reader = new StreamReader(this.input.FullName, this.encoding, true);
+			DocumentParser parser = new(
+				this.parsers == Parsers.ChordPro
+					? DocumentParser.ChordProLineParsers
+					: DocumentParser.DefaultLineParsers);
+			Document inputDocument = Document.Load(reader, parser);
+
+			ChordProTransformer transformer = this.transformers == Transformers.MobileSheets
+				? new MobileSheetsTransformer(inputDocument)
+				: new ChordProTransformer(inputDocument);
+			Document outputDocument = transformer.ToChordPro().Document;
+
+			TextFormatter formatter = new(outputDocument);
+			string outputText = formatter.ToString();
+			if (this.output is null)
+			{
+				this.WriteLine(outputText);
+			}
+			else
+			{
+				File.WriteAllText(this.output.FullName, outputText, this.encoding);
+			}
 		}
 
 		return Task.CompletedTask;
