@@ -3,6 +3,7 @@
 		<TargetFrameworks>$(MeneesTargetNetCore);$(MeneesTargetNetFramework)</TargetFrameworks>
 		<OutputType>Exe</OutputType>
 		<ApplicationIcon>Vista_Music_Note_Double.ico</ApplicationIcon>
+		<IsPublishable>true</IsPublishable>
 	</PropertyGroup>
 
 	<ItemGroup>

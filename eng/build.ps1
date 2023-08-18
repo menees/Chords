@@ -34,8 +34,8 @@ if ($build)
     foreach ($configuration in $configurations)
     {
         # Restore NuGet packages first
-        msbuild $slnPath /p:Configuration=$configuration /t:Restore /v:$msBuildVerbosity /nologo
-        msbuild $slnPath /p:Configuration=$configuration /v:$msBuildVerbosity /nologo
+        dotnet restore $slnPath /p:Configuration=$configuration /v:$msBuildVerbosity /nologo
+        dotnet build $slnPath /p:Configuration=$configuration /v:$msBuildVerbosity /nologo
     }
 }
 
@@ -79,7 +79,7 @@ if ($publish)
 					# throws an exception if the .csproj uses <TargetFrameworks>. We have to override that and force a specific <TargetFramework> instead.
 					# In .NET SDK 7.0.306 we'll get a NETSDK1198 warning due to an SDK bug: https://github.com/Azure/azure-functions-dotnet-worker/issues/1798
 					$targetFramework = GetXmlPropertyValue $buildPropsFile "MeneesTargetNet$profileName"
-					msbuild $slnPath /t:Publish /p:PublishProfile=$profile /p:TargetFramework=$targetFramework /v:$msBuildVerbosity /nologo /p:Configuration=$configuration
+					dotnet publish $slnPath /p:PublishProfile=$profile /p:TargetFramework=$targetFramework /v:$msBuildVerbosity /nologo /p:Configuration=$configuration
 
 					Remove-Item "$artifactsPath\$profileName\*.pdb"
 
