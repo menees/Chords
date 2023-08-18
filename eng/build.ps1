@@ -75,11 +75,9 @@ if ($publish)
 					$profileName = [IO.Path]::GetFileNameWithoutExtension($profile)
 					Write-Host "Publishing $profileName"
 
-					# The Publish target in "C:\Program Files\dotnet\sdk\3.1.101\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.Sdk.CrossTargeting.targets"
-					# throws an exception if the .csproj uses <TargetFrameworks>. We have to override that and force a specific <TargetFramework> instead.
-					# In .NET SDK 7.0.306 we'll get a NETSDK1198 warning due to an SDK bug: https://github.com/Azure/azure-functions-dotnet-worker/issues/1798
+					# Publish requires a single TargetFramework.
 					$targetFramework = GetXmlPropertyValue $buildPropsFile "MeneesTargetNet$profileName"
-					dotnet publish $slnPath /p:PublishProfile=$profile /p:TargetFramework=$targetFramework /v:$msBuildVerbosity /nologo /p:Configuration=$configuration
+					dotnet publish $slnPath -p:PublishProfile=$profile --framework $targetFramework -v:$msBuildVerbosity --nologo --configuration $configuration
 
 					Remove-Item "$artifactsPath\$profileName\*.pdb"
 
