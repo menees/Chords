@@ -1,12 +1,20 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-	  <TargetFrameworks>netstandard2.0;$(MeneesTargetNetCoreBase);$(MeneesTargetNetFramework)</TargetFrameworks>
-	  <OutputType>Exe</OutputType>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Menees.Chords\Menees.Chords.csproj" />
-  </ItemGroup>
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFrameworks>$(MeneesTargetNetCore);$(MeneesTargetNetFramework)</TargetFrameworks>
+		<OutputType>Exe</OutputType>
+		<ApplicationIcon>Vista_Music_Note_Double.ico</ApplicationIcon>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<!-- Based on VS 2010 Image Library\Objects\png_format\WinVista\Music_Note_Double_*.png -->
+		<Content Include="Vista_Music_Note_Double.ico" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Menees.Chords\Menees.Chords.csproj" />
+	</ItemGroup>
 </Project>

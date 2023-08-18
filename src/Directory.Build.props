@@ -13,10 +13,8 @@
 		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
 		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>
 
-		<!-- When TargetFrameworks changes, also update the app's Properties\PublishProfiles\*.pubxml files. -->
 		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
-		<MeneesTargetNetCoreBase>net6.0</MeneesTargetNetCoreBase>
-		<MeneesTargetNetCoreWindows>$(MeneesTargetNetCoreBase)-windows</MeneesTargetNetCoreWindows>
+		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
 
 		<RepoSrcFolder>$(MSBuildThisFileDirectory)</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>
@@ -26,7 +24,7 @@
 		<_SkipUpgradeNetAnalyzersNuGetWarning>true</_SkipUpgradeNetAnalyzersNuGetWarning>
 
 		<!-- Make the assembly, file, and NuGet package versions the same. -->
-		<Version>0.0.1</Version>
+		<Version>0.5.0</Version>
 		<UseLocaMeneesLibraries>false</UseLocaMeneesLibraries>
 		<LocaMeneesLibrariesSrc/>
 		<BuildingInsideVisualStudio Condition="'$(BuildingInsideVisualStudio)' == ''">false</BuildingInsideVisualStudio>

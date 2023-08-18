@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>netstandard2.0;$(MeneesTargetNetCoreBase);$(MeneesTargetNetFramework)</TargetFrameworks>
+		<TargetFrameworks>netstandard2.0;$(MeneesTargetNetCore);$(MeneesTargetNetFramework)</TargetFrameworks>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<Description>Helper types for parsing chord sheets and ChordPro files and converting them to other formats.</Description>
