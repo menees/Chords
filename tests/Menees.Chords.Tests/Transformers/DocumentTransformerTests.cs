@@ -89,13 +89,15 @@ public class DocumentTransformerTests
 
 	private static void CheckFlattenedAnnotations(IReadOnlyList<Entry> entries)
 	{
-		entries.Count.ShouldBe(6);
+		entries.Count.ShouldBe(5);
 		entries[0].ShouldBeOfType<HeaderLine>().Annotations.Count.ShouldBe(0);
 		entries[1].ShouldBeOfType<Comment>().Annotations.Count.ShouldBe(0);
 		entries[2].ShouldBeOfType<ChordLine>().Annotations.Count.ShouldBe(0);
+
+		// This lyric line's parenthetical comment is considered lyrics (e.g., harmonies),
+		// so it won't be flattened out as a separate Comment annotation entry.
 		entries[3].ShouldBeOfType<LyricLine>().Annotations.Count.ShouldBe(0);
-		entries[4].ShouldBeOfType<Comment>().Annotations.Count.ShouldBe(0);
-		entries[5].ShouldBeOfType<ChordDefinitions>().Annotations.Count.ShouldBe(0);
+		entries[4].ShouldBeOfType<ChordDefinitions>().Annotations.Count.ShouldBe(0);
 	}
 
 	#endregion

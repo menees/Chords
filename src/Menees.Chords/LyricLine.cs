@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -40,6 +41,32 @@ public sealed class LyricLine : TextEntry
 
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
 		string line = lexer.ReadToEnd(skipTrailingWhiteSpace: annotations.Count == 0);
+
+		// If a lyric line ends comments in parentheses, then they're probably repeated harmonies
+		// instead of comments about the lines. For example, in Hotel California:
+		//     "Such a lovely place (Such a lovely place)"
+		// The harmony part might even be the whole line, e.g., in Mrs. Robinson:
+		//     "(Hey, hey, hey...hey, hey, hey)"
+		StringBuilder? sb = null;
+		int index = 0;
+		while (annotations.Count > index
+			&& annotations[index] is Comment comment
+			&& comment.Prefix == "("
+			&& comment.Suffix == ")")
+		{
+			sb ??= new(line);
+			sb.Append(comment);
+			if (++index < annotations.Count)
+			{
+				sb.Append(' ');
+			}
+		}
+
+		if (sb != null && index > 0)
+		{
+			line = sb.ToString();
+			annotations = annotations.Skip(index).ToList();
+		}
 
 		LyricLine result = new(line);
 		result.AddAnnotations(annotations);
