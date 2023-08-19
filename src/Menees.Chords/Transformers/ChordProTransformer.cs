@@ -101,6 +101,12 @@ public class ChordProTransformer : DocumentTransformer
 					break;
 
 				case IEntryContainer container:
+					// We can have header lines for empty "sections" like this where we need to add
+					// the pending end for the solo section before we drill into the chorus section:
+					// [Guitar Solo]
+					//
+					// [Chorus]
+					AddPendingEnd();
 					Add(new Section(this.TransformEntries(container.Entries)), entry.Annotations);
 					break;
 

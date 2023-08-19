@@ -1,4 +1,6 @@
-Bring Him Home (Les Misérables). Bpm: 64. Key: G.
+Bring Him Home (Les Misérables). Bpm: 64. Key: G. Capo: 2.
+
+[Testing]
 
 [Intro]
 G C    4x
