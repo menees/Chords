@@ -101,12 +101,6 @@ public class ChordProTransformer : DocumentTransformer
 					break;
 
 				case IEntryContainer container:
-					// We can have header lines for empty "sections" like this where we need to add
-					// the pending end for the solo section before we drill into the chorus section:
-					// [Guitar Solo]
-					//
-					// [Chorus]
-					AddPendingEnd();
 					Add(new Section(this.TransformEntries(container.Entries)), entry.Annotations);
 					break;
 
@@ -114,6 +108,16 @@ public class ChordProTransformer : DocumentTransformer
 					AddPendingEnd();
 					(ChordProDirectiveLine start, pendingEnd) = ChordProDirectiveLine.Convert(header, this.preferLongNames);
 					Add(start);
+
+					// We can have header lines for empty "sections" (e.g., [Guitar Solo]) where we need to
+					// add the pending end for the solo "section" immediately. We're processing entries
+					// grouped with the default groupers (including ByHeaderLine), so if we see a header
+					// line anywhere other than the first position, it should immediately end.
+					if (entry != input[0])
+					{
+						AddPendingEnd();
+					}
+
 					break;
 
 				case ChordDefinitions definitions:
