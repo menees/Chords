@@ -72,14 +72,7 @@ internal sealed class ConvertCommand : BaseCommand
 				// https://learn.microsoft.com/en-us/dotnet/standard/commandline/get-started-tutorial#add-subcommands-and-custom-validation
 				FileInfo? fileInfo = null;
 				string? filePath = parseResult.Tokens.Single().Value;
-				if (filePath == ReadStdIn)
-				{
-					if (!Console.IsInputRedirected)
-					{
-						parseResult.ErrorMessage = $"Input \"{ReadStdIn}\" is only supported when stdin is redirected (i.e., piped).";
-					}
-				}
-				else
+				if (filePath != ReadStdIn)
 				{
 					if (File.Exists(filePath))
 					{

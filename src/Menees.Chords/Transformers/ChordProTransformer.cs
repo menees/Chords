@@ -81,33 +81,33 @@ public class ChordProTransformer : DocumentTransformer
 			switch (entry)
 			{
 				case ChordLyricPair pair:
-					Add(ChordProLyricLine.Convert(pair));
+					this.Add(output, ChordProLyricLine.Convert(pair));
 					break;
 
 				case ChordLine chord:
-					Add(ChordProLyricLine.Convert(chord));
+					this.Add(output, ChordProLyricLine.Convert(chord));
 					break;
 
 				case Comment comment:
 					if (comment.Prefix == "#")
 					{
-						Add(new ChordProRemarkLine(comment.ToString()), comment.Annotations);
+						this.Add(output, new ChordProRemarkLine(comment.ToString()), comment.Annotations);
 					}
 					else
 					{
-						Add(new ChordProDirectiveLine(nameof(comment), comment.Text), comment.Annotations);
+						this.Add(output, new ChordProDirectiveLine(nameof(comment), comment.Text), comment.Annotations);
 					}
 
 					break;
 
 				case IEntryContainer container:
-					Add(new Section(this.TransformEntries(container.Entries)), entry.Annotations);
+					this.Add(output, new Section(this.TransformEntries(container.Entries)), entry.Annotations);
 					break;
 
 				case HeaderLine header:
-					AddPendingEnd();
+					AddPendingEnd(output, ref pendingEnd);
 					(ChordProDirectiveLine start, pendingEnd) = ChordProDirectiveLine.Convert(header, this.preferLongNames);
-					Add(start);
+					this.Add(output, start);
 
 					// We can have header lines for empty "sections" (e.g., [Guitar Solo]) where we need to
 					// add the pending end for the solo "section" immediately. We're processing entries
@@ -115,7 +115,7 @@ public class ChordProTransformer : DocumentTransformer
 					// line anywhere other than the first position, it should immediately end.
 					if (entry != input[0])
 					{
-						AddPendingEnd();
+						AddPendingEnd(output, ref pendingEnd);
 					}
 
 					break;
@@ -123,77 +123,77 @@ public class ChordProTransformer : DocumentTransformer
 				case ChordDefinitions definitions:
 					foreach (ChordDefinition definition in definitions.Definitions)
 					{
-						Add(ChordProDirectiveLine.Convert(definition, inline: true));
+						this.Add(output, ChordProDirectiveLine.Convert(definition, inline: true));
 					}
 
-					AddAnnotations(definitions.Annotations);
+					this.AddAnnotations(output, definitions.Annotations);
 					break;
 
 				case MetadataEntry metadata:
-					Add(ChordProDirectiveLine.Convert(metadata));
+					this.Add(output, ChordProDirectiveLine.Convert(metadata));
 					break;
 
 				case TitleLine title:
 					foreach (MetadataEntry titleMetadata in title.Metadata)
 					{
-						Add(ChordProDirectiveLine.Convert(titleMetadata));
+						this.Add(output, ChordProDirectiveLine.Convert(titleMetadata));
 					}
 
 					break;
 
 				default:
-					Add(entry);
+					this.Add(output, entry);
 					break;
 			}
 		}
 
-		AddPendingEnd();
+		AddPendingEnd(output, ref pendingEnd);
 		return output;
-
-		void Add(Entry newEntry, IReadOnlyList<Entry>? annotations = null)
-		{
-			Entry nonAnnotatedEntry = newEntry.Annotations.Count == 0 ? newEntry : newEntry.Clone(null);
-			output.Add(nonAnnotatedEntry);
-
-			annotations ??= newEntry.Annotations;
-			AddAnnotations(annotations);
-		}
-
-		void AddAnnotations(IReadOnlyList<Entry> annotations)
-		{
-			int targetIndex = output.Count - 1;
-			Entry target = output[targetIndex];
-			bool allowChordProAnnotations = target is ChordProLyricLine or ChordLine or LyricLine;
-
-			foreach (Entry annotation in annotations)
-			{
-				if (allowChordProAnnotations && annotation is Comment comment && comment.Annotations.Count == 0)
-				{
-					Comment chordProAnnotation = new(comment.Text, "[*", "]");
-					target = target.Clone(target.Annotations.Concat(new[] { chordProAnnotation }));
-					output[targetIndex] = target;
-				}
-				else
-				{
-					IReadOnlyList<Entry> converted = this.TransformEntries(new[] { annotation });
-					output.AddRange(converted);
-				}
-			}
-		}
-
-		void AddPendingEnd()
-		{
-			if (pendingEnd != null)
-			{
-				output.Add(pendingEnd);
-				pendingEnd = null;
-			}
-		}
 	}
 
 	#endregion
 
 	#region Private Methods
+
+	private static void AddPendingEnd(List<Entry> output, ref ChordProDirectiveLine? pendingEnd)
+	{
+		if (pendingEnd != null)
+		{
+			output.Add(pendingEnd);
+			pendingEnd = null;
+		}
+	}
+
+	private void Add(List<Entry> output, Entry newEntry, IReadOnlyList<Entry>? annotations = null)
+	{
+		Entry nonAnnotatedEntry = newEntry.Annotations.Count == 0 ? newEntry : newEntry.Clone(null);
+		output.Add(nonAnnotatedEntry);
+
+		annotations ??= newEntry.Annotations;
+		this.AddAnnotations(output, annotations);
+	}
+
+	private void AddAnnotations(List<Entry> output, IReadOnlyList<Entry> annotations)
+	{
+		int targetIndex = output.Count - 1;
+		Entry target = output[targetIndex];
+		bool allowChordProAnnotations = target is ChordProLyricLine or ChordLine or LyricLine;
+
+		foreach (Entry annotation in annotations)
+		{
+			if (allowChordProAnnotations && annotation is Comment comment && comment.Annotations.Count == 0)
+			{
+				Comment chordProAnnotation = new(comment.Text, "[*", "]");
+				target = target.Clone(target.Annotations.Concat(new[] { chordProAnnotation }));
+				output[targetIndex] = target;
+			}
+			else
+			{
+				IReadOnlyList<Entry> converted = this.TransformEntries(new[] { annotation });
+				output.AddRange(converted);
+			}
+		}
+	}
 
 	private IReadOnlyList<Entry> GroupByEnvironment<T>(IReadOnlyList<Entry> input, string suffix)
 		where T : Entry
