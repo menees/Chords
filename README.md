@@ -49,22 +49,22 @@ The `Document` class provides methods to `Load` chord sheet files and to `Parse`
 [XDocument](https://learn.microsoft.com/en-us/dotnet/standard/linq/xdocument-class-overview) class except instead of
 XML nodes, `Document` represents a parsed chord sheet as a tree of `Entry` objects in `IEntryContainer`s (e.g., `Section`s).
 The `Entry`-derived class hierarchy is:
-* [Entry](src/Menees.Chords/Entry.cs)
-    - [ChordDefinitions](src/Menees.Chords/ChordDefinitions.cs)
-	- [ChordLyricPair](src/Menees.Chords/ChordLyricPair.cs)
-	- [ChordProDirectiveLine](src/Menees.Chords/ChordProDirectiveLine.cs)
-	- [Section](src/Menees.Chords/Section.cs)
-	- [SegmentedEntry](src/Menees.Chords/SegmentedEntry.cs)
-    	* [ChordLine](src/Menees.Chords/ChordLine.cs)
-		* [ChordProLyricLine](src/Menees.Chords/ChordProLyricLine.cs)
-	- [TextEntry](src/Menees.Chords/TextEntry.cs)
-    	* [BlankLine](src/Menees.Chords/BlankLine.cs)
-		* [ChordProGridLine](src/Menees.Chords/ChordProGridLine.cs)
-		* [ChordProRemarkLine](src/Menees.Chords/ChordProRemarkLine.cs)
-		* [Comment](src/Menees.Chords/Comment.cs)
-		* [HeaderLine](src/Menees.Chords/HeaderLine.cs)
-		* [LyricLine](src/Menees.Chords/LyricLine.cs)
-		* [TablatureLine](src/Menees.Chords/TablatureLine.cs)
+* [Entry](src/Menees.Chords/Entry.cs) - The abtract base for each item in `Document.Entries`.
+    - [ChordDefinitions](src/Menees.Chords/ChordDefinitions.cs) - One or more chord definitions on a line (e.g., `G 320033, G7 320001`).
+	- [ChordLyricPair](src/Menees.Chords/ChordLyricPair.cs) - Groups a [ChordLine](src/Menees.Chords/ChordLine.cs) and a [LyricLine](src/Menees.Chords/LyricLine.cs) together in a "chords over text" file.
+	- [ChordProDirectiveLine](src/Menees.Chords/ChordProDirectiveLine.cs) - A [ChordPro directive](https://www.chordpro.org/chordpro/chordpro-directives/) (e.g., `{title: Grey Street}`)
+	- [Section](src/Menees.Chords/Section.cs) - An `IEntryContainer` of related entries (e.g., all lines in a chorus, or a [ChordPro environment](https://www.chordpro.org/chordpro/directives-env/))
+	- [SegmentedEntry](src/Menees.Chords/SegmentedEntry.cs) - The abstract base for an entry composed of multiple text segments (e.g., [ChordPro lines](https://www.chordpro.org/chordpro/chordpro-introduction/#the-basics) with bracketed chords and unbracketed lyrics).
+    	* [ChordLine](src/Menees.Chords/ChordLine.cs) - A line from a "chords over text" document that just contains chords (and maybe a few annotations).
+		* [ChordProLyricLine](src/Menees.Chords/ChordProLyricLine.cs) - A line from a ChordPro document that contains [interlaced chords and lyrics](https://www.chordpro.org/chordpro/chordpro-introduction/#the-basics).
+	- [TextEntry](src/Menees.Chords/TextEntry.cs) - The abstract base for a text entry that has a recognizable structure.
+    	* [BlankLine](src/Menees.Chords/BlankLine.cs) - A line that's blank or was all whitespace and was trimmed to be blank.
+		* [ChordProGridLine](src/Menees.Chords/ChordProGridLine.cs) - A line in a [ChordPro grid environment](https://www.chordpro.org/chordpro/directives-env_grid/).
+		* [ChordProRemarkLine](src/Menees.Chords/ChordProRemarkLine.cs) - A `#`-prefixed [ChordPro remark line](https://www.chordpro.org/chordpro/chordpro-introduction/#the-basics) (i.e., a comment for maintainers that's not displayed in rendered content).
+		* [Comment](src/Menees.Chords/Comment.cs) - A comment line that should be displayed in the rendered content.
+		* [HeaderLine](src/Menees.Chords/HeaderLine.cs) - A bracketed header line that begins a section in "chords over text" format (e.g., `[Verse 1]`).
+		* [LyricLine](src/Menees.Chords/LyricLine.cs) - A line of lyrics (or anything that the parser couldn't match to another entry type).
+		* [TablatureLine](src/Menees.Chords/TablatureLine.cs) - A tablature line, typically inside a [ChordPro tab environment](https://www.chordpro.org/chordpro/directives-env_tab/).
 
 Chord sheets are parsed line-by-line. Parsing can be customized using the `DocumentParser` class with an
 ordered collection of specialized line parsers and groupers.
