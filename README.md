@@ -26,6 +26,23 @@ Running `.\Menees.Chords.Cli.exe convert` with that input produces this output i
 The `Menees.Chords.dll` .NET library is the main focus of this repo, and it contains all of the parsing, transforming, 
 and formatting API. It can be reused in any application targeting .NET Framework 4.8, .NET 6.0, or .NET Standard 2.0.
 
+### Code Example
+``` C#
+// Parsing
+Document inputDocument = Document.Load(inputFileName);
+
+// Transforming
+ChordProTransformer transformer = new ChordProTransformer(inputDocument);
+Document outputDocument = transformer.ToChordPro().Document;
+
+// Formatting
+ContainerFormatter formatter = new TextFormatter(outputDocument);
+string outputText = formatter.ToString();
+
+// Saving
+File.WriteAllText(outputFileName, outputText);
+```
+
 ### Parsing
 The `Document` class provides methods to `Load` chord sheet files and to `Parse` chord sheet text into an in-memory
 [DOM](https://en.wikipedia.org/wiki/Document_Object_Model). `Menees.Chords.Document` is similar to .NET's 
@@ -54,18 +71,22 @@ ordered collection of specialized line parsers and groupers.
 
 ### Transforming
 `Document`s (and `Entry`s) are immutable after construction. The `DocumentTransformer` class provides a way
-to build a new in-memory `Document` by transforming an existing one. The primary transformer types are:
+to build a new in-memory `Document` by transforming an existing one. The primary transformer-derived types are:
 * [ChordProTransformer](src/Menees.Chords/Transformers/ChordProTransformer.cs) - Transforms "chords over text" (e.g., Ultimate Guitar) syntax into standard ChordPro syntax.
 * [MobileSheetsTransformer](src/Menees.Chords/Transformers/MobileSheetsTransformer.cs) - A ChordProTransformer-derived type that restricts the output to a subset of ChordPro syntax compatible with the [MobileSheets](https://zubersoft.com/mobilesheets/) application.
 
 ### Formatting
-todo: Formatting
+In-memory `Document`s can be formatted as text using one of the `ContainerFormatter`-derived types:
+* [TextFormatter](src/Menees.Chords/Formatters/TextFormatter.cs)
+* [XmlFormatter](src/Menees.Chords/Formatters/XmlFormatter.cs)
 
-### Example
-todo: Code example
+These are useful when saving chord sheets back into text files after transforming them to a new syntax.
 
-### Helper classes: 
-Chord, ChordDefinition
+### Helpers
+The library also contains some helper classes for specialized parsing situtations:
+* [Chord](src/Menees.Chords/Chord.cs)
+* [ChordDefinition](src/Menees.Chords/ChordDefinition.cs)
+* [Lexer](src/Menees.Chords/Parsers/Lexer.cs)
 
 ## Application
 The `.\Menees.Chords.Cli.exe` .NET console application is a thin wrapper over the `Menees.Chords.dll` library.
