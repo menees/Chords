@@ -24,7 +24,7 @@ Running `.\Menees.Chords.Cli.exe convert` with that input produces this output i
 
 ## Library
 The `Menees.Chords.dll` .NET library is the main focus of this repo, and it contains all of the parsing, transforming, 
-and formatting API. It can be reused in any application targeting .NET Framework 4.8, .NET 6.0, or .NET Standard 2.0.
+and formatting objects. It can be reused in any application targeting .NET Framework 4.8, .NET 6.0, or .NET Standard 2.0.
 
 ### Code Example
 ``` C#
@@ -45,7 +45,7 @@ File.WriteAllText(outputFileName, outputText);
 
 ### Parsing
 The `Document` class provides methods to `Load` chord sheet files and to `Parse` chord sheet text into an in-memory
-[DOM](https://en.wikipedia.org/wiki/Document_Object_Model). `Menees.Chords.Document` is similar to .NET's 
+[DOM](https://en.wikipedia.org/wiki/Document_Object_Model). `Document` is similar to .NET's 
 [XDocument](https://learn.microsoft.com/en-us/dotnet/standard/linq/xdocument-class-overview) class except instead of
 XML nodes, `Document` represents a parsed chord sheet as a tree of `Entry` objects in `IEntryContainer`s (e.g., `Section`s).
 The `Entry`-derived class hierarchy is:
