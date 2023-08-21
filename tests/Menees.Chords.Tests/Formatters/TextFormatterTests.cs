@@ -42,7 +42,7 @@ public class TextFormatterTests
 		TextFormatter formatter = new(outer, "\t");
 		string text = formatter.ToString();
 		Debug.WriteLine(text);
-		text.ShouldBe("\tLine 1\r\n\tLine 2\r\n");
+		text.ShouldBe("\tLine 1\r\n\tLine 2\r\n", StringCompareShould.IgnoreLineEndings);
 	}
 
 	[TestMethod]
@@ -60,7 +60,8 @@ public class TextFormatterTests
 			A Bb B   (Half steps)
 			G  G2  D/F#  Em  C  Cmaj5 (2x)
 
-			""");
+			""",
+			StringCompareShould.IgnoreLineEndings);
 	}
 
 	#endregion

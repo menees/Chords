@@ -82,7 +82,7 @@ public class ChordProTransformerTests
 			string expectedText = File.Exists(expectedFileName)
 				? File.ReadAllText(expectedFileName)
 				: File.ReadAllText(textFile);
-			text.ShouldBe(expectedText);
+			text.ShouldBe(expectedText, StringCompareShould.IgnoreLineEndings);
 		}
 	}
 

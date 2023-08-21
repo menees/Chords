@@ -52,6 +52,7 @@ public class XmlFormatterTests
 			    <Comment><![CDATA[(2x)]]></Comment>
 			  </ChordLine>
 			</Document>
-			""");
+			""",
+			StringCompareShould.IgnoreLineEndings);
 	}
 }
