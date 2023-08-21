@@ -1,4 +1,6 @@
-TODO: NuGet
+[![Windows](https://github.com/menees/Chords/actions/workflows/windows.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/windows.yml)
+[![Ubuntu](https://github.com/menees/Chords/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/ubuntu.yml)
+TODO: Add NuGet badge
 
 # Chords
 This repo contains a .NET library and application for parsing, transforming, and reformatting chord sheets.
