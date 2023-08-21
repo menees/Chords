@@ -1,6 +1,6 @@
 [![Windows](https://github.com/menees/Chords/actions/workflows/windows.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/windows.yml)
 [![Ubuntu](https://github.com/menees/Chords/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/ubuntu.yml)
-TODO: Add NuGet badge
+[![NuGet](https://img.shields.io/nuget/v/Menees.Chords)](https://www.nuget.org/packages/Menees.Chords/)
 
 # Chords
 This repo contains a .NET library and application for parsing, transforming, and reformatting chord sheets.
@@ -94,3 +94,13 @@ The library also contains some helper classes for specialized parsing situtation
 The `.\Menees.Chords.Cli.exe` .NET console application is a thin wrapper over the `Menees.Chords.dll` library.
 Run `.\Menees.Chords.Cli.exe --help` to see its available commands and options. Its primary command is `convert`.
 Run `.\Menees.Chords.Cli.exe convert --help` to see its arguments and options.
+
+## Others
+Here are some links to similar software that might be of interest:
+* [ChordPro](https://www.chordpro.org/chordpro/index.html) - The ChordPro format specification and reference app
+* [Ultimate Guitar Tablature Guide](https://www.ultimate-guitar.com/contribution/help/rubric#iii) - Chords formatting rules
+* [Ultimate Guitar to ChordPro Converter](https://ultimate.ftes.de/) - Web site for converting chord sheets
+* [ChordSheetJS](https://github.com/martijnversluis/ChordSheetJS) - JavaScript chord sheet parser
+* [Konves.ChordPro](https://github.com/skonves/Konves.ChordPro) - Older C# chord sheet parser
+* [Songpress](https://www.skeed.it/songpress) - Windows and Linux app for chord sheet conversion and printing
+* [LaTeX Songs](https://ctan.org/pkg/songs) - Specification for rendering chord sheets via LaTeX type setting
