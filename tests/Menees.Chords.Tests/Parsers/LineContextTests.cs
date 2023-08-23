@@ -110,7 +110,9 @@ public sealed class LineContextTests
 	{
 		LineContext? result = null;
 
-		DocumentParser parser = new(new[] { SaveContext });
+		// We have to include line parsers for Comment and ChordDefinitions for annotations testing.
+		// However, they're lower priority than SaveContext, so it will always get first shot.
+		DocumentParser parser = new(new Func<LineContext, Entry?>[] { SaveContext, Comment.TryParse, ChordDefinitions.TryParse });
 		Document doc = Document.Parse(line, parser);
 
 		LyricLine SaveContext(LineContext context)
