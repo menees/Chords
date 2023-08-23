@@ -1,0 +1,79 @@
+﻿@page "/"
+@using Menees.Chords
+@using Menees.Chords.Formatters
+@using Menees.Chords.Parsers
+@using Menees.Chords.Transformers
+
+<PageTitle>Menees Chord Sheet Converter</PageTitle>
+
+<div class="row">
+    <div class="col">
+        <div class="row">
+            <div class="col">
+                <label for="from">From:</label>
+                <InputSelect TValue="string" id="from" @bind-Value="@fromType">
+                    <option value="General">General</option>
+                    <option value="ChordPro">ChordPro</option>
+                </InputSelect>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <InputTextArea @bind-Value="@input" rows="@TextAreaRows" class="w-100"></InputTextArea>
+            </div>
+        </div>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+    </div>
+    <div class="col">
+        <div class="row">
+            <div class="col">
+                <label for="to">To:</label>
+                <InputSelect TValue="string" id="to" @bind-Value="@toType">
+                    <option value="ChordPro">ChordPro</option>
+                    <option value="MobileSheets">MobileSheets</option>
+                </InputSelect>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <InputTextArea @bind-Value="@output" rows="@TextAreaRows" class="w-100"></InputTextArea>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+@code {
+    private const int TextAreaRows = 20;
+
+    private string fromType = "General";
+    private string toType = "ChordPro";
+    private string input = string.Empty;
+    private string output = string.Empty;
+
+    private void ConvertInput()
+    {
+        if (string.IsNullOrWhiteSpace(this.input))
+        {
+            this.output = string.Empty;
+        }
+        else
+        {
+            DocumentParser parser = new(this.fromType == "ChordPro"
+                ? DocumentParser.ChordProLineParsers
+                : DocumentParser.DefaultLineParsers);
+            Document inputDocument = Document.Parse(this.input, parser);
+
+            ChordProTransformer transformer = this.toType == "MobileSheets"
+                ? new MobileSheetsTransformer(inputDocument)
+                : new ChordProTransformer(inputDocument);
+            Document outputDocument = transformer.ToChordPro().Document;
+
+            TextFormatter formatter = new(outputDocument);
+            this.output = formatter.ToString();
+        }
+    }
+}
