@@ -148,8 +148,12 @@ public sealed class LineContext
 		List<ChordDefinition>? definitions = null;
 		annotationStartIndex = this.LineText.Length;
 
+		bool tryComment = this.Parser.TryParseComment;
+		bool tryDefinition = this.Parser.TryChordDefinitions;
+
 		Match match;
-		while ((match = EndOfLineAnnotation.Match(this.LineText.Substring(0, annotationStartIndex))).Success)
+		while ((tryComment || tryDefinition) &&
+			(match = EndOfLineAnnotation.Match(this.LineText.Substring(0, annotationStartIndex))).Success)
 		{
 			if (match.Groups.Count <= 1)
 			{
@@ -157,22 +161,22 @@ public sealed class LineContext
 			}
 
 			Group group;
-			if ((group = match.Groups["parencomment"]).Success)
+			if (tryComment && (group = match.Groups["parencomment"]).Success)
 			{
 				result.Add(CreateComment(group.Value, "(", ")"));
 				annotationStartIndex = group.Index;
 			}
-			else if ((group = match.Groups["starcomment"]).Success)
+			else if (tryComment && (group = match.Groups["starcomment"]).Success)
 			{
 				result.Add(CreateComment(group.Value, "**", "**"));
 				annotationStartIndex = group.Index;
 			}
-			else if ((group = match.Groups["repeatcomment"]).Success)
+			else if (tryComment && (group = match.Groups["repeatcomment"]).Success)
 			{
 				result.Add(CreateComment(group.Value, string.Empty, string.Empty));
 				annotationStartIndex = group.Index;
 			}
-			else if ((group = match.Groups["definition"]).Success)
+			else if (tryDefinition && (group = match.Groups["definition"]).Success)
 			{
 				Group chord = match.Groups["chord"];
 				ChordDefinition? chordDefinition;

@@ -58,6 +58,9 @@ public sealed class DocumentParser
 		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
 		this.groupers = groupers != null ? groupers.ToArray() : DefaultGroupers;
 		this.TabWidth = tabWidth;
+
+		this.TryChordDefinitions = this.lineParsers.Contains(ChordDefinitions.TryParse);
+		this.TryParseComment = this.lineParsers.Contains(Comment.TryParse);
 	}
 
 	#endregion
@@ -133,6 +136,10 @@ public sealed class DocumentParser
 	#region Internal Properties
 
 	internal int? TabWidth { get; }
+
+	internal bool TryChordDefinitions { get; }
+
+	internal bool TryParseComment { get; }
 
 	#endregion
 
