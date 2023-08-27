@@ -1,59 +1,54 @@
 ﻿@page "/"
-@using Menees.Chords
-@using Menees.Chords.Formatters
-@using Menees.Chords.Parsers
-@using Menees.Chords.Transformers
-
-@inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
 
 <PageTitle>Menees Chord Sheet Converter</PageTitle>
 
-<div class="row">
-    <div class="col">
-        <div class="row">
-            <div class="col">
-                <label for="from">Input From:</label>
-                <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2">
-                    <option value="General">General</option>
-                    <option value="ChordPro">ChordPro</option>
-                </select>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <label for="from">Input From:</label>
+                    <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2">
+                        <option value="General">General</option>
+                        <option value="ChordPro">ChordPro</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <textarea @bind="@Input" @bind:event=@InputChangeEvent rows ="@TextAreaRows" spellcheck="false"
+                              class="form-control font-monospace w-100 text-nowrap"></textarea>
+                </div>
             </div>
         </div>
-        <div class="row">
-            <div class="col">
-                <textarea @bind="@Input" rows="@TextAreaRows" spellcheck="false"
-                    @bind:event=@(whenTyping ? "oninput" : "onchange")
-                    class="form-control font-monospace w-100"></textarea>
+        <div class="col-auto align-middle">
+            <div class="row">
+                <div class="col">
+                    <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <input id="whenTyping" type="checkbox" @bind="WhenTyping" @bind:event="onchange" class="form-check-input"/>
+                    <label for="whenTyping" class="form-check-label">When Typing</label>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-auto align-middle">
-        <div class="row">
-            <div class="col">
-                <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+        <div class="col">
+            <div class="row">
+                <div class="col">
+                    <label for="to">Output To:</label>
+                    <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2">
+                        <option value="ChordPro">ChordPro</option>
+                        <option value="MobileSheets">MobileSheets</option>
+                    </select>
+                </div>
             </div>
-        </div>
-        <div class="row">
-            <div class="col">
-                <input id="whenTyping" type="checkbox" @bind="WhenTyping" @bind:event="onchange" class="form-check-input"/>
-                <label for="whenTyping" class="form-check-label">When Typing</label>
-            </div>
-        </div>
-    </div>
-    <div class="col">
-        <div class="row">
-            <div class="col">
-                <label for="to">Output To:</label>
-                <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2">
-                    <option value="ChordPro">ChordPro</option>
-                    <option value="MobileSheets">MobileSheets</option>
-                </select>
-            </div>
-        </div>
-        <div class="row">
-            <div class="col">
-                <textarea @bind="@output" rows="@TextAreaRows" spellcheck="false"
-                    class="form-control font-monospace w-100 bg-light" readonly="true"></textarea>
+            <div class="row">
+                <div class="col">
+                    <textarea @bind="@output" rows ="@TextAreaRows" spellcheck="false"
+                              class="form-control font-monospace w-100 text-nowrap"></textarea>
+                </div>
             </div>
         </div>
     </div>
@@ -61,122 +56,3 @@
 
 
 
-@code {
-    private const int TextAreaRows = 30;
-
-    private string fromType = "General";
-    private string toType = "ChordPro";
-    private string input = string.Empty;
-    private string output = string.Empty;
-    private bool whenTyping = true;
-
-    public string FromType
-    {
-        get => this.fromType;
-        set
-        {
-            if (this.fromType != value)
-            {
-                this.fromType = value;
-                localStorage.SetItem(nameof(this.fromType), this.fromType);
-                this.ConvertInput();
-            }
-        }
-    }
-
-    public string ToType
-    {
-        get => this.toType;
-        set
-        {
-            if (this.toType != value)
-            {
-                this.toType = value;
-                localStorage.SetItem(nameof(this.toType), this.toType);
-                this.ConvertInput();
-            }
-        }
-    }
-
-    public string Input
-    {
-        get => this.input;
-        set
-        {
-            if (this.input != value)
-            {
-                this.input = value;
-                localStorage.SetItem(nameof(this.input), this.input);
-                if (this.whenTyping)
-                {
-                    this.ConvertInput();
-                }
-            }
-        }
-    }
-
-    public bool WhenTyping
-    {
-        get => this.whenTyping;
-        set
-        {
-            if (this.whenTyping != value)
-            {
-                this.whenTyping = value;
-                localStorage.SetItem(nameof(this.whenTyping), this.whenTyping);
-                if (this.whenTyping)
-                {
-                    this.ConvertInput();
-                }
-            }
-        }
-    }
-
-    protected override void OnInitialized()
-    {
-        if (localStorage.ContainKey(nameof(this.fromType)))
-        {
-            this.fromType = localStorage.GetItem<string>(nameof(this.fromType));
-        }
-
-        if (localStorage.ContainKey(nameof(this.toType)))
-        {
-            this.toType = localStorage.GetItem<string>(nameof(this.toType));
-        }
-
-        if (localStorage.ContainKey(nameof(this.whenTyping)))
-        {
-            this.whenTyping = localStorage.GetItem<bool>(nameof(this.whenTyping));
-        }
-
-        if (localStorage.ContainKey(nameof(this.input)))
-        {
-            this.input = localStorage.GetItem<string>(nameof(this.input));
-            this.ConvertInput();
-        }
-    }
-
-    private void ConvertInput()
-    {
-        if (string.IsNullOrWhiteSpace(this.input))
-        {
-            this.output = string.Empty;
-        }
-        else
-        {
-            DocumentParser parser = new(this.fromType == "ChordPro"
-                ? DocumentParser.ChordProLineParsers
-                : DocumentParser.DefaultLineParsers);
-            Document inputDocument = Document.Parse(this.input, parser);
-
-            ChordProTransformer transformer = this.toType == "MobileSheets"
-                ? new MobileSheetsTransformer(inputDocument)
-                : new ChordProTransformer(inputDocument);
-            Document outputDocument = transformer.ToChordPro().Document;
-
-            TextFormatter formatter = new(outputDocument);
-            this.output = formatter.ToString();
-            this.StateHasChanged();
-        }
-    }
-}
