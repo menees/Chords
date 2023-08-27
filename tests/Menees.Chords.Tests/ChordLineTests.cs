@@ -20,6 +20,9 @@ public class ChordLineTests
 		Test(" D7        G  ", "D7", "G");
 		Test("C       C*   G*", "C", "C*", "G*");
 
+		// https://tabs.ultimate-guitar.com/tab/hinder/lips-of-an-angel-chords-455832
+		Test("Bm7     Asus4     Gsus2~~~", "Bm7", "Asus4", "Gsus2~~~");
+
 		// If we're not in a ChordPro sog/eog environment, then chord grid lines are chord lines.
 		Test("| Am . | B . |", "Am", "B");
 

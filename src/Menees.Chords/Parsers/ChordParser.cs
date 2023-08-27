@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 
 #endregion
 
@@ -339,15 +340,19 @@ public sealed class ChordParser
 
 	private string? TryParseAnnotation()
 	{
-		string? result = null;
+		StringBuilder? sb = null;
 
-		char? ch = this.Peek();
-		if (ch != null && KnownAnnotations.Contains(ch.Value))
+		// Allow multiple annotation characters for repeated asterisks, multiple arrows,
+		// and chords like "Gsus2~~~" in https://tabs.ultimate-guitar.com/tab/hinder/lips-of-an-angel-chords-455832.
+		char? ch;
+		while ((ch = this.Peek()) != null && KnownAnnotations.Contains(ch.Value))
 		{
-			result = ch.ToString();
+			sb ??= new();
+			sb.Append(ch);
 			this.index++;
 		}
 
+		string? result = sb?.ToString();
 		return result;
 	}
 
