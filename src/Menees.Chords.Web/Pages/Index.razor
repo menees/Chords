@@ -11,34 +11,45 @@
         <div class="row">
             <div class="col">
                 <label for="from">From:</label>
-                <InputSelect TValue="string" id="from" @bind-Value="@fromType">
+                <select id="from" @bind="@FromType" @bind:event="onchange">
                     <option value="General">General</option>
                     <option value="ChordPro">ChordPro</option>
-                </InputSelect>
+                </select>
             </div>
         </div>
         <div class="row">
             <div class="col">
-                <InputTextArea @bind-Value="@input" rows="@TextAreaRows" class="w-100"></InputTextArea>
+                <textarea @bind="@Input" @bind:event="oninput" rows="@TextAreaRows" class="w-100"></textarea>
             </div>
         </div>
     </div>
     <div class="col-auto">
-        <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+        <div class="row">
+            <div class="col">
+                <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col">
+                <label>
+                    <input type="checkbox" @bind="whenTyping" @bind:event="onchange" /> When Typing
+                </label>
+            </div>
+        </div>
     </div>
     <div class="col">
         <div class="row">
             <div class="col">
                 <label for="to">To:</label>
-                <InputSelect TValue="string" id="to" @bind-Value="@toType">
+                <select id="to" @bind="@ToType" @bind:event="onchange">
                     <option value="ChordPro">ChordPro</option>
                     <option value="MobileSheets">MobileSheets</option>
-                </InputSelect>
+                </select>
             </div>
         </div>
         <div class="row">
             <div class="col">
-                <InputTextArea @bind-Value="@output" rows="@TextAreaRows" class="w-100"></InputTextArea>
+                <textarea @bind="@output" rows="@TextAreaRows" class="w-100" readonly="true"></textarea>
             </div>
         </div>
     </div>
@@ -53,6 +64,49 @@
     private string toType = "ChordPro";
     private string input = string.Empty;
     private string output = string.Empty;
+    private bool whenTyping = true;
+
+    public string FromType
+    {
+        get => this.fromType;
+        set
+        {
+            if (this.fromType != value)
+            {
+                this.fromType = value;
+                this.ConvertInput();
+            }
+        }
+    }
+
+    public string ToType
+    {
+        get => this.toType;
+        set
+        {
+            if (this.toType != value)
+            {
+                this.toType = value;
+                this.ConvertInput();
+            }
+        }
+    }
+
+    public string Input
+    {
+        get => this.input;
+        set
+        {
+            if (this.input != value)
+            {
+                this.input = value;
+                if (this.whenTyping)
+                {
+                    this.ConvertInput();
+                }
+            }
+        }
+    }
 
     private void ConvertInput()
     {
@@ -74,6 +128,7 @@
 
             TextFormatter formatter = new(outputDocument);
             this.output = formatter.ToString();
+            this.StateHasChanged();
         }
     }
 }
