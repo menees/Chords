@@ -6,31 +6,21 @@
     <div class="row">
         <div class="col">
             <div class="row">
-                <div class="col">
-                    <label for="from">Input From:</label>
+                <div class="d-inline-flex justify-content-between align-items-center gap-2">
+                    <label for="from" class="text-nowrap">Input From:</label>
                     <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2">
                         <option value="General">General</option>
                         <option value="ChordPro">ChordPro</option>
                     </select>
-                </div>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <textarea @bind="@Input" @bind:event=@InputChangeEvent rows ="@TextAreaRows" spellcheck="false"
-                              class="form-control font-monospace w-100 text-nowrap"></textarea>
-                </div>
-            </div>
-        </div>
-        <div class="col-auto align-middle">
-            <div class="row">
-                <div class="col">
                     <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+                    <input id="whenTyping" type="checkbox" @bind="WhenTyping" @bind:event="onchange" class="form-check-input" />
+                    <label for="whenTyping" class="form-check-label text-nowrap">When Typing</label>
                 </div>
             </div>
             <div class="row">
                 <div class="col">
-                    <input id="whenTyping" type="checkbox" @bind="WhenTyping" @bind:event="onchange" class="form-check-input"/>
-                    <label for="whenTyping" class="form-check-label">When Typing</label>
+                    <textarea @bind="@Input" @bind:event=@InputChangeEvent style="height: 90vh" spellcheck="false"
+                                class="form-control font-monospace w-100 text-nowrap"></textarea>
                 </div>
             </div>
         </div>
@@ -46,8 +36,8 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <textarea @bind="@output" rows ="@TextAreaRows" spellcheck="false"
-                              class="form-control font-monospace w-100 text-nowrap"></textarea>
+                    <textarea @bind="@output" style="height: 90vh" spellcheck="false"
+                                class="form-control font-monospace w-100 text-nowrap"></textarea>
                 </div>
             </div>
         </div>
