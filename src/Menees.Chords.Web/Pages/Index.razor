@@ -10,8 +10,8 @@
     <div class="col">
         <div class="row">
             <div class="col">
-                <label for="from">From:</label>
-                <select id="from" @bind="@FromType" @bind:event="onchange">
+                <label for="from">Input From:</label>
+                <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2">
                     <option value="General">General</option>
                     <option value="ChordPro">ChordPro</option>
                 </select>
@@ -19,11 +19,13 @@
         </div>
         <div class="row">
             <div class="col">
-                <textarea @bind="@Input" @bind:event="oninput" rows="@TextAreaRows" class="w-100"></textarea>
+                <textarea @bind="@Input" rows="@TextAreaRows" spellcheck="false"
+                    @bind:event=@(whenTyping ? "oninput" : "onchange")
+                    class="form-control font-monospace w-100"></textarea>
             </div>
         </div>
     </div>
-    <div class="col-auto">
+    <div class="col-auto align-middle">
         <div class="row">
             <div class="col">
                 <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
@@ -31,17 +33,16 @@
         </div>
         <div class="row">
             <div class="col">
-                <label>
-                    <input type="checkbox" @bind="whenTyping" @bind:event="onchange" /> When Typing
-                </label>
+                <input id="whenTyping" type="checkbox" @bind="whenTyping" @bind:event="onchange" class="form-check-input"/>
+                <label for="whenTyping" class="form-check-label">When Typing</label>
             </div>
         </div>
     </div>
     <div class="col">
         <div class="row">
             <div class="col">
-                <label for="to">To:</label>
-                <select id="to" @bind="@ToType" @bind:event="onchange">
+                <label for="to">Output To:</label>
+                <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2">
                     <option value="ChordPro">ChordPro</option>
                     <option value="MobileSheets">MobileSheets</option>
                 </select>
@@ -49,7 +50,8 @@
         </div>
         <div class="row">
             <div class="col">
-                <textarea @bind="@output" rows="@TextAreaRows" class="w-100" readonly="true"></textarea>
+                <textarea @bind="@output" rows="@TextAreaRows" spellcheck="false"
+                    class="form-control font-monospace w-100 bg-light" readonly="true"></textarea>
             </div>
         </div>
     </div>
@@ -58,7 +60,7 @@
 
 
 @code {
-    private const int TextAreaRows = 20;
+    private const int TextAreaRows = 30;
 
     private string fromType = "General";
     private string toType = "ChordPro";
