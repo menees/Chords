@@ -4,6 +4,8 @@
 @using Menees.Chords.Parsers
 @using Menees.Chords.Transformers
 
+@inject Blazored.LocalStorage.ISyncLocalStorageService localStorage
+
 <PageTitle>Menees Chord Sheet Converter</PageTitle>
 
 <div class="row">
@@ -33,7 +35,7 @@
         </div>
         <div class="row">
             <div class="col">
-                <input id="whenTyping" type="checkbox" @bind="whenTyping" @bind:event="onchange" class="form-check-input"/>
+                <input id="whenTyping" type="checkbox" @bind="WhenTyping" @bind:event="onchange" class="form-check-input"/>
                 <label for="whenTyping" class="form-check-label">When Typing</label>
             </div>
         </div>
@@ -76,6 +78,7 @@
             if (this.fromType != value)
             {
                 this.fromType = value;
+                localStorage.SetItem(nameof(this.fromType), this.fromType);
                 this.ConvertInput();
             }
         }
@@ -89,6 +92,7 @@
             if (this.toType != value)
             {
                 this.toType = value;
+                localStorage.SetItem(nameof(this.toType), this.toType);
                 this.ConvertInput();
             }
         }
@@ -102,11 +106,53 @@
             if (this.input != value)
             {
                 this.input = value;
+                localStorage.SetItem(nameof(this.input), this.input);
                 if (this.whenTyping)
                 {
                     this.ConvertInput();
                 }
             }
+        }
+    }
+
+    public bool WhenTyping
+    {
+        get => this.whenTyping;
+        set
+        {
+            if (this.whenTyping != value)
+            {
+                this.whenTyping = value;
+                localStorage.SetItem(nameof(this.whenTyping), this.whenTyping);
+                if (this.whenTyping)
+                {
+                    this.ConvertInput();
+                }
+            }
+        }
+    }
+
+    protected override void OnInitialized()
+    {
+        if (localStorage.ContainKey(nameof(this.fromType)))
+        {
+            this.fromType = localStorage.GetItem<string>(nameof(this.fromType));
+        }
+
+        if (localStorage.ContainKey(nameof(this.toType)))
+        {
+            this.toType = localStorage.GetItem<string>(nameof(this.toType));
+        }
+
+        if (localStorage.ContainKey(nameof(this.whenTyping)))
+        {
+            this.whenTyping = localStorage.GetItem<bool>(nameof(this.whenTyping));
+        }
+
+        if (localStorage.ContainKey(nameof(this.input)))
+        {
+            this.input = localStorage.GetItem<string>(nameof(this.input));
+            this.ConvertInput();
         }
     }
 
