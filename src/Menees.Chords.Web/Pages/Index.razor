@@ -12,7 +12,9 @@
                         <option value="General">General</option>
                         <option value="ChordPro">ChordPro</option>
                     </select>
-                    <button class="btn btn-primary" @onclick="ConvertInput">Convert</button>
+                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput">
+                        <i class="oi oi-share"></i> Convert
+                    </button>
                     <div class="form-check form-switch">
                         <input id="whenTyping" type="checkbox" class="form-check-input" @bind="WhenTyping" @bind:event="onchange" />
                         <label for="whenTyping" class="form-check-label text-nowrap">When Typing</label>
@@ -21,8 +23,8 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <textarea @bind="@Input" @bind:event=@InputChangeEvent style="height: 80vh" spellcheck="false"
-                                class="form-control font-monospace w-100 text-nowrap"></textarea>
+                    <textarea @bind="@Input" @bind:event=@InputChangeEvent style="height: 80vh" spellcheck="false" wrap="hard"
+                                class="form-control font-monospace w-100"></textarea>
                 </div>
             </div>
         </div>
@@ -34,14 +36,18 @@
                         <option value="ChordPro">ChordPro</option>
                         <option value="MobileSheets">MobileSheets</option>
                     </select>
-                    <button class="btn btn-secondary" @onclick="CopyToClipboard">Copy</button>
-                    <button class="btn btn-secondary text-nowrap" @onclick="SaveAs">Save As...</button>
+                    <button class="btn btn-secondary text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled>
+                        <i class="@copyState.ClassName"></i> @copyState.Text
+                    </button>
+                    <button class="btn btn-secondary text-nowrap" @onclick="SaveAs">
+                        <i class="oi oi-data-transfer-download"></i> Save As...
+                    </button>
                 </div>
             </div>
             <div class="row">
                 <div class="col">
-                    <textarea @bind="@output" style="height: 80vh" spellcheck="false"
-                                class="form-control font-monospace w-100 text-nowrap"></textarea>
+                    <textarea @bind="@output" style="height: 80vh" spellcheck="false" wrap="hard"
+                                class="form-control font-monospace w-100"></textarea>
                 </div>
             </div>
         </div>

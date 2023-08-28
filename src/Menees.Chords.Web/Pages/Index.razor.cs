@@ -6,11 +6,12 @@ using Blazored.LocalStorage;
 using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
 using Menees.Chords.Transformers;
+using Menees.Chords.Web.Client;
 using Microsoft.AspNetCore.Components;
 
 #endregion
 
-public partial class Index
+public sealed partial class Index : IDisposable
 {
 	#region Private Data Members
 
@@ -21,13 +22,22 @@ public partial class Index
 	private string input = string.Empty;
 	private string output = string.Empty;
 	private bool whenTyping = true;
+	private CancellationTokenSource cts = new();
+	private CopyState copyState = new("Copy", "oi oi-clipboard");
+
+	#endregion
+
+	#region Public Injected Properties
+
+	[Inject]
+	public ISyncLocalStorageService Storage { get; set; } = null!; // Set by DI.
+
+	[Inject]
+	public ClipboardService Clipboard { get; set; } = null!; // Set by DI.
 
 	#endregion
 
 	#region Public Properties
-
-	[Inject]
-	public ISyncLocalStorageService Storage { get; set; } = null!; // Set by DI.
 
 	public string FromType
 	{
@@ -100,6 +110,16 @@ public partial class Index
 
 	#endregion
 
+	#region Public Methods
+
+	public void Dispose()
+	{
+		this.cts.Cancel(); // Cancel Task.Delay
+		this.cts.Dispose();
+	}
+
+	#endregion
+
 	#region Protected Methods
 
 	protected override void OnInitialized()
@@ -152,10 +172,27 @@ public partial class Index
 		}
 	}
 
-	private void CopyToClipboard()
+	private async Task CopyToClipboardAsync()
 	{
-		// TODO: Finish implementation. [Bill, 8/27/2023]
-		this.GetHashCode();
+		// Writing to the clipboard may be denied, so you must handle the exception
+		var temp = this.copyState;
+		try
+		{
+			this.copyState = new("Copied", "oi oi-check", IsDisabled: true);
+			await this.Clipboard.WriteTextAsync(this.output);
+			await Task.Delay(TimeSpan.FromSeconds(1), this.cts.Token);
+		}
+#pragma warning disable CA1031 // Do not catch general exception types. Figure out JS exception type.
+		catch (Exception ex)
+#pragma warning restore CA1031 // Do not catch general exception types
+		{
+			// TODO: Figure out JS exception type. [Bill, 8/28/2023]
+			Console.WriteLine($"Cannot write text to clipboard: {ex}");
+		}
+		finally
+		{
+			this.copyState = temp;
+		}
 	}
 
 	private void SaveAs()
@@ -163,6 +200,12 @@ public partial class Index
 		// TODO: Finish implementation. [Bill, 8/27/2023]
 		this.GetHashCode();
 	}
+
+	#endregion
+
+	#region Private Types
+
+	private sealed record CopyState(string Text, string ClassName, bool IsDisabled = false);
 
 	#endregion
 }
