@@ -152,5 +152,17 @@ public partial class Index
 		}
 	}
 
+	private void CopyToClipboard()
+	{
+		// TODO: Finish implementation. [Bill, 8/27/2023]
+		this.GetHashCode();
+	}
+
+	private void SaveAs()
+	{
+		// TODO: Finish implementation. [Bill, 8/27/2023]
+		this.GetHashCode();
+	}
+
 	#endregion
 }
