@@ -1,8 +1,8 @@
 @import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
 html, body {
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-size: 11pt;
+    font-family: Calibri, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	font-size: 12pt;
 }
 
 h1:focus {
@@ -100,3 +100,15 @@ a, .btn-link {
     .loading-progress-text:after {
         content: var(--blazor-load-percentage-text, "Loading");
     }
+
+textarea {
+	/* https://stackoverflow.com/a/13446005/1882616 */
+	white-space: pre;
+	overflow-wrap: normal;
+	overflow-x: auto;
+}
+
+	textarea.mono-font {
+		font-family: 'Cascadia Mono', Consolas, 'Courier New', 'monospace' !important;
+		font-size: 10pt;
+	}
