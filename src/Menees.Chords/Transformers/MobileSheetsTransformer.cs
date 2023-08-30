@@ -58,7 +58,17 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 				const string LongSuffix = "bridge";
 				int suffixLength = directive.Name.EndsWith(LongSuffix, Comparison) ? LongSuffix.Length : 1;
 				string newName = directive.Name[0..^suffixLength] + (suffixLength == 1 ? "v" : "verse");
-				ChordProDirectiveLine transformed = new(newName, directive.Argument);
+
+				// MobileSheets won't show a header at all for {sov}, so we'll make it {sov: Bridge}.
+				string? argument = directive.Name.StartsWith("s", Comparison) && string.IsNullOrEmpty(directive.Argument)
+					? "Bridge" : directive.Argument;
+				ChordProDirectiveLine transformed = new(newName, argument);
+				result.Add(transformed);
+			}
+			else if (directive.ShortName.Equals("sov", Comparison) && string.IsNullOrEmpty(directive.Argument))
+			{
+				// MobileSheets won't show a header at all for {sov}, so we'll make it {sov: Verse}.
+				ChordProDirectiveLine transformed = new(directive.Name, "Verse");
 				result.Add(transformed);
 			}
 			else
