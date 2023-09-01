@@ -1,4 +1,4 @@
-namespace Menees.Chords.Web.Pages;
+namespace Menees.Chords.Web;
 
 #region Using Directives
 
