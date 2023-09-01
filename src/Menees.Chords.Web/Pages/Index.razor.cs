@@ -2,12 +2,13 @@ namespace Menees.Chords.Web.Pages;
 
 #region Using Directives
 
+using System.Linq;
 using Blazored.LocalStorage;
 using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
 using Menees.Chords.Transformers;
-using Menees.Chords.Web.Client;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 #endregion
 
@@ -23,7 +24,8 @@ public sealed partial class Index : IDisposable
 	private string output = string.Empty;
 	private bool whenTyping = true;
 	private CancellationTokenSource cts = new();
-	private CopyState copyState = new("Copy", "oi oi-clipboard");
+	private CopyState copyState = new("Copy", "oi oi-clipboard", "btn-secondary");
+	private string? title;
 
 	#endregion
 
@@ -33,7 +35,7 @@ public sealed partial class Index : IDisposable
 	public ISyncLocalStorageService Storage { get; set; } = null!; // Set by DI.
 
 	[Inject]
-	public ClipboardService Clipboard { get; set; } = null!; // Set by DI.
+	public IJSRuntime JavaScript { get; set; } = null!; // Set by DI.
 
 	#endregion
 
@@ -168,6 +170,9 @@ public sealed partial class Index : IDisposable
 			Document outputDocument = transformer.ToChordPro().Document;
 			TextFormatter formatter = new(outputDocument);
 			this.output = formatter.ToString();
+			this.title = DocumentTransformer.Flatten(outputDocument.Entries)
+				.OfType<ChordProDirectiveLine>()
+				.FirstOrDefault(directive => directive.LongName.Equals(nameof(this.title), ChordParser.Comparison))?.Argument;
 			this.StateHasChanged();
 		}
 	}
@@ -178,34 +183,34 @@ public sealed partial class Index : IDisposable
 		var temp = this.copyState;
 		try
 		{
-			this.copyState = new("Copied", "oi oi-check", IsDisabled: true);
-			await this.Clipboard.WriteTextAsync(this.output);
-			await Task.Delay(TimeSpan.FromSeconds(1), this.cts.Token);
+			this.copyState = new("Copied", "oi oi-check", "btn-success", IsDisabled: true);
+			await this.JavaScript.InvokeVoidAsync("navigator.clipboard.writeText", this.output);
 		}
-#pragma warning disable CA1031 // Do not catch general exception types. Figure out JS exception type.
-		catch (Exception ex)
-#pragma warning restore CA1031 // Do not catch general exception types
+		catch (JSException ex)
 		{
-			// TODO: Figure out JS exception type. [Bill, 8/28/2023]
 			Console.WriteLine($"Cannot write text to clipboard: {ex}");
+			this.copyState = new("Failed", "oi oi-warning", "btn-danger", IsDisabled: true);
 		}
 		finally
 		{
+			await Task.Delay(TimeSpan.FromSeconds(1), this.cts.Token);
 			this.copyState = temp;
 		}
 	}
 
-	private void SaveAs()
+	private async void DownloadAsync()
 	{
-		// TODO: Finish implementation. [Bill, 8/27/2023]
-		this.GetHashCode();
+		// https://www.meziantou.net/generating-and-downloading-a-file-in-a-blazor-webassembly-application.htm
+		byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(this.output);
+		string fileName = string.IsNullOrEmpty(this.title) ? $"{this.toType}.cho" : $"{this.title}.cho";
+		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", fileName, "text/plain", fileBytes);
 	}
 
 	#endregion
 
 	#region Private Types
 
-	private sealed record CopyState(string Text, string ClassName, bool IsDisabled = false);
+	private sealed record CopyState(string Text, string ImageClass, string ButtonClass, bool IsDisabled = false);
 
 	#endregion
 }

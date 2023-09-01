@@ -23,7 +23,7 @@
             </div>
             <div class="row">
                 <div class="col">
-                    <textarea @bind="@Input" @bind:event=@InputChangeEvent style="height: 80vh" spellcheck="false" wrap="hard"
+                    <textarea @bind="@Input" @bind:event=@InputChangeEvent style="height: 85vh" spellcheck="false" wrap="hard"
                               class="form-control font-monospace mono-font w-100"></textarea>
                 </div>
             </div>
@@ -36,17 +36,17 @@
                         <option value="ChordPro">ChordPro</option>
                         <option value="MobileSheets">MobileSheets</option>
                     </select>
-                    <button class="btn btn-secondary text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled>
-                        <i class="@copyState.ClassName"></i> @copyState.Text
+                    <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled>
+                        <i class="@copyState.ImageClass"></i> @copyState.Text
                     </button>
-                    <button class="btn btn-secondary text-nowrap" @onclick="SaveAs">
-                        <i class="oi oi-data-transfer-download"></i> Save As...
+                    <button class="btn btn-secondary text-nowrap" @onclick="DownloadAsync">
+                        <i class="oi oi-data-transfer-download"></i> Download
                     </button>
                 </div>
             </div>
             <div class="row">
                 <div class="col">
-                    <textarea @bind="@output" style="height: 80vh" spellcheck="false" wrap="hard"
+                    <textarea @bind="@output" @bind:event=oninput style="height: 85vh" spellcheck="false" wrap="hard"
                               class="form-control font-monospace mono-font w-100"></textarea>
                 </div>
             </div>
