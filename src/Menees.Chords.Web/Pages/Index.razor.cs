@@ -16,14 +16,13 @@ public sealed partial class Index : IDisposable
 {
 	#region Private Data Members
 
-	private const int TextAreaRows = 30;
+	private readonly CancellationTokenSource cts = new();
 
 	private string fromType = "General";
 	private string toType = "ChordPro";
 	private string input = string.Empty;
 	private string output = string.Empty;
 	private bool whenTyping = true;
-	private CancellationTokenSource cts = new();
 	private CopyState copyState = new("Copy", "oi oi-clipboard", "btn-secondary");
 	private string? title;
 
@@ -36,6 +35,9 @@ public sealed partial class Index : IDisposable
 
 	[Inject]
 	public IJSRuntime JavaScript { get; set; } = null!; // Set by DI.
+
+	[Inject]
+	public HttpClient Http { get; set; } = null!; // Set by DI.
 
 	#endregion
 
@@ -124,7 +126,7 @@ public sealed partial class Index : IDisposable
 
 	#region Protected Methods
 
-	protected override void OnInitialized()
+	protected override async Task OnInitializedAsync()
 	{
 		if (this.Storage.ContainKey(nameof(this.fromType)))
 		{
@@ -144,8 +146,13 @@ public sealed partial class Index : IDisposable
 		if (this.Storage.ContainKey(nameof(this.input)))
 		{
 			this.input = this.Storage.GetItem<string>(nameof(this.input));
-			this.ConvertInput();
 		}
+		else
+		{
+			this.input = await this.Http.GetStringAsync("Default.crd");
+		}
+
+		this.ConvertInput();
 	}
 
 	#endregion
