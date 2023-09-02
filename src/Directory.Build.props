@@ -13,8 +13,10 @@
 		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
 		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>
 
+		<!-- We'll support older LTS releases for library builds. We'll use latest release for web builds. -->
 		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
 		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
+		<MeneesTargetNetWeb>net7.0</MeneesTargetNetWeb>
 
 		<RepoSrcFolder>$(MSBuildThisFileDirectory)</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>
