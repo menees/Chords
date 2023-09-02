@@ -4,6 +4,7 @@
 		<TargetFramework>$(MeneesTargetNetWeb)</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<IsPublishable>true</IsPublishable>
 	</PropertyGroup>
 
 	<ItemGroup>
