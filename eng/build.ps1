@@ -29,6 +29,19 @@ function GetXmlPropertyValue($fileName, $propertyName)
 	return $result
 }
 
+function PublishProject($csProjRelativePath, $profileName, $configuration)
+{
+    $csProjPath = Join-Path $repoPath $csProjRelativePath
+    $targetFramework = GetXmlPropertyValue $buildPropsFile "MeneesTargetNet$profileName"
+
+    dotnet publish $csProjPath --framework $targetFramework -v:$msBuildVerbosity --nologo --configuration $configuration `
+        -p:PublishDir="..\..\artifacts\$profileName" -p:DeleteExistingFiles=true
+
+    Get-ChildItem -Path "$artifactsPath\$profileName" -Filter *.pdb | Remove-Item 
+
+    Compress-Archive -Path "$artifactsPath\$profileName\*" -DestinationPath "$artifactsPath\$productName-Portable-$version-$profileName.zip"
+}
+
 if ($build)
 {
     foreach ($configuration in $configurations)
@@ -64,39 +77,29 @@ if ($publish)
 		$ignore = mkdir $artifactsPath
 		if ($ignore) { } # For PSUseDeclaredVarsMoreThanAssignments
 
-        foreach ($configuration in $configurations)
+        if ($configurations -contains 'Release')
         {
-            if ($configuration -like '*Release*')
+            $configuration = 'Release'
+            Write-Host "Publishing version $version $configuration profiles to $artifactsPath"
+
+            # I deleted the PublishProfiles in commit 80b95254b44b788914fba397fbdf3221dc9f01df on 9/2/23.
+            # It's easier to publish projects individually than try to publish the solution using profiles.
+            PublishProject 'src\Menees.Chords.Cli\Menees.Chords.Cli.csproj' 'Core' $configuration
+            PublishProject 'src\Menees.Chords.Cli\Menees.Chords.Cli.csproj' 'Framework' $configuration
+            PublishProject 'src\Menees.Chords.Web\Menees.Chords.Web.csproj' 'Web' $configuration
+
+            Write-Host "Publishing version $version $configuration packages to $artifactsPath"
+            $packages = @(Get-ChildItem -r "$repoPath\src\**\*.$version.nupkg" | Where-Object {$_.Directory -like "*\bin\$configuration"})
+            foreach ($package in $packages)
             {
-				Write-Host "Publishing version $version $configuration profiles to $artifactsPath"
-				$profiles = @(Get-ChildItem -r "$repoPath\src\**\Properties\PublishProfiles\*.pubxml")
-				foreach ($profile in $profiles)
-				{
-					$profileName = [IO.Path]::GetFileNameWithoutExtension($profile)
-					Write-Host "Publishing $profileName"
+                Write-Host "Copying $package"
+                Copy-Item -Path $package -Destination $artifactsPath -Force
 
-					# Publish requires a single TargetFramework.
-					$targetFramework = GetXmlPropertyValue $buildPropsFile "MeneesTargetNet$profileName"
-					dotnet publish $slnPath -p:PublishProfile=$profile --framework $targetFramework -v:$msBuildVerbosity --nologo --configuration $configuration
-
-					Remove-Item "$artifactsPath\$profileName\*.pdb"
-
-					Compress-Archive -Path "$artifactsPath\$profileName\*" -DestinationPath "$artifactsPath\$productName-Portable-$version-$profileName.zip"
-				}
-
-                Write-Host "Publishing version $version $configuration packages to $artifactsPath"
-                $packages = @(Get-ChildItem -r "$repoPath\src\**\*.$version.nupkg" | Where-Object {$_.Directory -like "*\bin\$configuration"})
-                foreach ($package in $packages)
+                if ($nugetApiKey)
                 {
-                    Write-Host "Copying $package"
-                    Copy-Item -Path $package -Destination $artifactsPath -Force
-
-                    if ($nugetApiKey)
-                    {
-                        $artifactPackage = Join-Path $artifactsPath (Split-Path -Leaf $package)
-                        dotnet nuget push $artifactPackage -k $nugetApiKey -s https://api.nuget.org/v3/index.json --skip-duplicate
-                        $published = $true
-                    }
+                    $artifactPackage = Join-Path $artifactsPath (Split-Path -Leaf $package)
+                    dotnet nuget push $artifactPackage -k $nugetApiKey -s https://api.nuget.org/v3/index.json --skip-duplicate
+                    $published = $true
                 }
             }
         }
