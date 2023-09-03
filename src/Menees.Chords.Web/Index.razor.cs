@@ -191,12 +191,17 @@ public sealed partial class Index : IDisposable
 		try
 		{
 			this.copyState = new("Copied", "oi oi-check", "btn-success", IsDisabled: true);
-			await this.JavaScript.InvokeVoidAsync("navigator.clipboard.writeText", this.output);
+			await this.JavaScript.InvokeVoidAsync("CopyOutputToClipboard", this.output);
 		}
 		catch (JSException ex)
 		{
 			Console.WriteLine($"Cannot write text to clipboard: {ex}");
 			this.copyState = new("Failed", "oi oi-warning", "btn-danger", IsDisabled: true);
+
+			// Blazor seems to call StateHasChanged implicitly before invoking the JavaScript,
+			// so if we don't do this here, then only the successful "Copied" state will show
+			// until the state changes again after the Task.Delay. This forces "Failed" to show.
+			this.StateHasChanged();
 		}
 		finally
 		{
