@@ -13,7 +13,7 @@ public sealed class ChordLine : SegmentedEntry
 {
 	#region Constructors
 
-	private ChordLine(IReadOnlyList<TextSegment> segments)
+	internal ChordLine(IReadOnlyList<TextSegment> segments)
 		: base(segments)
 	{
 	}

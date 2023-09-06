@@ -48,7 +48,19 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 		const StringComparison Comparison = ChordParser.Comparison;
 		foreach (Entry entry in chordPro)
 		{
-			if (entry is not ChordProDirectiveLine directive)
+			if (entry is ChordProGridLine grid)
+			{
+				// TODO: Add unit tests for this. ChordPro shouldn't change it the way MobileSheets does. [Bill, 9/5/2023]
+				// MobileSheets tries to render chord grid lines with chords on a line above the separators,
+				// so we'll convert all the separators to ChordPro annotations to get them on the same (upper) line.
+				List<TextSegment> brackted = grid.Segments
+					.Select(s => s is ChordSegment c ? new ChordSegment(c.Chord, $"[{c.Text}]")
+						: s is WhiteSpaceSegment ws ? s
+						: new TextSegment($"[*{s.Text}]"))
+					.ToList();
+				result.Add(new ChordLine(brackted));
+			}
+			else if (entry is not ChordProDirectiveLine directive)
 			{
 				result.Add(entry);
 			}
