@@ -12,10 +12,13 @@
 	  <None Remove="Samples\Expected ChordPro\Alone With You.cho" />
 	  <None Remove="Samples\Expected ChordPro\Bring Him Home.cho" />
 	  <None Remove="Samples\Expected ChordPro\Every Rose Has Its Thorn.cho" />
+	  <None Remove="Samples\Expected ChordPro\Test Only.cho" />
 	  <None Remove="Samples\Expected MobileSheets\Alone With You.cho" />
 	  <None Remove="Samples\Expected MobileSheets\Bring Him Home.cho" />
 	  <None Remove="Samples\Expected MobileSheets\Every Rose Has Its Thorn.cho" />
+	  <None Remove="Samples\Expected MobileSheets\Test Only.cho" />
 	  <None Remove="Samples\Swing Low Sweet Chariot.cho" />
+	  <None Remove="Samples\Test Only.txt" />
 	</ItemGroup>
 	<ItemGroup>
 	  <Content Include="Samples\Alone With You.txt">
@@ -36,6 +39,9 @@
 	  <Content Include="Samples\Expected ChordPro\Every Rose Has Its Thorn.cho">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
+	  <Content Include="Samples\Expected ChordPro\Test Only.cho">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
 	  <Content Include="Samples\Expected MobileSheets\Alone With You.cho">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
@@ -45,7 +51,13 @@
 	  <Content Include="Samples\Expected MobileSheets\Every Rose Has Its Thorn.cho">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
+	  <Content Include="Samples\Expected MobileSheets\Test Only.cho">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
 	  <Content Include="Samples\Swing Low Sweet Chariot.cho">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Test Only.txt">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	</ItemGroup>

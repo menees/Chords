@@ -13,7 +13,7 @@
 		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
 		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>
 
-		<!-- We'll support older LTS releases for library builds. We'll use latest release for web builds. -->
+		<!-- We'll support older LTS releases for library builds. We'll use the latest STS release for web builds. -->
 		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
 		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
 		<MeneesTargetNetWeb>net7.0</MeneesTargetNetWeb>
@@ -27,7 +27,7 @@
 		<IsPublishable>false</IsPublishable>
 
 		<!-- Make the assembly, file, and NuGet package versions the same. -->
-		<Version>0.7.0-beta</Version>
+		<Version>0.7.5-beta</Version>
 		<UseLocaMeneesLibraries>false</UseLocaMeneesLibraries>
 		<LocaMeneesLibrariesSrc/>
 		<BuildingInsideVisualStudio Condition="'$(BuildingInsideVisualStudio)' == ''">false</BuildingInsideVisualStudio>

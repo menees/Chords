@@ -50,7 +50,6 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 		{
 			if (entry is ChordProGridLine grid)
 			{
-				// TODO: Add unit tests for this. ChordPro shouldn't change it the way MobileSheets does. [Bill, 9/5/2023]
 				// MobileSheets tries to render chord grid lines with chords on a line above the separators,
 				// so we'll convert all the separators to ChordPro annotations to get them on the same (upper) line.
 				List<TextSegment> brackted = grid.Segments
