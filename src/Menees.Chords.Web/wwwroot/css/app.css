@@ -2,7 +2,6 @@
 
 html, body {
     font-family: Calibri, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
-	font-size: 12pt;
 }
 
 h1:focus {
@@ -110,5 +109,16 @@ textarea {
 
 	textarea.mono-font {
 		font-family: 'Cascadia Mono', Consolas, 'Courier New', 'monospace' !important;
-		font-size: 10pt;
 	}
+
+	textarea.h-most {
+		/*Don't fill height. On tablets, user needs to see second textarea wrap under first.*/
+		height: 80vh;
+	}
+
+@media (min-width: 992px) {
+	textarea.h-most {
+		/*On wider screens (lg+), we can see both columns.*/
+		height: 85vh;
+	}
+}
