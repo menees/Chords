@@ -1,6 +1,6 @@
 [![Windows](https://github.com/menees/Chords/actions/workflows/windows.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/windows.yml)
 [![Ubuntu](https://github.com/menees/Chords/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/ubuntu.yml)
-[![NuGet](https://img.shields.io/nuget/v/Menees.Chords)](https://www.nuget.org/packages/Menees.Chords/)
+[![NuGet](https://img.shields.io/nuget/vpre/Menees.Chords)](https://www.nuget.org/packages/Menees.Chords/)
 
 # Chords
 This repo contains a .NET library and applications (e.g., an online [Blazor WebAssembly app](http://chords.menees.com/)) for parsing, transforming, and reformatting chord sheets.
