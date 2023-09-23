@@ -207,6 +207,13 @@ public sealed class Lexer
 			}
 		}
 
+		// If there was no closing bracket, then we have to include the opening bracket
+		// to avoid returning an empty token of type Text.
+		if (type == TokenType.Text)
+		{
+			sb.Insert(0, '[');
+		}
+
 		string text = sb.ToString();
 		return new Token(text, type, tokenIndex);
 	}

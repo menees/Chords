@@ -17,14 +17,15 @@ public abstract class TextEntry : Entry
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="text">The text line for the current entry.</param>
-	protected TextEntry(string text)
+	/// <param name="allowWhitespace">Whether it's ok for <paramref name="text"/> to be empty or whitespace.</param>
+	protected TextEntry(string text, bool allowWhitespace = false)
 	{
-		if (this is not BlankLine)
+		if (!allowWhitespace)
 		{
 			Conditions.RequireNonWhiteSpace(text);
 		}
 
-		this.Text = text;
+		this.Text = text ?? string.Empty;
 	}
 
 	#endregion

@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System;
+using System.Diagnostics;
 using System.IO;
 using Menees.Chords.Parsers;
 using Shouldly;
@@ -54,6 +55,35 @@ public class DocumentTests
 		string text = File.ReadAllText(TestUtility.SwingLowSweetChariotFileName);
 		Document document = Document.Parse(text);
 		TestSwingLowSweetChariot(document);
+	}
+
+	[TestMethod]
+	public void TypeOneCharAtATimeTest()
+	{
+		string samplesFolder = TestUtility.GetSampleFileName(string.Empty);
+		foreach (string textFile in Directory.EnumerateFiles(samplesFolder).Order())
+		{
+			Debug.WriteLine(textFile);
+			string text = File.ReadAllText(textFile);
+			for (int index = 1; index < text.Length; index++)
+			{
+				string subtext = text.Substring(0, index);
+				if (!string.IsNullOrWhiteSpace(subtext))
+				{
+					try
+					{
+						Document document = Document.Parse(subtext);
+						document.Entries.Count.ShouldBeGreaterThan(0);
+					}
+					catch
+					{
+						Debug.WriteLine($"*** length {subtext.Length} ***");
+						Debug.WriteLine(subtext);
+						throw;
+					}
+				}
+			}
+		}
 	}
 
 	#endregion

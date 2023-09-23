@@ -17,11 +17,11 @@ public sealed class Comment : TextEntry
 	/// <summary>
 	/// Creates a new instance for the specified comment.
 	/// </summary>
-	/// <param name="text">The comment text with no prefix or suffix.</param>
+	/// <param name="text">The comment text with no prefix or suffix. This can be empty or whitespace.</param>
 	/// <param name="prefix">An optional prefix that was before <paramref name="text"/>.</param>
 	/// <param name="suffix">An optional suffix that was after <paramref name="text"/>.</param>
 	public Comment(string text, string? prefix = null, string? suffix = null)
-		: base(text)
+		: base(text, allowWhitespace: true)
 	{
 		this.Prefix = prefix;
 		this.Suffix = suffix;
