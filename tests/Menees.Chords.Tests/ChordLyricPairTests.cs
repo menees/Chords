@@ -10,6 +10,10 @@ public class ChordLyricPairTests
 	{
 		Test("      A D     E", "Well, I fight authority");
 
+		// From "Alyssa Lies" tab. Make sure the defintion "lyrics" line isn't considered annotated.
+		// https://tabs.ultimate-guitar.com/tab/jason-michael-carroll/alyssa-lies-chords-531384
+		Test("Cadd9   Em      D       G", "x32033  x22000  xx0232  320033");
+
 		static void Test(string chords, string lyrics)
 		{
 			LineContext context = LineContextTests.Create(chords);

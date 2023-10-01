@@ -171,6 +171,12 @@ public sealed class ChordParser
 			{
 				result = 1;
 			}
+
+			// Don't allow another digit immediately after the root note.
+			if (result > 0 && text.Length > result && char.IsDigit(text[result]))
+			{
+				result = 0;
+			}
 		}
 
 		return result;
