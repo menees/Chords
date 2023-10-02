@@ -12,7 +12,9 @@
                         <option value="General">General</option>
                         <option value="ChordPro">ChordPro</option>
                     </select>
-                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput">
+                    <button class="btn btn-secondary text-nowrap" @onclick="CleanInput">
+                        <i class="oi oi-minus"></i> Scrub
+                    </button>                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput">
                         <i class="oi oi-share"></i> Convert
                     </button>
                     <div class="form-check form-switch">

@@ -218,6 +218,12 @@ public sealed partial class Index : IDisposable
 		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", fileName, "text/plain", fileBytes);
 	}
 
+	private void CleanInput()
+	{
+		Cleaner cleaner = new(this.Input);
+		this.Input = cleaner.CleanText;
+	}
+
 	#endregion
 
 	#region Private Types
