@@ -169,7 +169,7 @@ internal sealed class ConvertCommand : BaseCommand
 		ChordProTransformer transformer = this.transformers == Transformers.MobileSheets
 			? new MobileSheetsTransformer(inputDocument)
 			: new ChordProTransformer(inputDocument);
-		Document outputDocument = transformer.ToChordPro().Document;
+		Document outputDocument = transformer.Transform().Document;
 		return outputDocument;
 	}
 

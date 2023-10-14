@@ -174,7 +174,7 @@ public sealed partial class Index : IDisposable
 			ChordProTransformer transformer = this.toType == "MobileSheets"
 				? new MobileSheetsTransformer(inputDocument)
 				: new ChordProTransformer(inputDocument);
-			Document outputDocument = transformer.ToChordPro().Document;
+			Document outputDocument = transformer.Transform().Document;
 			TextFormatter formatter = new(outputDocument);
 			this.output = formatter.ToString();
 			this.title = DocumentTransformer.Flatten(outputDocument.Entries)

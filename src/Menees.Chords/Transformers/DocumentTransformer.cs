@@ -92,6 +92,12 @@ public abstract class DocumentTransformer
 		return this;
 	}
 
+	/// <summary>
+	/// Transforms the <see cref="Document"/> entries or filename into another format.
+	/// </summary>
+	/// <returns>The current transformer.</returns>
+	public abstract DocumentTransformer Transform();
+
 	#endregion
 
 	#region Protected Methods

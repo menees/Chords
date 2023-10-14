@@ -93,7 +93,7 @@ public class ChordProTransformerTests
 	private static Document Test(Document original, Func<Document, ChordProTransformer> createTransformer, out string text)
 	{
 		ChordProTransformer transformer = createTransformer(original);
-		Document converted = transformer.ToChordPro().Document;
+		Document converted = transformer.Transform().Document;
 		TextFormatter formatter = new(converted);
 		text = formatter.ToString();
 

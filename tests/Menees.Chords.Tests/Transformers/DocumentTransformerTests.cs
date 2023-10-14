@@ -110,6 +110,8 @@ public class DocumentTransformerTests
 			: base(document)
 		{
 		}
+
+		public override DocumentTransformer Transform() => this;
 	}
 
 	#endregion
