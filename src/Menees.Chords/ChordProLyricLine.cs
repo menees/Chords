@@ -196,6 +196,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 				default:
 					if (IsBracketed(segment.Text))
 					{
+						// Put bracketed ChordPro annotations like [*↑] or [*D*] in the chord line.
 						AppendChord(segment.Text, unbracketed => new TextSegment(unbracketed));
 					}
 					else

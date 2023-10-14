@@ -91,7 +91,7 @@ The library also contains some helper classes for specialized parsing situtation
 * [Lexer](src/Menees.Chords/Parsers/Lexer.cs)
 
 ## Applications
-* **Web**: The [Menees Chord Sheet Converter](http://chords.menees.com/) web application converts [Ultimate Guitar](https://www.ultimate-guitar.com/)-style chord-over-text sheets into [ChordPro](https://www.chordpro.org/) format or [MobileSheets](https://www.zubersoft.com/mobilesheets/) format. The converter is a Blazor WebAssembly app, so it needs to be run in a modern, up-to-date web browser.
+* **Web**: The [Menees Chord Sheet Converter](http://chords.menees.com/) web application converts [Ultimate Guitar](https://www.ultimate-guitar.com/)-style chords-over-text sheets into [ChordPro](https://www.chordpro.org/) format or [MobileSheets](https://www.zubersoft.com/mobilesheets/) format. The converter is a Blazor WebAssembly app, so it needs to be run in a modern, up-to-date web browser.
 * **Console**: The `.\Menees.Chords.Cli.exe` .NET console application is a thin wrapper over the `Menees.Chords.dll` library.
 Run `.\Menees.Chords.Cli.exe --help` to see its available commands and options. Its primary command is `convert`.
 Run `.\Menees.Chords.Cli.exe convert --help` to see its arguments and options.

@@ -86,7 +86,7 @@ public sealed class DocumentParser
 	/// </summary>
 	/// <remarks>
 	/// These are designed to process input that's in human-friendly formats like
-	/// "chord over text" or "Ultimate Guitar" format, but they can also process
+	/// "chords over text" or "Ultimate Guitar" format, but they can also process
 	/// ChordPro format.
 	/// </remarks>
 	public static Func<LineContext, Entry?>[] DefaultLineParsers { get; } =
