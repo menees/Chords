@@ -145,7 +145,6 @@ public sealed class LineContext
 	private IReadOnlyList<Entry> SplitAnnotations(out int annotationStartIndex)
 	{
 		List<Entry> result = new();
-		List<ChordDefinition>? definitions = null;
 		annotationStartIndex = this.LineText.Length;
 
 		bool tryComment = this.Parser.TryParseComment;
@@ -182,8 +181,18 @@ public sealed class LineContext
 				ChordDefinition? chordDefinition;
 				if (chord.Success && (chordDefinition = ChordDefinition.TryParse(chord.Value, group.Value)) != null)
 				{
-					definitions ??= new();
-					definitions.Add(chordDefinition);
+					List<ChordDefinition> definitions = new() { chordDefinition };
+					ChordDefinitions? previousDefinitionEntry = result.Count > 0 ? result[^1] as ChordDefinitions : null;
+					if (previousDefinitionEntry != null)
+					{
+						definitions.AddRange(previousDefinitionEntry.Definitions);
+						result[^1] = new ChordDefinitions(definitions);
+					}
+					else
+					{
+						result.Add(new ChordDefinitions(definitions));
+					}
+
 					annotationStartIndex = chord.Index;
 				}
 				else
@@ -199,12 +208,7 @@ public sealed class LineContext
 			}
 		}
 
-		if (definitions != null && definitions.Count > 0)
-		{
-			definitions.Reverse();
-			result.Add(new ChordDefinitions(definitions));
-		}
-
+		result.Reverse();
 		return result;
 	}
 

@@ -13,9 +13,13 @@ public sealed class ChordLine : SegmentedEntry
 {
 	#region Constructors
 
-	internal ChordLine(IReadOnlyList<TextSegment> segments)
+	internal ChordLine(IReadOnlyList<TextSegment> segments, IEnumerable<Entry>? annotations = null)
 		: base(segments)
 	{
+		if (annotations != null)
+		{
+			this.AddAnnotations(annotations);
+		}
 	}
 
 	#endregion

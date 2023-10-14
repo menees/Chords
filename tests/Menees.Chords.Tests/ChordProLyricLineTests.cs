@@ -142,5 +142,48 @@ public class ChordProLyricLineTests
 		}
 	}
 
+	[TestMethod]
+	public void SplitTest()
+	{
+		Test(
+			"[A]All right[G] now",
+			"A        G",
+			"All right now");
+
+		Test(
+			"Baby, it's [D/F#]all right [A]now",
+			"           D/F#      A",
+			"Baby, it's all right now");
+
+		Test(
+			"[A5]   [Dadd11]       [D/A]    [A5]  There she [A5]stood in [D/F#]the street[A5]",
+			"A5 Dadd11 D/A A5          A5       D/F#      A5",
+			"                There she stood in the street");
+
+		Test(
+			"[Dadd11]   Overla[Cmaj7]p is har[A#m7]d.",
+			"Dadd11   Cmaj7   A#m7",
+			"   Overlap is hard.");
+
+		Test(
+			"Swing [D]low, sweet [G]chari[D]ot,",
+			"      D          G    D",
+			"Swing low, sweet chariot,");
+
+		Test(
+			"Swing [D]lo[*↓]w, sweet [G↑]chari[D*]ot,  (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **",
+			"      D ↓        G↑   D* (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **",
+			"Swing low, sweet chariot,");
+
+		static void Test(string text, string? expectedChords, string? expectedLyrics)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordProLyricLine line = ChordProLyricLine.TryParse(context).ShouldNotBeNull();
+			(ChordLine? chords, LyricLine? lyrics) = line.Split();
+			chords?.ToString().ShouldBe(expectedChords);
+			lyrics?.ToString().ShouldBe(expectedLyrics);
+		}
+	}
+
 	#endregion
 }

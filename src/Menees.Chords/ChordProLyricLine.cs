@@ -2,6 +2,8 @@
 
 #region Using Directives
 
+using System;
+using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -164,6 +166,83 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Separates the current ChordPro line into two lines in "chords over text" format.
+	/// </summary>
+	/// <returns>A tuple with separate chord and lyric lines. If there were no
+	/// chords, the Chords result will be null. If there were no lyrics, the
+	/// Lyrics result will be null.</returns>
+	public (ChordLine? Chords, LyricLine? Lyrics) Split()
+	{
+		// Examples:
+		//                        A        G
+		// [A]All right[G] now => All right now
+		//                                                 D/F#      A
+		// Baby, it's [D/F#]all right [A]now => Baby, it's all right now
+		int indentChord = 0;
+		List<TextSegment> chordLineSegments = new();
+		StringBuilder lyricLineText = new();
+		foreach (TextSegment segment in this.Segments)
+		{
+			switch (segment)
+			{
+				case ChordSegment chord:
+					AppendChord(chord.Text, unbracketed => new ChordSegment(chord.Chord, unbracketed));
+					break;
+
+				case WhiteSpaceSegment whitespace:
+				default:
+					if (IsBracketed(segment.Text))
+					{
+						AppendChord(segment.Text, unbracketed => new TextSegment(unbracketed));
+					}
+					else
+					{
+						indentChord += segment.Text.Length;
+						lyricLineText.Append(segment.Text);
+					}
+
+					break;
+			}
+		}
+
+		void AppendChord(string chordText, Func<string, TextSegment> createChordSegment)
+		{
+			if (indentChord > 0)
+			{
+				chordLineSegments.Add(new WhiteSpaceSegment(new string(' ', indentChord)));
+				indentChord = 0;
+			}
+
+			int startIndex = chordText.StartsWith('[') ? (chordText.StartsWith("[*") ? 2 : 1) : 0;
+			int endIndex = chordText.Length - (chordText.EndsWith(']') ? 1 : 0);
+			chordText = chordText[startIndex..endIndex];
+			chordLineSegments.Add(createChordSegment(chordText));
+			indentChord = -chordText.Length;
+		}
+
+		IEnumerable<Entry>? annotations = this.Annotations;
+		ChordLine? chords = null;
+		if (chordLineSegments.Count > 0)
+		{
+			chords = new(chordLineSegments, annotations);
+			annotations = null;
+		}
+
+		LyricLine? lyrics = null;
+		if (lyricLineText.Length > 0)
+		{
+			while (lyricLineText.Length > 0 && char.IsWhiteSpace(lyricLineText[^1]))
+			{
+				lyricLineText.Length--;
+			}
+
+			lyrics = new(lyricLineText.ToString(), annotations);
+		}
+
+		return (chords, lyrics);
 	}
 
 	#endregion

@@ -21,9 +21,14 @@ public sealed class LyricLine : TextEntry
 	/// Creates a new instance for the specified text.
 	/// </summary>
 	/// <param name="text">The lyrics or text for this line.</param>
-	public LyricLine(string text)
+	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
+	public LyricLine(string text, IEnumerable<Entry>? annotations = null)
 		: base(text)
 	{
+		if (annotations != null)
+		{
+			this.AddAnnotations(annotations);
+		}
 	}
 
 	#endregion
