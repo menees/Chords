@@ -20,6 +20,16 @@ public class XmlFormatterTests
 	}
 
 	[TestMethod]
+	public void ToXElementTest()
+	{
+		Document document = TestUtility.LoadSwingLowSweetChariot();
+		XmlFormatter formatter = new(document);
+		XElement element = formatter.ToXElement();
+		Debug.WriteLine(element);
+		element.Name.LocalName.ShouldBe(nameof(Document));
+	}
+
+	[TestMethod]
 	public void AnnotatedTest()
 	{
 		Document document = TestUtility.LoadAnnotatedDoc();

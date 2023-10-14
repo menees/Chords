@@ -3,12 +3,13 @@
 #region Using Directives
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Xml.Linq;
 
 #endregion
 
 /// <summary>
-/// Formats an <see cref="IEntryContainer"/> as flat or indented text.
+/// Formats an <see cref="IEntryContainer"/> as XML.
 /// </summary>
 public sealed class XmlFormatter : ContainerFormatter
 {
@@ -37,12 +38,20 @@ public sealed class XmlFormatter : ContainerFormatter
 	/// <inheritdoc/>
 	public override string ToString()
 	{
-		if (this.root is null)
-		{
-			this.Format();
-		}
+		this.EnsureRoot();
+		return this.root.ToString();
+	}
 
-		return this.root?.ToString() ?? string.Empty;
+	/// <summary>
+	/// Gets the formatted document as an XElement.
+	/// </summary>
+	public XElement ToXElement()
+	{
+		this.EnsureRoot();
+
+		// Clone the root element so a caller can't mess with our private instance.
+		XElement result = new(this.root);
+		return result;
 	}
 
 	#endregion
@@ -116,6 +125,17 @@ public sealed class XmlFormatter : ContainerFormatter
 		}
 
 		container.Add(element);
+	}
+
+	[MemberNotNull(nameof(this.root))]
+	private void EnsureRoot()
+	{
+		if (this.root is null)
+		{
+			this.Format();
+		}
+
+		Conditions.RequireNonNull(this.root);
 	}
 
 	#endregion
