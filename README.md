@@ -35,7 +35,7 @@ Document inputDocument = Document.Load(inputFileName);
 
 // Transforming
 ChordProTransformer transformer = new ChordProTransformer(inputDocument);
-Document outputDocument = transformer.ToChordPro().Document;
+Document outputDocument = transformer.Transform().Document;
 
 // Formatting
 ContainerFormatter formatter = new TextFormatter(outputDocument);
