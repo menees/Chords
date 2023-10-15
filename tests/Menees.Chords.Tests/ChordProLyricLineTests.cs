@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.Diagnostics;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -183,6 +184,60 @@ public class ChordProLyricLineTests
 			chords?.ToString().ShouldBe(expectedChords);
 			lyrics?.ToString().ShouldBe(expectedLyrics);
 		}
+	}
+
+	[TestMethod]
+	public void ConvertAndSplitTest()
+	{
+		int pairs = 0;
+		int lines = 0;
+		foreach (Document document in TestUtility.SampleDocuments)
+		{
+			TryConvertAndSplit(document.Entries);
+
+			void TryConvertAndSplit(IEnumerable<Entry> entries)
+			{
+				foreach (Entry entry in entries)
+				{
+					switch (entry)
+					{
+						case ChordLyricPair pair:
+							{
+								ChordProLyricLine line = ChordProLyricLine.Convert(pair);
+								(ChordLine? chords, LyricLine? lyrics) = line.Split();
+								chords.ShouldNotBeNull(document.FileName);
+								lyrics.ShouldNotBeNull(document.FileName);
+
+								chords.ToString().ShouldBe(pair.Chords.ToString(), document.FileName);
+								lyrics.ToString().ShouldBe(pair.Lyrics.ToString(), document.FileName);
+								pairs++;
+							}
+
+							break;
+
+						case ChordProLyricLine line:
+							{
+								(ChordLine? chords, LyricLine? lyrics) = line.Split();
+								if (chords != null && lyrics != null)
+								{
+									ChordLyricPair newPair = new(chords, lyrics);
+									ChordProLyricLine newLine = ChordProLyricLine.Convert(newPair);
+									newLine.ToString().ShouldBe(line.ToString(), document.FileName);
+									lines++;
+								}
+							}
+
+							break;
+
+						case IEntryContainer container:
+							TryConvertAndSplit(container.Entries);
+							break;
+					}
+				}
+			}
+		}
+
+		Debug.WriteLine($"Round-trip tested {pairs} ChordLyricPairs and {lines} ChordProLyricLines.");
 	}
 
 	#endregion
