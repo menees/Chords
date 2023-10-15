@@ -60,8 +60,7 @@ public class DocumentTests
 	[TestMethod]
 	public void TypeOneCharAtATimeTest()
 	{
-		string samplesFolder = TestUtility.GetSampleFileName(string.Empty);
-		foreach (string textFile in Directory.EnumerateFiles(samplesFolder).Order())
+		foreach (string textFile in TestUtility.GetSampleFileNames())
 		{
 			Debug.WriteLine(textFile);
 			string text = File.ReadAllText(textFile);

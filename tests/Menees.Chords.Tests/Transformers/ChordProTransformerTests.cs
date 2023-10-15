@@ -69,19 +69,19 @@ public class ChordProTransformerTests
 
 	internal static void TestSamples(string expectedFolder, Func<Document, ChordProTransformer> createTransformer)
 	{
-		string samplesFolder = TestUtility.GetSampleFileName(string.Empty);
-		foreach (string textFile in Directory.EnumerateFiles(samplesFolder).Order())
+		foreach (Document original in TestUtility.SampleDocuments)
 		{
-			Document original = Document.Load(textFile);
 			Test(original, createTransformer, out string text);
 
+			string fileName = original.FileName.ShouldNotBeNull();
+			string baseFolder = Path.GetDirectoryName(fileName) ?? string.Empty;
 			string expectedFileName = Path.Combine(
-				samplesFolder,
+				baseFolder,
 				expectedFolder,
-				Path.ChangeExtension(Path.GetFileName(textFile), ".cho"));
+				Path.ChangeExtension(Path.GetFileName(fileName), ".cho"));
 			string expectedText = File.Exists(expectedFileName)
 				? File.ReadAllText(expectedFileName)
-				: File.ReadAllText(textFile);
+				: File.ReadAllText(fileName);
 			text.ShouldBe(expectedText, StringCompareShould.IgnoreLineEndings);
 		}
 	}

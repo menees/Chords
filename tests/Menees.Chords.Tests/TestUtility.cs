@@ -8,9 +8,18 @@ using System.IO;
 
 public static class TestUtility
 {
+	#region Private Data Members
+
+	private static readonly Lazy<List<Document>> SampleDocumentCache = new(
+		() => GetSampleFileNames().Select(fileName => Document.Load(fileName)).ToList());
+
+	#endregion
+
 	#region Public Properties
 
 	public static string SwingLowSweetChariotFileName { get; } = GetSampleFileName("Swing Low Sweet Chariot.cho");
+
+	public static IReadOnlyList<Document> SampleDocuments => SampleDocumentCache.Value;
 
 	#endregion
 
@@ -18,6 +27,9 @@ public static class TestUtility
 
 	public static string GetSampleFileName(string fileName)
 		=> Path.Combine("Samples", fileName);
+
+	public static IEnumerable<string> GetSampleFileNames()
+		=> Directory.EnumerateFiles(GetSampleFileName(string.Empty)).Order();
 
 	public static Document LoadSwingLowSweetChariot()
 		=> Document.Load(SwingLowSweetChariotFileName);
