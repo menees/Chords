@@ -17,8 +17,9 @@ public sealed class HeaderLine : TextEntry
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="text">The header label or section name.</param>
-	private HeaderLine(string text)
-		: base(text)
+	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
+	internal HeaderLine(string text, IEnumerable<Entry>? annotations = null)
+		: base(text, annotations)
 	{
 	}
 

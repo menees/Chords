@@ -20,8 +20,9 @@ public sealed class Comment : TextEntry
 	/// <param name="text">The comment text with no prefix or suffix. This can be empty or whitespace.</param>
 	/// <param name="prefix">An optional prefix that was before <paramref name="text"/>.</param>
 	/// <param name="suffix">An optional suffix that was after <paramref name="text"/>.</param>
-	public Comment(string text, string? prefix = null, string? suffix = null)
-		: base(text, allowWhitespace: true)
+	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
+	public Comment(string text, string? prefix = null, string? suffix = null, IEnumerable<Entry>? annotations = null)
+		: base(text, annotations, allowWhitespace: true)
 	{
 		this.Prefix = prefix;
 		this.Suffix = suffix;

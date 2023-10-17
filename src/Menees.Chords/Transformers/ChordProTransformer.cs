@@ -52,7 +52,13 @@ public class ChordProTransformer : DocumentTransformer
 	/// Converts <see cref="DocumentTransformer.Document"/> to ChordPro format.
 	/// </summary>
 	/// <returns>The current transformer.</returns>
-	public override DocumentTransformer Transform()
+	public override
+#if NET // Modern .NET is required for C#9 covariant returns.
+		ChordProTransformer
+#else
+		DocumentTransformer
+#endif
+		Transform()
 	{
 		IReadOnlyList<Entry> input = this.GetGroupedEntries();
 		IReadOnlyList<Entry> tab = this.GroupByEnvironment<TablatureLine>(input, "tab");

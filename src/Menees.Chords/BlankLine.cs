@@ -11,7 +11,7 @@ public sealed class BlankLine : TextEntry
 	#region Constructors
 
 	private BlankLine()
-		: base(string.Empty, true)
+		: base(string.Empty, allowWhitespace: true)
 	{
 	}
 

@@ -18,7 +18,9 @@ public abstract class TextEntry : Entry
 	/// </summary>
 	/// <param name="text">The text line for the current entry.</param>
 	/// <param name="allowWhitespace">Whether it's ok for <paramref name="text"/> to be empty or whitespace.</param>
-	protected TextEntry(string text, bool allowWhitespace = false)
+	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
+	protected TextEntry(string text, IEnumerable<Entry>? annotations = null, bool allowWhitespace = false)
+		: base(annotations)
 	{
 		if (!allowWhitespace)
 		{

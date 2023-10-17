@@ -25,8 +25,13 @@ public abstract class Entry
 	/// <summary>
 	/// Creates a new instance.
 	/// </summary>
-	protected Entry()
+	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
+	protected Entry(IEnumerable<Entry>? annotations = null)
 	{
+		if (annotations != null)
+		{
+			this.AddAnnotations(annotations);
+		}
 	}
 
 	#endregion

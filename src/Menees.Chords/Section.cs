@@ -19,7 +19,9 @@ public sealed class Section : Entry, IEntryContainer
 	/// Creates a new section with the specified entries.
 	/// </summary>
 	/// <param name="entries">The values to include in <see cref="Entries"/>.</param>
-	public Section(IEnumerable<Entry> entries)
+	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
+	public Section(IEnumerable<Entry> entries, IEnumerable<Entry>? annotations = null)
+		: base(annotations)
 	{
 		Conditions.RequireNonEmpty(entries);
 		this.Entries = entries.ToList();

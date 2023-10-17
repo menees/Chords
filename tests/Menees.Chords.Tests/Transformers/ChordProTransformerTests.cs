@@ -67,7 +67,10 @@ public class ChordProTransformerTests
 
 	#region Internal Methods
 
-	internal static void TestSamples(string expectedFolder, Func<Document, ChordProTransformer> createTransformer)
+	internal static void TestSamples(
+		string expectedFolder,
+		Func<Document, DocumentTransformer> createTransformer,
+		string extension = ".cho")
 	{
 		foreach (Document original in TestUtility.SampleDocuments)
 		{
@@ -78,7 +81,7 @@ public class ChordProTransformerTests
 			string expectedFileName = Path.Combine(
 				baseFolder,
 				expectedFolder,
-				Path.ChangeExtension(Path.GetFileName(fileName), ".cho"));
+				Path.ChangeExtension(Path.GetFileName(fileName), extension));
 			string expectedText = File.Exists(expectedFileName)
 				? File.ReadAllText(expectedFileName)
 				: File.ReadAllText(fileName);
@@ -90,9 +93,9 @@ public class ChordProTransformerTests
 
 	#region Private Methods
 
-	private static Document Test(Document original, Func<Document, ChordProTransformer> createTransformer, out string text)
+	private static Document Test(Document original, Func<Document, DocumentTransformer> createTransformer, out string text)
 	{
-		ChordProTransformer transformer = createTransformer(original);
+		DocumentTransformer transformer = createTransformer(original);
 		Document converted = transformer.Transform().Document;
 		TextFormatter formatter = new(converted);
 		text = formatter.ToString();

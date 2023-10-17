@@ -23,12 +23,8 @@ public sealed class LyricLine : TextEntry
 	/// <param name="text">The lyrics or text for this line.</param>
 	/// <param name="annotations">A collection of optional end-of-line annotations.</param>
 	public LyricLine(string text, IEnumerable<Entry>? annotations = null)
-		: base(text)
+		: base(text, annotations)
 	{
-		if (annotations != null)
-		{
-			this.AddAnnotations(annotations);
-		}
 	}
 
 	#endregion

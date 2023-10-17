@@ -240,7 +240,10 @@ public sealed class ChordProLyricLine : SegmentedEntry
 				lyricLineText.Length--;
 			}
 
-			lyrics = new(lyricLineText.ToString(), annotations);
+			if (lyricLineText.Length > 0)
+			{
+				lyrics = new(lyricLineText.ToString(), annotations);
+			}
 		}
 
 		return (chords, lyrics);
