@@ -76,6 +76,7 @@ ordered collection of specialized line parsers and groupers.
 to build a new in-memory `Document` by transforming an existing one. The primary transformer-derived types are:
 * [ChordProTransformer](src/Menees.Chords/Transformers/ChordProTransformer.cs) - Transforms "chords over text" (e.g., Ultimate Guitar) syntax into standard ChordPro syntax.
 * [MobileSheetsTransformer](src/Menees.Chords/Transformers/MobileSheetsTransformer.cs) - A ChordProTransformer-derived type that restricts the output to a subset of ChordPro syntax compatible with the [MobileSheets](https://zubersoft.com/mobilesheets/) application.
+* [ChordOverLyricTransformer](src/Menees.Chords/Transformers/ChordOverLyricTransformer.cs) - Transforms standard ChordPro syntax into "chords over text" (e.g., Ultimate Guitar) syntax.
 
 ### Formatting
 In-memory `Document`s can be formatted as text using one of the `ContainerFormatter`-derived types:
