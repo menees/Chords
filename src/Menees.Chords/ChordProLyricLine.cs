@@ -211,6 +211,12 @@ public sealed class ChordProLyricLine : SegmentedEntry
 
 		void AppendChord(string chordText, Func<string, TextSegment> createChordSegment)
 		{
+			// Ensure there's at least some whitespace between chords.
+			if (chordLineSegments.Count > 0 && chordLineSegments[^1] is not WhiteSpaceSegment)
+			{
+				indentChord = Math.Max(indentChord, 1);
+			}
+
 			if (indentChord > 0)
 			{
 				chordLineSegments.Add(new WhiteSpaceSegment(new string(' ', indentChord)));
@@ -224,7 +230,12 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			indentChord = -chordText.Length;
 		}
 
-		IEnumerable<Entry>? annotations = this.Annotations;
+		// ChordProTransformer.AddAnnotations formats each annotation like [*Xxx]
+		// for ChordProLyricLine, so we'll change their prefix and suffix.
+		IEnumerable<Entry>? annotations = this.Annotations.Select(entry
+			=> entry is Comment comment && comment.Prefix == "[*" && comment.Suffix == "]"
+				? new Comment(comment.Text, "(", ")", comment.Annotations)
+				: entry);
 		ChordLine? chords = null;
 		if (chordLineSegments.Count > 0)
 		{

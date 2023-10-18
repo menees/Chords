@@ -9,6 +9,11 @@
 	  <None Remove="Samples\Alone With You.txt" />
 	  <None Remove="Samples\Bring Him Home.txt" />
 	  <None Remove="Samples\Every Rose Has Its Thorn.txt" />
+	  <None Remove="Samples\Expected ChordOverLyric\Alone With You.txt" />
+	  <None Remove="Samples\Expected ChordOverLyric\Bring Him Home.txt" />
+	  <None Remove="Samples\Expected ChordOverLyric\Every Rose Has Its Thorn.txt" />
+	  <None Remove="Samples\Expected ChordOverLyric\Swing Low Sweet Chariot.txt" />
+	  <None Remove="Samples\Expected ChordOverLyric\Test Only.txt" />
 	  <None Remove="Samples\Expected ChordPro\Alone With You.cho" />
 	  <None Remove="Samples\Expected ChordPro\Bring Him Home.cho" />
 	  <None Remove="Samples\Expected ChordPro\Every Rose Has Its Thorn.cho" />
@@ -28,6 +33,21 @@
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	  <Content Include="Samples\Every Rose Has Its Thorn.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordOverLyric\Alone With You.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordOverLyric\Bring Him Home.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordOverLyric\Every Rose Has Its Thorn.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordOverLyric\Swing Low Sweet Chariot.txt">
+	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	  </Content>
+	  <Content Include="Samples\Expected ChordOverLyric\Test Only.txt">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
 	  <Content Include="Samples\Expected ChordPro\Alone With You.cho">

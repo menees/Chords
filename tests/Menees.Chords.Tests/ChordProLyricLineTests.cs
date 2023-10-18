@@ -146,6 +146,12 @@ public class ChordProLyricLineTests
 	[TestMethod]
 	public void SplitTest()
 	{
+		// Test some simple lines with no lyrics.
+		Test("[G]  [*4x]", "G 4x");
+		Test("[C] [Em] [D] [D]", "C Em D D");
+		Test("[C] [Em] [D] [D]  [*2x]", "C Em D D 2x");
+
+		// Test lines with chords and lyrics interlaced.
 		Test(
 			"[A]All right[G] now",
 			"A        G",
@@ -176,7 +182,7 @@ public class ChordProLyricLineTests
 			"      D ↓        G↑   D* (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **",
 			"Swing low, sweet chariot,");
 
-		static void Test(string text, string? expectedChords, string? expectedLyrics)
+		static void Test(string text, string expectedChords, string? expectedLyrics = null)
 		{
 			LineContext context = LineContextTests.Create(text);
 			ChordProLyricLine line = ChordProLyricLine.TryParse(context).ShouldNotBeNull();

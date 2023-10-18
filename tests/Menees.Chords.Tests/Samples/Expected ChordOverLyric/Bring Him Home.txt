@@ -1,11 +1,14 @@
-Bring Him Home (Les Misérables). Bpm: 64. Key: G. Capo: 2.
+Bring Him Home (Les Misérables)
+64 bpm
+Key: G
+** Capo @ 2 **
 
 ** Capo @ 2 **
 
 [Testing]
 
 [Intro]
-G C    4x
+G C (4x)
 
 
 [Verse 1]
@@ -64,6 +67,7 @@ C       C*   G*
 
 
 [Notes]
-* Use higher chords:
-C*  = 8-10-10-9-8-8
-G*  = x-10-12-12-12-10  (arpeggiate slowly)
+** Use higher chords: **
+C* 8-10-10-9-8-8
+G* x-10-12-12-12-10
+** arpeggiate slowly **

@@ -8,8 +8,10 @@
 | F/G     | G       | F/G     | G  G#m7  |
 
 [Intro - Desert Rose]
-| Am | Am | Am | Am | Am | Am | Am  | Am |      x2
-| Am | Am | G  | G  | F  | F  | Dm  | E  |      x2
+| Am | Am | Am | Am | Am | Am | Am  | Am |
+** x2 **
+| Am | Am | G  | G  | F  | F  | Dm  | E  |
+** x2 **
 | Am |
 
 [Intro - Escape (Piña Colada)]

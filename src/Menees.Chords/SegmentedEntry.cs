@@ -88,6 +88,11 @@ public abstract class SegmentedEntry : Entry
 			{
 				result.Add(new ChordSegment(chord, lexer.Token.ToString()));
 			}
+			else if (requiredBracketedChords && chordTokenType == TokenType.Bracketed && lexer.Token.Text.StartsWith('*'))
+			{
+				// Handle ChordPro [*Xxx] annotations.
+				result.Add(new TextSegment($"[{lexer.Token.Text}]"));
+			}
 			else
 			{
 				TextSegment? segment = getSegment?.Invoke(lexer.Token);

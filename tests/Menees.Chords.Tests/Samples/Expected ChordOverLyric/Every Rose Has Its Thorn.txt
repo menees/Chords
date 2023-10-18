@@ -1,4 +1,7 @@
-Every Rose Has Its Thorn – Poison. Bpm: 72. Original ½ step down.
+Every Rose Has Its Thorn
+Poison
+72 bpm
+** Original ½ step down **
 
 
 [Verse 1]
@@ -67,7 +70,8 @@ Cadd9                        G
 
 
 [Solo]
-(G) Cadd9 G Cadd9
+    Cadd9 G Cadd9
+(G)
 Em D Cadd9 G Em D Cadd9
 
 

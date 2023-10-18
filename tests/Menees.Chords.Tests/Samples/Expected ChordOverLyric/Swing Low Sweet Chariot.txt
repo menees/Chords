@@ -1,0 +1,25 @@
+# A simple ChordPro song.
+# From https://www.chordpro.org/chordpro/chordpro-introduction/
+
+Swing Low Sweet Chariot
+
+[Chorus]
+      D          G    D
+Swing low, sweet chariot,
+                       A7
+Comin' for to carry me home.
+      D7         G    D
+Swing low, sweet chariot,
+              A7       D
+Comin' for to carry me home.
+
+  D                       G          D
+I looked over Jordan, and what did I see,
+                       A7
+Comin' for to carry me home.
+  D              G            D
+A band of angels comin' after me,
+              A7       D
+Comin' for to carry me home.
+
+** Chorus **

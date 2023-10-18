@@ -15,6 +15,12 @@ using Menees.Chords.Parsers;
 /// </summary>
 public sealed class ChordOverLyricTransformer : DocumentTransformer
 {
+	#region Private Data Members
+
+	private const StringComparison Comparison = ChordParser.Comparison;
+
+	#endregion
+
 	#region Constructors
 
 	/// <summary>
@@ -73,7 +79,7 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 
 				case ChordProGridLine grid:
 					// A ChordPro grid line isn't the same as a TablatureLine, so LyricLine is the best fit.
-					output.Add(new LyricLine(grid.ToString(false), grid.Annotations));
+					output.Add(new LyricLine(grid.ToString(false).TrimEnd(), grid.Annotations));
 					break;
 
 				case ChordProLyricLine lyric:
@@ -109,9 +115,10 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 
 	private static void TryConvertDirective(List<Entry> output, ChordProDirectiveLine directive)
 	{
-		const StringComparison Comparison = ChordParser.Comparison;
 		const string StartOf = "start_of_";
 
+		const string CommentPrefix = "** ";
+		const string CommentSuffix = " **";
 		string longName = directive.LongName;
 		if (longName.StartsWith("end_of_", Comparison)
 			|| longName.Equals("start_of_grid", Comparison)
@@ -121,31 +128,118 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 		}
 		else if (longName == "comment")
 		{
-			output.Add(new Comment(directive.Argument ?? string.Empty, "** ", " **", directive.Annotations));
+			output.Add(new Comment(directive.Argument ?? string.Empty, CommentPrefix, CommentSuffix, directive.Annotations));
 		}
 		else if (longName.StartsWith(StartOf, Comparison) && longName.Length > StartOf.Length)
 		{
 			string header = directive.Argument ?? CultureInfo.CurrentCulture.TextInfo.ToTitleCase(longName[StartOf.Length..]);
 			output.Add(new HeaderLine($"[{header}]", directive.Annotations));
 		}
-		else if ((longName.Equals("title", Comparison) || longName.Equals("artist", Comparison))
-			&& !string.IsNullOrEmpty(directive.Argument))
+		else if (string.IsNullOrWhiteSpace(directive.Argument))
+		{
+			// Other argument-less directives are formatting related, so we'll just pass them through.
+			output.Add(directive);
+		}
+		else if (longName.Equals("title", Comparison) || longName.Equals("artist", Comparison))
 		{
 			output.Add(new LyricLine(directive.Argument!, directive.Annotations));
 		}
-		else if (longName.Equals("tempo", Comparison) && !string.IsNullOrEmpty(directive.Argument))
+		else if (longName.Equals("tempo", Comparison))
 		{
 			output.Add(new LyricLine($"{directive.Argument} bpm"));
 		}
-		else if (longName.Equals("key", Comparison) && !string.IsNullOrEmpty(directive.Argument))
+		else if (longName.Equals("key", Comparison))
 		{
 			output.Add(new LyricLine($"Key: {directive.Argument}"));
 		}
+		else if (longName.Equals("capo", Comparison))
+		{
+			output.Add(new Comment($"Capo @ {directive.Argument}", CommentPrefix, CommentSuffix, directive.Annotations));
+		}
+		else if (longName.Equals("chord", Comparison) || longName.Equals("define", Comparison))
+		{
+			output.Add(ParseChordDirective(directive.Argument!, directive.Annotations));
+		}
 		else
 		{
-			// Other directives are formatting related, so we'll just pass them through.
+			// Other argument-ed directives are formatting related, so we'll just pass them through.
 			output.Add(directive);
 		}
+	}
+
+	private static Entry ParseChordDirective(string text, IReadOnlyList<Entry> annotations)
+	{
+		Entry result;
+
+		// https://www.chordpro.org/chordpro/directives-chord/
+		string[] parts = text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+		if (parts.Length == 0)
+		{
+			result = BlankLine.Instance;
+		}
+		else
+		{
+			string initialSectionName = string.Empty;
+			string name = parts[0];
+			List<string> current = new();
+			Dictionary<string, List<string>> sections = new(ChordParser.Comparer) { { initialSectionName, current } };
+			foreach (string part in parts.Skip(1))
+			{
+				// If it's a fret or finger position, then add it to the current list.
+				// Otherwise, make a new section with a new list.
+				if (byte.TryParse(part, out _) || part.Equals("x", Comparison))
+				{
+					current.Add(part);
+				}
+				else if (sections.TryGetValue(part, out List<string>? list))
+				{
+					current = list;
+				}
+				else
+				{
+					current = new();
+					sections.Add(part, current);
+				}
+			}
+
+			const string CommentPrefix = "(";
+			const string CommentSuffix = ")";
+			ChordDefinition? definition;
+			if (!sections.TryGetValue("frets", out List<string>? frets)
+				|| (definition = ChordDefinition.TryParse(name, string.Join("-", frets))) is null)
+			{
+				// A chord directive can have just a name (e.g., {chord: Am}).
+				result = new Comment(text, CommentPrefix, CommentSuffix, annotations);
+			}
+			else
+			{
+				sections.Remove(nameof(frets));
+				if (sections.TryGetValue("base-fret", out List<string>? baseFrets)
+					&& baseFrets.Count == 1
+					&& frets.Contains(baseFrets[0]))
+				{
+					sections.Remove("base-fret");
+				}
+
+				if (sections.TryGetValue(initialSectionName, out List<string>? initialSection)
+					&& initialSection.Count == 0)
+				{
+					sections.Remove(initialSectionName);
+				}
+
+				// If there are leftover sections (e.g. fingers # # # #), then add them as a comment annotation.
+				string annotationText = string.Join(" ", sections.OrderBy(pair => pair.Key)
+					.Select(pair => $"{pair.Key} {string.Join(" ", pair.Value)}"));
+				if (!string.IsNullOrEmpty(annotationText))
+				{
+					annotations = annotations.Concat(new[] { new Comment(annotationText, CommentPrefix, CommentSuffix) }).ToList();
+				}
+
+				result = new ChordDefinitions(new[] { definition }, annotations);
+			}
+		}
+
+		return result;
 	}
 
 	#endregion

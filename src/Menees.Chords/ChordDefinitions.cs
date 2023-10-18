@@ -16,7 +16,8 @@ public sealed class ChordDefinitions : Entry
 {
 	#region Constructors
 
-	internal ChordDefinitions(IReadOnlyList<ChordDefinition> definitions)
+	internal ChordDefinitions(IReadOnlyList<ChordDefinition> definitions, IEnumerable<Entry>? annotations = null)
+		: base(annotations)
 	{
 		this.Definitions = definitions;
 	}

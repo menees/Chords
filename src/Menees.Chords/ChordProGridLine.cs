@@ -41,10 +41,10 @@ public sealed class ChordProGridLine : SegmentedEntry
 
 		// The ChordPro grid line syntax is very loose, and ChordPro's examples include things
 		// that the documentation says are not allowed. So, we'll require the line to be inside
-		// an open start_of_grid/end_of_grid section, or the line has to have several '|' separators.
+		// an open start_of_grid/end_of_grid section, or the line has to have multiple '|' separators.
 		// If we're not in an explicit grid, then we have to be careful not to match tab lines.
 		bool inExplicitGrid = context.State.TryGetValue(ChordProDirectiveLine.GridStateKey, out object? gridState) && gridState is ChordProDirectiveLine;
-		const int MinSeparators = 3;
+		const int MinSeparators = 2;
 		if (inExplicitGrid || context.LineText.Count(ch => ch == '|') >= MinSeparators)
 		{
 			IReadOnlyList<TextSegment> segments = TryGetSegments(

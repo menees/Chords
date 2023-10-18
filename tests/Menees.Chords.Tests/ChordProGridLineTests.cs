@@ -9,7 +9,8 @@ public class ChordProGridLineTests
 	[TestMethod]
 	public void TryParseInvalidTest()
 	{
-		Test("| A . . . |"); // Too short; not enough separators or chords
+		Test("| A . . . "); // Too short; not enough separators or chords
+		Test(" A . . . |"); // Too short; not enough separators or chords
 		Test("|--1-2-3---|--1-2-3---|"); // Tab line
 		Test("| 1 . . . | 4 . . . | 5 . . . | 1 . . . |"); // Nashville numbered-chords are too much like tab lines.
 
@@ -24,6 +25,7 @@ public class ChordProGridLineTests
 	[TestMethod]
 	public void TryParseValidTest()
 	{
+		Test("| A . . . |", "A");
 		Test("| A . | D . | E . |", "A", "D", "E");
 		Test("|| Am . . . | C . . . | D  . . . | F  . . . |", "Am", "C", "D", "F");
 		Test("|  Am . . . | E . . . | Am . . . | Am . . . ||", "Am", "E", "Am", "Am");
