@@ -2,6 +2,7 @@
 
 #region Using Directives
 
+using System.IO;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -56,6 +57,17 @@ public sealed class HeaderLine : TextEntry
 		}
 
 		return result;
+	}
+
+	/// <summary>
+	/// Writes the header text in brackets.
+	/// </summary>
+	/// <param name="writer">Used to write output.</param>
+	protected override void WriteWithoutAnnotations(TextWriter writer)
+	{
+		writer.Write('[');
+		base.WriteWithoutAnnotations(writer);
+		writer.Write(']');
 	}
 
 	#endregion

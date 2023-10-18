@@ -46,8 +46,7 @@ public abstract class TextEntry : Entry
 	/// <summary>
 	/// Writes <see cref="Text"/>.
 	/// </summary>
-	/// <param name="writer"></param>
-	/// <exception cref="NotImplementedException"></exception>
+	/// <param name="writer">Used to write output.</param>
 	protected override void WriteWithoutAnnotations(TextWriter writer)
 	{
 		Conditions.RequireNonNull(writer);
