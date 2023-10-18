@@ -37,6 +37,7 @@
                     <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2">
                         <option value="ChordPro">ChordPro</option>
                         <option value="MobileSheets">MobileSheets</option>
+                        <option value="ChordOverLyric">Chords Over Text</option>
                     </select>
                     <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled>
                         <i class="@copyState.ImageClass"></i> @copyState.Text

@@ -171,9 +171,12 @@ public sealed partial class Index : IDisposable
 				? DocumentParser.ChordProLineParsers
 				: DocumentParser.DefaultLineParsers);
 			Document inputDocument = Document.Parse(this.input, parser);
-			ChordProTransformer transformer = this.toType == "MobileSheets"
-				? new MobileSheetsTransformer(inputDocument)
-				: new ChordProTransformer(inputDocument);
+			DocumentTransformer transformer = this.toType switch
+			{
+				"MobileSheets" => new MobileSheetsTransformer(inputDocument),
+				"ChordOverLyric" => new ChordOverLyricTransformer(inputDocument),
+				_ => new ChordProTransformer(inputDocument),
+			};
 			Document outputDocument = transformer.Transform().Document;
 			TextFormatter formatter = new(outputDocument);
 			this.output = formatter.ToString();
