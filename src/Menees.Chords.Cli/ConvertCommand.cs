@@ -166,9 +166,12 @@ internal sealed class ConvertCommand : BaseCommand
 
 	private Document TransformInMemory(Document inputDocument)
 	{
-		ChordProTransformer transformer = this.transformers == Transformers.MobileSheets
-			? new MobileSheetsTransformer(inputDocument)
-			: new ChordProTransformer(inputDocument);
+		DocumentTransformer transformer = this.transformers switch
+		{
+			Transformers.MobileSheets => new MobileSheetsTransformer(inputDocument),
+			Transformers.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
+			_ => new ChordProTransformer(inputDocument),
+		};
 		Document outputDocument = transformer.Transform().Document;
 		return outputDocument;
 	}

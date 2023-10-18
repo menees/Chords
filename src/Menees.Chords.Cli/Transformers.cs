@@ -4,4 +4,5 @@ internal enum Transformers
 {
 	ChordPro,
 	MobileSheets,
+	ChordOverLyric,
 }
