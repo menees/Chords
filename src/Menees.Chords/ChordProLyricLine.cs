@@ -4,6 +4,7 @@
 
 using System;
 using System.Text;
+using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -246,10 +247,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		LyricLine? lyrics = null;
 		if (lyricLineText.Length > 0)
 		{
-			while (lyricLineText.Length > 0 && char.IsWhiteSpace(lyricLineText[^1]))
-			{
-				lyricLineText.Length--;
-			}
+			TextFormatter.TrimEnd(lyricLineText);
 
 			if (lyricLineText.Length > 0)
 			{

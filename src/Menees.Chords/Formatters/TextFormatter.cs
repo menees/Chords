@@ -41,6 +41,23 @@ public sealed class TextFormatter : ContainerFormatter
 
 	#region Public Methods
 
+	/// <summary>
+	/// Trims trailing whitespace from <paramref name="value"/>.
+	/// </summary>
+	/// <param name="value">The builder to trim.</param>
+	/// <returns>The input <paramref name="value"/>.</returns>
+	public static StringBuilder TrimEnd(StringBuilder value)
+	{
+		Conditions.RequireNonNull(value);
+
+		while (value.Length > 0 && char.IsWhiteSpace(value[^1]))
+		{
+			value.Length--;
+		}
+
+		return value;
+	}
+
 	/// <inheritdoc/>
 	public override string ToString()
 	{
@@ -109,6 +126,7 @@ public sealed class TextFormatter : ContainerFormatter
 
 		if (hierarchy.Count == 0)
 		{
+			TrimEnd(this.builder);
 			this.text = this.builder.ToString();
 		}
 	}

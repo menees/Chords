@@ -3,6 +3,7 @@
 #region Using Directives
 
 using System.Diagnostics;
+using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -42,7 +43,7 @@ public class TextFormatterTests
 		TextFormatter formatter = new(outer, "\t");
 		string text = formatter.ToString();
 		Debug.WriteLine(text);
-		text.ShouldBe("\tLine 1\r\n\tLine 2\r\n", StringCompareShould.IgnoreLineEndings);
+		text.ShouldBe("\tLine 1\r\n\tLine 2", StringCompareShould.IgnoreLineEndings);
 	}
 
 	[TestMethod]
@@ -59,9 +60,20 @@ public class TextFormatterTests
 			Swing low, sweet chariot,  ** Sing "low" as bass **
 			A Bb B   (Half steps)
 			G  G2  D/F#  Em  C  Cmaj5 (2x)
-
 			""",
 			StringCompareShould.IgnoreLineEndings);
+	}
+
+	[TestMethod]
+	public void TrimEndTest()
+	{
+		Test("Test Case  \t \r\n ", "Test Case");
+		Test("Unchanged", "Unchanged");
+		Test("  \r\n ", string.Empty);
+		Test(string.Empty, string.Empty);
+
+		static void Test(string text, string expected)
+			=> TextFormatter.TrimEnd(new StringBuilder(text)).ToString().ShouldBe(expected);
 	}
 
 	#endregion
@@ -81,7 +93,7 @@ public class TextFormatterTests
 		}
 
 		string[] lines = text.Split('\n').Select(line => line.TrimEnd()).ToArray();
-		lines.Length.ShouldBe(19);
+		lines.Length.ShouldBe(18);
 		return lines;
 	}
 

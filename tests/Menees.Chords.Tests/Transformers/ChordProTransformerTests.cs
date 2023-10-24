@@ -82,9 +82,8 @@ public class ChordProTransformerTests
 				baseFolder,
 				expectedFolder,
 				Path.ChangeExtension(Path.GetFileName(fileName), extension));
-			string expectedText = File.Exists(expectedFileName)
-				? File.ReadAllText(expectedFileName)
-				: File.ReadAllText(fileName);
+			File.Exists(expectedFileName).ShouldBeTrue($"Expected file should exist: {expectedFileName}");
+			string expectedText = File.ReadAllText(expectedFileName);
 			text.ShouldBe(expectedText, StringCompareShould.IgnoreLineEndings);
 		}
 	}
