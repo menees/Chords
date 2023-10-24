@@ -25,6 +25,7 @@ public sealed partial class Index : IDisposable
 	private bool whenTyping = true;
 	private CopyState copyState = new("Copy", "oi oi-clipboard", "btn-secondary");
 	private string? title;
+	private ElementReference? inputElement;
 
 	#endregion
 
@@ -213,7 +214,7 @@ public sealed partial class Index : IDisposable
 		}
 	}
 
-	private async void DownloadAsync()
+	private async Task DownloadAsync()
 	{
 		// https://www.meziantou.net/generating-and-downloading-a-file-in-a-blazor-webassembly-application.htm
 		byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(this.output);
@@ -221,10 +222,14 @@ public sealed partial class Index : IDisposable
 		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", fileName, "text/plain", fileBytes);
 	}
 
-	private void CleanInput()
+	private async Task CleanInputAsync()
 	{
 		Cleaner cleaner = new(this.Input);
 		this.Input = cleaner.CleanText;
+		if (this.inputElement != null)
+		{
+			await this.inputElement.Value.FocusAsync();
+		}
 	}
 
 	#endregion

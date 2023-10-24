@@ -12,7 +12,7 @@
                         <option value="General">General</option>
                         <option value="ChordPro">ChordPro</option>
                     </select>
-                    <button class="btn btn-secondary text-nowrap" @onclick="CleanInput">
+                    <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync">
                         <i class="oi oi-minus"></i> Scrub
                     </button>                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput">
                         <i class="oi oi-share"></i> Convert
@@ -26,7 +26,7 @@
             <div class="row">
                 <div class="col">
                     <textarea @bind="@Input" @bind:event=@InputChangeEvent spellcheck="false" wrap="hard"
-                              class="form-control font-monospace mono-font w-100 h-most"></textarea>
+                              class="form-control font-monospace mono-font w-100 h-most" @ref="inputElement"></textarea>
                 </div>
             </div>
         </div>
