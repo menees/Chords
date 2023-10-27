@@ -93,6 +93,7 @@ public sealed class DocumentParser
 		new Func<LineContext, Entry?>[]
 		{
 			// Add line parsers in order from most specific syntax to least specific syntax.
+			UriLine.TryParse,
 			HeaderLine.TryParse,
 			ChordProRemarkLine.TryParse, // This will parse #-prefixed lines before Comment.TryParse gets them.
 			Comment.TryParse,

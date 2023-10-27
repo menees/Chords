@@ -1,4 +1,4 @@
-﻿namespace Menees.Chords.Transformers.Tests;
+﻿namespace Menees.Chords.Transformers;
 
 [TestClass]
 public class ChordOverLyricTransformerTests

@@ -147,6 +147,11 @@ public class ChordProTransformer : DocumentTransformer
 
 					break;
 
+				case UriLine uri:
+					this.Add(output, new ChordProRemarkLine("# " + uri.Text));
+					this.AddAnnotations(output, uri.Annotations);
+					break;
+
 				default:
 					this.Add(output, entry);
 					break;
