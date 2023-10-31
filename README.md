@@ -3,7 +3,7 @@
 [![NuGet](https://img.shields.io/nuget/vpre/Menees.Chords)](https://www.nuget.org/packages/Menees.Chords/)
 
 # Chords
-This repo contains a .NET library and applications (e.g., an online [Blazor WebAssembly app](http://chords.menees.com/)) for parsing, transforming, and reformatting chord sheets.
+This repo contains a .NET library and applications (e.g., an online [Blazor WebAssembly app](https://chords.menees.com/)) for parsing, transforming, and reformatting chord sheets.
 It can parse files in human-friendly "chords over text" format (e.g., from [Ultimate Guitar](https://www.ultimate-guitar.com/)),
 machine-friendly [ChordPro](https://www.chordpro.org/) format, or a mix of both. For example, given this "chords over text" input:
 
@@ -92,7 +92,7 @@ The library also contains some helper classes for specialized parsing situtation
 * [Lexer](src/Menees.Chords/Parsers/Lexer.cs)
 
 ## Applications
-* **Web**: The [Menees Chord Sheet Converter](http://chords.menees.com/) web application converts [Ultimate Guitar](https://www.ultimate-guitar.com/)-style chords-over-text sheets into [ChordPro](https://www.chordpro.org/) format or [MobileSheets](https://www.zubersoft.com/mobilesheets/) format. The converter is a Blazor WebAssembly app, so it needs to be run in a modern, up-to-date web browser.
+* **Web**: The [Menees Chord Sheet Converter](https://chords.menees.com/) web application converts [Ultimate Guitar](https://www.ultimate-guitar.com/)-style chords-over-text sheets into [ChordPro](https://www.chordpro.org/) format or [MobileSheets](https://www.zubersoft.com/mobilesheets/) format. The converter is a Blazor WebAssembly app, so it needs to be run in a modern, up-to-date web browser.
 * **Console**: The `.\Menees.Chords.Cli.exe` .NET console application is a thin wrapper over the `Menees.Chords.dll` library.
 Run `.\Menees.Chords.Cli.exe --help` to see its available commands and options. Its primary command is `convert`.
 Run `.\Menees.Chords.Cli.exe convert --help` to see its arguments and options.
