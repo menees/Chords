@@ -18,10 +18,11 @@ using System.Text;
 /// <item>Trims trailing whitespace from each line</item>
 /// <item>Removes alternating blank lines</item>
 /// <item>Removes consecutive blank lines</item>
+/// <item>Ensures blank line before [Section] header</item>
+/// <item>Removes blank line after [Section] header</item>
 /// <item>Removes leading and trailing blank lines</item>
+/// <item>Removes known useless trailing lines (e.g., X, Set8)</item>
 /// </list>
-/// This , , and
-/// removes consecutive blank lines.
 /// </remarks>
 public sealed class Cleaner
 {
@@ -109,10 +110,53 @@ public sealed class Cleaner
 		}
 	}
 
+	private static void NormalizeSections(List<string> lines)
+	{
+		DocumentParser parser = new(
+			[HeaderLine.TryParse, LyricLine.Parse],
+			[GroupEntries.ByHeaderLine]);
+		Document document = Document.Parse(string.Join(Environment.NewLine, lines), parser);
+		lines.Clear();
+		foreach (Entry entry in document.Entries)
+		{
+			AddEntryLines(entry);
+		}
+
+		void AddEntryLines(Entry entry)
+		{
+			if (entry is IEntryContainer container)
+			{
+				bool checkForPostHeaderBlankLine = false;
+				foreach (Entry subentry in container.Entries)
+				{
+					if (!checkForPostHeaderBlankLine || subentry is not BlankLine)
+					{
+						AddEntryLines(subentry);
+						checkForPostHeaderBlankLine = false;
+					}
+
+					if (subentry is HeaderLine)
+					{
+						checkForPostHeaderBlankLine = true;
+					}
+				}
+			}
+			else
+			{
+				if (entry is HeaderLine && lines.Count > 0 && !string.IsNullOrEmpty(lines[^1]))
+				{
+					lines.Add(string.Empty);
+				}
+
+				lines.Add(entry.ToString());
+			}
+		}
+	}
+
 	private static void RemoveLeadingAndTrailingBlankLines(List<string> lines)
 	{
 		// Trailing blank lines are more common than leading blank lines, so remove them first.
-		while (lines.Count > 0 && string.IsNullOrEmpty(lines[lines.Count - 1]))
+		while (lines.Count > 0 && string.IsNullOrEmpty(lines[^1]))
 		{
 			lines.RemoveAt(lines.Count - 1);
 		}
@@ -145,7 +189,14 @@ public sealed class Cleaner
 		}
 
 		RemoveConsecutiveBlankLines(lines);
+		NormalizeSections(lines);
 		RemoveLeadingAndTrailingBlankLines(lines);
+
+		HashSet<string> badTrailingLines = new(ChordParser.Comparer) { "X", "Set8" };
+		while (lines.Count > 0 && badTrailingLines.Contains(lines[^1]))
+		{
+			lines.RemoveAt(lines.Count - 1);
+		}
 
 		string result = string.Join(Environment.NewLine, lines);
 		return result;

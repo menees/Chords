@@ -142,7 +142,7 @@ public sealed class LineContext
 		return result;
 	}
 
-	private IReadOnlyList<Entry> SplitAnnotations(out int annotationStartIndex)
+	private List<Entry> SplitAnnotations(out int annotationStartIndex)
 	{
 		List<Entry> result = [];
 		annotationStartIndex = this.LineText.Length;

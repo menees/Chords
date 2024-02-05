@@ -77,7 +77,23 @@ public class CleanerTests
 	[TestMethod]
 	public void NoProblemsTest()
 	{
-		Test("Line 1\nLine 2\n\nLine 4", "Line 1\nLine 2\n\nLine 4");
+		Test("Line 1\nLine 2\n\nLine 4\n\n[Outro]\nLine 7", "Line 1\nLine 2\n\nLine 4\n\n[Outro]\nLine 7");
+	}
+
+	[TestMethod]
+	public void BadTrailingLines()
+	{
+		Test("Line 1\nLine 2\nX", "Line 1\nLine 2");
+		Test("Line 1\nLine 2\nSet8", "Line 1\nLine 2");
+		Test("Line 1\nLine 2\nSet8\nX", "Line 1\nLine 2");
+	}
+
+	[TestMethod]
+	public void NormalizeSections()
+	{
+		Test("L1\n\n[Intro]\n\nL4", "L1\n\n[Intro]\nL4");
+		Test("L1\n[Intro]\nL4", "L1\n\n[Intro]\nL4");
+		Test("L1\n[Intro]\n\nL4", "L1\n\n[Intro]\nL4");
 	}
 
 	#endregion
