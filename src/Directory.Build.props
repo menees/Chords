@@ -16,7 +16,7 @@
 		<!-- We'll support older LTS releases for library builds. We'll use the latest STS release for web builds. -->
 		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
 		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
-		<MeneesTargetNetWeb>net7.0</MeneesTargetNetWeb>
+		<MeneesTargetNetWeb>net8.0</MeneesTargetNetWeb>
 
 		<RepoSrcFolder>$(MSBuildThisFileDirectory)</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>
@@ -64,7 +64,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Menees.Analyzers" Version="3.0.11">
+		<PackageReference Include="Menees.Analyzers" Version="3.0.12">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
@@ -72,14 +72,14 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.507">
+		<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Meziantou.Polyfill" Version="1.0.31">
+		<PackageReference Include="Meziantou.Polyfill" Version="1.0.33">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
