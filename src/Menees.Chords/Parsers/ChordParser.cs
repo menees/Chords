@@ -57,7 +57,7 @@ public sealed class ChordParser
 		'*', '~', '←', '↑', '↓', '→',
 	};
 
-	private readonly List<string> errors = new();
+	private readonly List<string> errors = [];
 	private Notation notation;
 	private int index;
 
@@ -235,7 +235,7 @@ public sealed class ChordParser
 	{
 		if (this.ParseRoot(out string? root))
 		{
-			List<string> modifiers = new();
+			List<string> modifiers = [];
 			while (this.TryParseModifier(modifiers))
 			{
 			}

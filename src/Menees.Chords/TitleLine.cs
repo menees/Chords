@@ -68,7 +68,7 @@ public sealed class TitleLine : TextEntry
 				Group titleGroup = match.Groups["title"];
 				if (titleGroup.Success)
 				{
-					List<MetadataEntry> metadata = new() { new("title", titleGroup.Value), };
+					List<MetadataEntry> metadata = [new("title", titleGroup.Value),];
 
 					Group artistGroup = match.Groups["artist"];
 					if (artistGroup.Success)

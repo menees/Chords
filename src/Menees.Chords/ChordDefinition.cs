@@ -68,12 +68,12 @@ public sealed class ChordDefinition
 			{
 				if (byte.TryParse(part, out byte fret))
 				{
-					frets ??= new();
+					frets ??= [];
 					frets.Add(fret);
 				}
 				else if (ChordParser.Comparer.Equals(part, "x") || part == "_")
 				{
-					frets ??= new();
+					frets ??= [];
 					frets.Add(null);
 				}
 				else

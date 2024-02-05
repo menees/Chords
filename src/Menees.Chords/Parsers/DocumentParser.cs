@@ -90,9 +90,8 @@ public sealed class DocumentParser
 	/// ChordPro format.
 	/// </remarks>
 	public static Func<LineContext, Entry?>[] DefaultLineParsers { get; } =
-		new Func<LineContext, Entry?>[]
-		{
-			// Add line parsers in order from most specific syntax to least specific syntax.
+		[
+			/* Add line parsers in order from most specific syntax to least specific syntax. */
 			UriLine.TryParse,
 			HeaderLine.TryParse,
 			ChordProRemarkLine.TryParse, // This will parse #-prefixed lines before Comment.TryParse gets them.
@@ -106,7 +105,7 @@ public sealed class DocumentParser
 			MetadataEntry.TryParse,
 			TitleLine.TryParse,
 			LyricLine.Parse,
-		};
+		];
 
 	/// <summary>
 	/// Gets the default collection of <see cref="Entry"/> groupers.
@@ -118,13 +117,13 @@ public sealed class DocumentParser
 	/// convert the lines into <see cref="Entry"/>s.
 	/// </remarks>
 	public static Func<GroupContext, IReadOnlyList<Entry>>[] DefaultGroupers { get; }
-		= new Func<GroupContext, IReadOnlyList<Entry>>[]
-		{
+		=
+		[
 			Parsers.GroupEntries.ByChordLinePair,
 			Parsers.GroupEntries.ByChordProEnvironment,
 			Parsers.GroupEntries.ByHeaderLine,
 			Parsers.GroupEntries.ByBlankLine,
-		};
+		];
 
 	/// <summary>
 	/// Gets an empty collection of groupers to use when processing input where grouping isn't desired.
@@ -220,9 +219,9 @@ public sealed class DocumentParser
 
 	#region Private Methods
 
-	private IReadOnlyList<Entry> ParseLines(TextReader reader)
+	private List<Entry> ParseLines(TextReader reader)
 	{
-		List<Entry> result = new();
+		List<Entry> result = [];
 		LineContext context = new(this);
 
 		string? rawLineText;

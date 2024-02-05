@@ -31,6 +31,7 @@ csharp_style_prefer_top_level_statements = true:silent
 csharp_style_throw_expression = true:suggestion
 csharp_style_prefer_null_check_over_type_check = true:suggestion
 dotnet_diagnostic.CC0022.severity = silent
+csharp_style_prefer_primary_constructors = false:suggestion
 
 # Code files
 [*.{cs,vb}]

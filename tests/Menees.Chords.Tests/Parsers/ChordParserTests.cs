@@ -41,21 +41,21 @@ public class ChordParserTests
 	{
 		Test("A");
 		Test("D/F#", root: "D", bass: "F#");
-		Test("Am", root: "A", modifiers: new[] { "m" });
-		Test("Asus2", root: "A", modifiers: new[] { "sus", "2" });
-		Test("Dadd9add11", root: "D", modifiers: new[] { "add", "9", "add", "11" }); // x54030
-		Test("[C#7b5/D]", start: 1, length: 7, root: "C#", modifiers: new[] { "7", "b", "5" }, bass: "D");
+		Test("Am", root: "A", modifiers: ["m"]);
+		Test("Asus2", root: "A", modifiers: ["sus", "2"]);
+		Test("Dadd9add11", root: "D", modifiers: ["add", "9", "add", "11"]); // x54030
+		Test("[C#7b5/D]", start: 1, length: 7, root: "C#", modifiers: ["7", "b", "5"], bass: "D");
 		Test("C/Ab", root: "C", bass: "Ab");
-		Test("Caugmaj13", root: "C", modifiers: new[] { "aug", "maj", "13" });
-		Test("C#min7dim5", root: "C#", modifiers: new[] { "min", "7", "dim", "5" });
-		Test("  Ebm7  ", name: "Ebm7", root: "Eb", modifiers: new[] { "m", "7" });
-		Test("CM7", root: "C", modifiers: new[] { "M", "7" });
+		Test("Caugmaj13", root: "C", modifiers: ["aug", "maj", "13"]);
+		Test("C#min7dim5", root: "C#", modifiers: ["min", "7", "dim", "5"]);
+		Test("  Ebm7  ", name: "Ebm7", root: "Eb", modifiers: ["m", "7"]);
+		Test("CM7", root: "C", modifiers: ["M", "7"]);
 
 		Test("1/3", root: "1", bass: "3", notation: Notation.Nashville);
-		Test("3#7b9", root: "3", modifiers: new[] { "#", "7", "b", "9" }, notation: Notation.Nashville);
+		Test("3#7b9", root: "3", modifiers: ["#", "7", "b", "9"], notation: Notation.Nashville);
 
 		Test("I/IV", root: "I", bass: "IV", notation: Notation.Roman);
-		Test("viiadd3sus4", root: "vii", modifiers: new[] { "add", "3", "sus", "4" }, notation: Notation.Roman);
+		Test("viiadd3sus4", root: "vii", modifiers: ["add", "3", "sus", "4"], notation: Notation.Roman);
 
 		static void Test(
 			string text,
@@ -76,7 +76,7 @@ public class ChordParserTests
 			Chord chord = parser.Chord.ShouldNotBeNull();
 			chord.Name.ShouldBe(name);
 			chord.Root.ShouldBe(root);
-			chord.Modifiers.ShouldBe(modifiers ?? Array.Empty<string>());
+			chord.Modifiers.ShouldBe(modifiers ?? []);
 			chord.Bass.ShouldBe(bass);
 			chord.Notation.ShouldBe(notation);
 		}

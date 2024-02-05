@@ -33,7 +33,7 @@ public class LexerTests
 
 		static void Test(string text, params Token[] expected)
 		{
-			List<Token> actual = new();
+			List<Token> actual = [];
 			Lexer lexer = new(text);
 			lexer.Token.ShouldBe(default);
 

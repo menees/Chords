@@ -53,15 +53,15 @@ public sealed class LineContextTests
 	[TestMethod]
 	public void CreateLexerWithAnnotationsTest()
 	{
-		Test("This (a) has (comment)", "This (a) has ", new[] { "(comment)" });
-		Test("This (also) has one ** here **", "This (also) has one ", new[] { "** here **" });
-		Test("This has (a) Cmaj7/F=1-3-2-0-0-0", "This has ", new[] { "(a)" }, "Cmaj7/F 132000");
+		Test("This (a) has (comment)", "This (a) has ", ["(comment)"]);
+		Test("This (also) has one ** here **", "This (also) has one ", ["** here **"]);
+		Test("This has (a) Cmaj7/F=1-3-2-0-0-0", "This has ", ["(a)"], "Cmaj7/F 132000");
 		Test("High chord: Dm x-x-12-10-10-10", "High chord: ", expectedDefinitions: "Dm x-x-12-10-10-10");
 		Test("I play Em7 several ways: Em7 020000", "I play Em7 several ways: ", expectedDefinitions: "Em7 020000");
 		Test("I play Em7 several ways: Em7 = 022030", "I play Em7 several ways: ", expectedDefinitions: "Em7 022030");
 		Test("I play Em7 several ways: Em7 020003, Em7 = 020030", "I play Em7 several ways: ", expectedDefinitions: "Em7 020003, Em7 020030");
-		Test("A Bm C Db F# 3x", "A Bm C Db F# ", new[] { "3x" });
-		Test("A Bm C Db F#   x12", "A Bm C Db F#   ", new[] { "x12" });
+		Test("A Bm C Db F# 3x", "A Bm C Db F# ", ["3x"]);
+		Test("A Bm C Db F#   x12", "A Bm C Db F#   ", ["x12"]);
 		Test("A Bm C Db F#   x123", "A Bm C Db ", expectedDefinitions: "F# x123"); // Chord def NOT repeat 123x!
 
 		Test("This doesn't. )", "This doesn't. )");

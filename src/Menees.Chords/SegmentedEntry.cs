@@ -67,7 +67,7 @@ public abstract class SegmentedEntry : Entry
 	{
 		Conditions.RequireNonNull(context);
 
-		List<TextSegment> result = new();
+		List<TextSegment> result = [];
 		TokenType chordTokenType = requiredBracketedChords ? TokenType.Bracketed : TokenType.Text;
 
 		Lexer lexer = context.CreateLexer(out annotations);

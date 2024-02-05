@@ -45,7 +45,7 @@ public abstract class Entry
 	/// This is useful for entries like a <see cref="HeaderLine"/> that also contains a <see cref="Comment"/>,
 	/// and for when <see cref="ChordDefinitions"/> are at the end of a <see cref="ChordLine"/>.
 	/// </remarks>
-	public IReadOnlyList<Entry> Annotations => this.annotations ?? (IReadOnlyList<Entry>)Array.Empty<Entry>();
+	public IReadOnlyList<Entry> Annotations => this.annotations ?? (IReadOnlyList<Entry>)[];
 
 	#endregion
 
@@ -175,7 +175,7 @@ public abstract class Entry
 	protected void AddAnnotation(Entry annotation)
 	{
 		Conditions.RequireNonNull(annotation);
-		this.annotations ??= new();
+		this.annotations ??= [];
 		this.annotations.Add(annotation);
 	}
 
@@ -186,7 +186,7 @@ public abstract class Entry
 	protected void AddAnnotations(IEnumerable<Entry> annotations)
 	{
 		Conditions.RequireNonNull(annotations);
-		this.annotations ??= new();
+		this.annotations ??= [];
 		this.annotations.AddRange(annotations);
 	}
 

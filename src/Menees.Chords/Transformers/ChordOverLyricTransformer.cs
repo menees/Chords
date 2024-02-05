@@ -181,7 +181,7 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 		{
 			string initialSectionName = string.Empty;
 			string name = parts[0];
-			List<string> current = new();
+			List<string> current = [];
 			Dictionary<string, List<string>> sections = new(ChordParser.Comparer) { { initialSectionName, current } };
 			foreach (string part in parts.Skip(1))
 			{
@@ -197,7 +197,7 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 				}
 				else
 				{
-					current = new();
+					current = [];
 					sections.Add(part, current);
 				}
 			}

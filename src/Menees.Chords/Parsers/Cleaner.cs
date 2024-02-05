@@ -126,7 +126,7 @@ public sealed class Cleaner
 
 	private string Clean()
 	{
-		List<string> lines = new();
+		List<string> lines = [];
 		using (StringReader reader = new(this.OriginalText ?? string.Empty))
 		{
 			string? line;

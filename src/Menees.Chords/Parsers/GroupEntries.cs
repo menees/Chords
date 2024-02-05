@@ -77,7 +77,7 @@ public static class GroupEntries
 				const StringComparison Comparison = ChordParser.Comparison;
 				if (directive.LongName.StartsWith(StartOfPrefix, Comparison))
 				{
-					List<Entry> section = new() { directive };
+					List<Entry> section = [directive];
 					sectionStack.Push(section);
 				}
 				else if (directive.LongName.StartsWith(EndOfPrefix, Comparison)
@@ -137,7 +137,7 @@ public static class GroupEntries
 				if (entry is HeaderLine header)
 				{
 					FinishSection();
-					section = new() { header };
+					section = [header];
 				}
 				else
 				{
@@ -153,7 +153,7 @@ public static class GroupEntries
 				{
 					// Make sure trailing blank lines aren't included in the section.
 					// They should come after it and separate it from the next section (if any).
-					List<BlankLine> blankLines = new();
+					List<BlankLine> blankLines = [];
 					while (section.Count > 0 && section[^1] is BlankLine)
 					{
 						blankLines.Add(BlankLine.Instance);
@@ -210,7 +210,7 @@ public static class GroupEntries
 				}
 				else
 				{
-					section ??= new();
+					section ??= [];
 					AddEntry(entry);
 				}
 			}

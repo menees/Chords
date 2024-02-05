@@ -66,7 +66,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	{
 		Conditions.RequireNonNull(pair);
 
-		List<TextSegment> segments = new();
+		List<TextSegment> segments = [];
 		string lyricText = pair.Lyrics.Text;
 		int lyricIndex = 0;
 
@@ -183,7 +183,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		//                                                 D/F#      A
 		// Baby, it's [D/F#]all right [A]now => Baby, it's all right now
 		int indentChord = 0;
-		List<TextSegment> chordLineSegments = new();
+		List<TextSegment> chordLineSegments = [];
 		StringBuilder lyricLineText = new();
 		foreach (TextSegment segment in this.Segments)
 		{
