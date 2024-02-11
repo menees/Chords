@@ -1,14 +1,19 @@
 ﻿namespace Menees.Chords;
 
+#region Using Directives
+
 using System;
 using System.Xml.Linq;
 using Menees.Chords.Parsers;
 using Shouldly;
-using static System.Net.Mime.MediaTypeNames;
+
+#endregion
 
 [TestClass]
 public class TitleLineTests
 {
+	#region Public Methods
+
 	[TestMethod]
 	public void TryParseValidTest()
 	{
@@ -68,6 +73,18 @@ public class TitleLineTests
 			("key", "Bb"),
 			("comment", "Capo @ 3"));
 
+		Test(
+			"Pretty Little Lie Chords by Blackberry Smoke",
+			("title", "Pretty Little Lie"),
+			("artist", "Blackberry Smoke"));
+
+		Test(
+			"Free Bird Official by Lynyrd Skynyrd. Key: G. Bpm: 110,150.",
+			("title", "Free Bird"),
+			("artist", "Lynyrd Skynyrd"),
+			("key", "G"),
+			("tempo", "110,150"));
+
 		static void Test(string text, params (string Name, string Argument)[] expected)
 		{
 			LineContext context = LineContextTests.Create(text);
@@ -87,4 +104,6 @@ public class TitleLineTests
 		doc.Entries[0].ShouldBeOfType<TitleLine>().Text.ShouldBe("Line 1");
 		doc.Entries[1].ShouldBeOfType<LyricLine>().Text.ShouldBe("Line 2");
 	}
+
+	#endregion
 }
