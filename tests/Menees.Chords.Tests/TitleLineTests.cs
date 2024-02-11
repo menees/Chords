@@ -79,6 +79,12 @@ public class TitleLineTests
 			("artist", "Blackberry Smoke"));
 
 		Test(
+			"Free Bird by Lynyrd Skynyrd. Key: G.",
+			("title", "Free Bird"),
+			("artist", "Lynyrd Skynyrd"),
+			("key", "G"));
+
+		Test(
 			"Free Bird Official by Lynyrd Skynyrd. Key: G. Bpm: 110,150.",
 			("title", "Free Bird"),
 			("artist", "Lynyrd Skynyrd"),

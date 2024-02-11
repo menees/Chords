@@ -19,7 +19,7 @@ public sealed class TitleLine : TextEntry
 
 	private const string TitleRegexPattern = """
 		(?inx)^\s* # Ignore leading whitespace
-		(?<title>\S.*?)(\s+([\-–—]|((Chords|Tab|Official|Bass|Ukulele|Power|Guitar\s+Pro)\s+by))\s+(?<artist>\S.*?))? # Title with optional artist
+		(?<title>\S.*?)(\s+([\-–—]|(((Chords|Tab|Official|Bass|Ukulele|Power|Guitar\s+Pro)\s+)?by))\s+(?<artist>\S.*?))? # Title with optional artist
 		([\.,;][\t ](?<metadata>\S.*?))* # Optional other info. Change last * to ? to see all captures as one.
 		[\.;]?\s*$ # Optional trailing "separator" and whitespace
 		""";
