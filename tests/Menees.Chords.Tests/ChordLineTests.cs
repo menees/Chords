@@ -75,6 +75,7 @@ public class ChordLineTests
 		Test("From N.C.");
 		Test("Am Q7");
 		Test("  [A12]  ");
+		Test("[]");
 
 		static void Test(string text)
 		{

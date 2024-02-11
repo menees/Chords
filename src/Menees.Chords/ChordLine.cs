@@ -37,8 +37,10 @@ public sealed class ChordLine : SegmentedEntry
 
 		IReadOnlyList<TextSegment> segments = TryGetSegments(context, false, null, out IReadOnlyList<Entry> annotations);
 
+		// Make sure there's at least one chord segment, so we avoid degenerate
+		// cases like "[]", which is a segment of non-letters but not a chord.
 		ChordLine? result = null;
-		if (segments.Count > 0)
+		if (segments.OfType<ChordSegment>().Any())
 		{
 			result = new(segments);
 			result.AddAnnotations(annotations);
