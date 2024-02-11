@@ -18,6 +18,9 @@ public enum TokenType
 	/// <summary>
 	/// The token text is surrounded by square brackets (e.g., [C#]);
 	/// </summary>
+	/// <remarks>
+	/// The text inside the brackets may be empty (e.g., token is []) or whitespace (e.g., token is [ ]).
+	/// </remarks>
 	Bracketed,
 
 	/// <summary>

@@ -37,6 +37,8 @@ public class HeaderLineTests
 	public void TryParseInvalidTest()
 	{
 		Test("Not a header");
+		Test("[]");
+		Test("[ \t ]");
 		Test("[A#]");
 		Test("[Test] Plus");
 		Test("[Verse][Chorus]");

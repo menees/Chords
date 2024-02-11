@@ -40,7 +40,7 @@ public sealed class HeaderLine : TextEntry
 		HeaderLine? result = null;
 
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
-		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Bracketed)
+		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Bracketed && !string.IsNullOrWhiteSpace(lexer.Token.Text))
 		{
 			// We have to pull the token text out here because we're about to move the lexer forward.
 			string headerText = lexer.Token.Text;
