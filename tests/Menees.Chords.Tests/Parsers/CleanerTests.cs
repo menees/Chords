@@ -96,6 +96,30 @@ public class CleanerTests
 		Test("L1\n[Intro]\n\nL4", "L1\n\n[Intro]\nL4");
 	}
 
+	[TestMethod]
+	public void InferTitleFromUri()
+	{
+		Test(
+			"https://tabs.ultimate-guitar.com/tab/sting/desert-rose-chords-2504700",
+			"Desert Rose – Sting\nhttps://tabs.ultimate-guitar.com/tab/sting/desert-rose-chords-2504700");
+
+		Test(
+			"https://www.songsterr.com/a/wsa/system-of-a-down-aerials-tab-s3709",
+			"System Of A Down Aerials\nhttps://www.songsterr.com/a/wsa/system-of-a-down-aerials-tab-s3709");
+	}
+
+	[TestMethod]
+	public void NormalizeTitle()
+	{
+		Test(
+			"Happy Trees Official by Bob Ross",
+			"Happy Trees – Bob Ross.");
+
+		Test(
+			"Free Bird Official by Lynyrd Skynyrd. Key: G. Bpm: 110,150.",
+			"Free Bird – Lynyrd Skynyrd. Key: G. Bpm: 110,150.");
+	}
+
 	#endregion
 
 	#region Private Methods
