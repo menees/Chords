@@ -172,7 +172,8 @@ public sealed class Cleaner
 	{
 		if (lines.Count > 0)
 		{
-			DocumentParser parser = new([TitleLine.TryParse, UriLine.TryParse]);
+			// Try URI parsing before Title parsing.
+			DocumentParser parser = new([UriLine.TryParse, TitleLine.TryParse]);
 			Document document = Document.Parse(lines[0], parser);
 			if (document.Entries.Count > 0)
 			{

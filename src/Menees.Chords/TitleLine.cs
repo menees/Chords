@@ -141,8 +141,7 @@ public sealed class TitleLine : TextEntry
 				return result;
 			}
 
-			static string[] SplitWords(string text) => text.Split('-', StringSplitOptions.RemoveEmptyEntries)
-				.Select(word => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(word)).ToArray();
+			static string[] SplitWords(string text) => text.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(ToTitleCase).ToArray();
 
 			const int ThreePathParts = 3;
 			if (MatchHostPath("ultimate-guitar.com", ThreePathParts, out string[] path) && path[0].Equals("tab", Compare))
@@ -222,7 +221,7 @@ public sealed class TitleLine : TextEntry
 			sb.Append(' ');
 			if (metadata.Name != CommentMetadataName)
 			{
-				string name = MetadataEntry.Untranslate(metadata.Name);
+				string name = ToTitleCase(MetadataEntry.Untranslate(metadata.Name));
 				sb.Append(name);
 				sb.Append(": ");
 			}
@@ -238,6 +237,8 @@ public sealed class TitleLine : TextEntry
 	#endregion
 
 	#region Private Methods
+
+	private static string ToTitleCase(string word) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(word);
 
 	private static TitleLine? TryCreate(
 		string[] titleWords,
