@@ -139,6 +139,17 @@ public sealed class MetadataEntry : Entry
 		return result;
 	}
 
+	internal static string Untranslate(string name)
+	{
+		string result = TranslatedNames.FirstOrDefault(pair => pair.Value == name).Key;
+		if (string.IsNullOrEmpty(result))
+		{
+			result = name;
+		}
+
+		return result;
+	}
+
 	#endregion
 
 	#region Protected Methods

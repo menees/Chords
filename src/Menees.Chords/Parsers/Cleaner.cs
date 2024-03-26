@@ -168,6 +168,30 @@ public sealed class Cleaner
 		}
 	}
 
+	private static void CleanTitle(List<string> lines)
+	{
+		if (lines.Count > 0)
+		{
+			DocumentParser parser = new([TitleLine.TryParse, UriLine.TryParse]);
+			Document document = Document.Parse(lines[0], parser);
+			if (document.Entries.Count > 0)
+			{
+				if (document.Entries[0] is TitleLine titleLine)
+				{
+					lines[0] = titleLine.ToMetadataString();
+				}
+				else if (document.Entries[0] is UriLine uriLine)
+				{
+					TitleLine? uriTitle = TitleLine.TryParse(uriLine.Uri);
+					if (uriTitle != null)
+					{
+						lines.Insert(0, uriTitle.ToString());
+					}
+				}
+			}
+		}
+	}
+
 	private string Clean()
 	{
 		List<string> lines = [];
@@ -197,6 +221,8 @@ public sealed class Cleaner
 		{
 			lines.RemoveAt(lines.Count - 1);
 		}
+
+		CleanTitle(lines);
 
 		string result = string.Join(Environment.NewLine, lines);
 		return result;
