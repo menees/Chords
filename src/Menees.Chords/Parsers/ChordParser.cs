@@ -129,7 +129,7 @@ public sealed class ChordParser
 		if (text.Length > startIndex)
 		{
 			char ch = text[startIndex];
-			if ((ch >= 'A' && ch <= 'G') || (ch >= 'a' && ch <= 'g'))
+			if ((ch >= 'A' && ch <= 'H') || (ch >= 'a' && ch <= 'h'))
 			{
 				result = 1;
 				if (text.Length > (startIndex + 1))
