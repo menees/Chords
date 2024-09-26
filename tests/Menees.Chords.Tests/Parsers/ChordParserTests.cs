@@ -19,7 +19,7 @@ public class ChordParserTests
 		ChordParser.GetNoteLength("L#").ShouldBe(0);
 		ChordParser.GetNoteLength("A#", 1).ShouldBe(0);
 
-		foreach (char upper in new[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G' })
+		foreach (char upper in new[] { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' })
 		{
 			foreach (char ch in new[] { upper, char.ToLower(upper) })
 			{
@@ -42,6 +42,7 @@ public class ChordParserTests
 		Test("A");
 		Test("D/F#", root: "D", bass: "F#");
 		Test("Am", root: "A", modifiers: ["m"]);
+		Test("Hm", root: "H", modifiers: ["m"]);
 		Test("Asus2", root: "A", modifiers: ["sus", "2"]);
 		Test("Dadd9add11", root: "D", modifiers: ["add", "9", "add", "11"]); // x54030
 		Test("[C#7b5/D]", start: 1, length: 7, root: "C#", modifiers: ["7", "b", "5"], bass: "D");
