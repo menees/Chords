@@ -131,12 +131,12 @@ public sealed partial class Index : IDisposable
 	{
 		if (this.Storage.ContainKey(nameof(this.fromType)))
 		{
-			this.fromType = this.Storage.GetItem<string>(nameof(this.fromType));
+			this.fromType = this.Storage.GetItem<string>(nameof(this.fromType)) ?? this.fromType;
 		}
 
 		if (this.Storage.ContainKey(nameof(this.toType)))
 		{
-			this.toType = this.Storage.GetItem<string>(nameof(this.toType));
+			this.toType = this.Storage.GetItem<string>(nameof(this.toType)) ?? this.toType;
 		}
 
 		if (this.Storage.ContainKey(nameof(this.whenTyping)))
@@ -146,7 +146,7 @@ public sealed partial class Index : IDisposable
 
 		if (this.Storage.ContainKey(nameof(this.input)))
 		{
-			this.input = this.Storage.GetItem<string>(nameof(this.input));
+			this.input = this.Storage.GetItem<string>(nameof(this.input)) ?? this.input;
 		}
 		else
 		{
