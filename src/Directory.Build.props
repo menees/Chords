@@ -32,6 +32,7 @@
 		<LocaMeneesLibrariesSrc/>
 		<BuildingInsideVisualStudio Condition="'$(BuildingInsideVisualStudio)' == ''">false</BuildingInsideVisualStudio>
 		<IsUnitTestProject>false</IsUnitTestProject>
+		<IsTestProject>false</IsTestProject>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Debug'">
