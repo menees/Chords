@@ -37,7 +37,7 @@ function PublishProject($csProjRelativePath, $profileName, $configuration)
     dotnet publish $csProjPath --framework $targetFramework -v:$msBuildVerbosity --nologo --configuration $configuration `
         -p:PublishDir="..\..\artifacts\$profileName" -p:DeleteExistingFiles=true
 
-    Get-ChildItem -Path "$artifactsPath\$profileName" -Filter *.pdb | Remove-Item 
+    Get-ChildItem -Path "$artifactsPath\$profileName" -Filter *.pdb | Remove-Item
 
     Compress-Archive -Path "$artifactsPath\$profileName\*" -DestinationPath "$artifactsPath\$productName-Portable-$version-$profileName.zip"
 }
@@ -56,7 +56,7 @@ if ($test)
 {
     foreach ($configuration in $configurations)
     {
-    	dotnet test $slnPath
+    	dotnet test $slnPath /p:Configuration=$configuration
     }
 }
 
