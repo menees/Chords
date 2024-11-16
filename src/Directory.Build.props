@@ -27,10 +27,11 @@
 		<IsPublishable>false</IsPublishable>
 
 		<!-- Make the assembly, file, and NuGet package versions the same. -->
-		<Version>0.9.5-beta</Version>
+		<Version>0.9.6-beta</Version>
 		<UseLocaMeneesLibraries>false</UseLocaMeneesLibraries>
 		<LocaMeneesLibrariesSrc/>
 		<BuildingInsideVisualStudio Condition="'$(BuildingInsideVisualStudio)' == ''">false</BuildingInsideVisualStudio>
+		<IsUnitTestProject>false</IsUnitTestProject>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)'=='Debug'">
