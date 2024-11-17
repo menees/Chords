@@ -42,7 +42,7 @@ public sealed class ChordLyricPair : Entry, IEntryContainer
 	/// </summary>
 	public LyricLine Lyrics { get; }
 
-	IReadOnlyList<Entry> IEntryContainer.Entries => new Entry[] { this.Chords, this.Lyrics };
+	IReadOnlyList<Entry> IEntryContainer.Entries => [this.Chords, this.Lyrics];
 
 	#endregion
 

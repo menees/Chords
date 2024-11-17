@@ -118,7 +118,7 @@ public class GroupEntriesTests
 
 	private static IReadOnlyList<Entry> GetEntries(string text, Func<GroupContext, IReadOnlyList<Entry>> grouper)
 	{
-		DocumentParser parser = new(groupers: new[] { grouper });
+		DocumentParser parser = new(groupers: [grouper]);
 		Document document = Document.Parse(text, parser);
 		IReadOnlyList<Entry> result = document.Entries;
 		return result;

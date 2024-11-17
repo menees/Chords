@@ -12,7 +12,7 @@ public sealed class LineContextTests
 
 		// The parser variable must be assigned something first so the CheckContext local method can safely capture the variable.
 		DocumentParser parser = null!;
-		parser = new(new[] { CheckContext }, DocumentParser.Ungrouped);
+		parser = new([CheckContext], DocumentParser.Ungrouped);
 
 		Document doc = Document.Parse("Line 1\nLine\t2\r\nLine 3\n  ", parser);
 		doc.ShouldNotBeNull();
@@ -112,7 +112,7 @@ public sealed class LineContextTests
 
 		// We have to include line parsers for Comment and ChordDefinitions for annotations testing.
 		// However, they're lower priority than SaveContext, so it will always get first shot.
-		DocumentParser parser = new(new Func<LineContext, Entry?>[] { SaveContext, Comment.TryParse, ChordDefinitions.TryParse });
+		DocumentParser parser = new([SaveContext, Comment.TryParse, ChordDefinitions.TryParse]);
 		Document doc = Document.Parse(line, parser);
 
 		LyricLine SaveContext(LineContext context)

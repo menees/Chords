@@ -51,11 +51,11 @@ public sealed class ChordParser
 		// https://en.wikibooks.org/wiki/Music_Theory/Complete_List_of_Chord_Patterns
 	};
 
-	private static readonly ISet<char> KnownAnnotations = new HashSet<char>
-	{
-		// Note: If you add an entry here, also update the LineContext.EndOfLineAnnotationPattern regex.
+	private static readonly HashSet<char> KnownAnnotations =
+	[
+		/* Note: If you add an entry here, also update the LineContext.EndOfLineAnnotationPattern regex. */
 		'*', '~', '←', '↑', '↓', '→',
-	};
+	];
 
 	private readonly List<string> errors = [];
 	private Notation notation;

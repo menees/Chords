@@ -195,12 +195,12 @@ public class ChordProTransformer : DocumentTransformer
 			if (allowChordProAnnotations && annotation is Comment comment && comment.Annotations.Count == 0)
 			{
 				Comment chordProAnnotation = new(comment.Text, "[*", "]");
-				target = target.Clone(target.Annotations.Concat(new[] { chordProAnnotation }));
+				target = target.Clone(target.Annotations.Concat([chordProAnnotation]));
 				output[targetIndex] = target;
 			}
 			else
 			{
-				IReadOnlyList<Entry> converted = this.TransformEntries(new[] { annotation });
+				IReadOnlyList<Entry> converted = this.TransformEntries([annotation]);
 				output.AddRange(converted);
 			}
 		}

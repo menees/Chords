@@ -55,7 +55,7 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 
 	#region Private Methods
 
-	private static IReadOnlyList<Entry> TransformEntries(IReadOnlyList<Entry> input)
+	private static List<Entry> TransformEntries(IReadOnlyList<Entry> input)
 	{
 		List<Entry> output = new(input.Count);
 
@@ -106,10 +106,6 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 
 		return output;
 	}
-
-	#endregion
-
-	#region Private Methods
 
 	private static void TryConvertDirective(List<Entry> output, ChordProDirectiveLine directive)
 	{
@@ -230,10 +226,10 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 					.Select(pair => $"{pair.Key} {string.Join(" ", pair.Value)}"));
 				if (!string.IsNullOrEmpty(annotationText))
 				{
-					annotations = annotations.Concat(new[] { new Comment(annotationText, CommentPrefix, CommentSuffix) }).ToList();
+					annotations = [.. annotations, new Comment(annotationText, CommentPrefix, CommentSuffix)];
 				}
 
-				result = new ChordDefinitions(new[] { definition }, annotations);
+				result = new ChordDefinitions([definition], annotations);
 			}
 		}
 
