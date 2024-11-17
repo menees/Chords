@@ -4,8 +4,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Globalization;
-using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -132,7 +130,7 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 		}
 		else if (longName.StartsWith(StartOf, Comparison) && longName.Length > StartOf.Length)
 		{
-			string header = directive.Argument ?? CultureInfo.CurrentCulture.TextInfo.ToTitleCase(longName[StartOf.Length..]);
+			string header = directive.Argument ?? TitleLine.ToTitleCase(longName[StartOf.Length..]);
 			output.Add(new HeaderLine(header, directive.Annotations));
 		}
 		else if (string.IsNullOrWhiteSpace(directive.Argument))

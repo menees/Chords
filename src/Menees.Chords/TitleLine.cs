@@ -236,9 +236,13 @@ public sealed class TitleLine : TextEntry
 
 	#endregion
 
-	#region Private Methods
+	#region Internal Methods
 
-	private static string ToTitleCase(string word) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(word);
+	internal static string ToTitleCase(string word) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(word);
+
+	#endregion
+
+	#region Private Methods
 
 	private static TitleLine? TryCreate(
 		string[] titleWords,
