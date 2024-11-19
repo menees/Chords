@@ -1,6 +1,7 @@
 {
-  "sdk": {
-    "version": "8.0.300",
-    "rollForward": "latestFeature"
-  }
+	"sdk": {
+		// DOTNET_VERSION: Make sure the SDK aligns with the Blazor version used.
+		"version": "9.0.100",
+		"rollForward": "latestFeature"
+	}
 }

@@ -13,10 +13,11 @@
 		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
 		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>
 
+		<!-- DOTNET_VERSION: Set framework and core versions for libraries. Set core version for Blazor. Update README.md. -->
 		<!-- We'll support older LTS releases for library builds. We'll use the latest STS release for web builds. -->
 		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
 		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
-		<MeneesTargetNetWeb>net8.0</MeneesTargetNetWeb>
+		<MeneesTargetNetWeb>net9.0</MeneesTargetNetWeb>
 
 		<RepoSrcFolder>$(MSBuildThisFileDirectory)</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>
@@ -70,7 +71,8 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0">
+		<PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
+			<!-- DOTNET_VERSION: NetAnalyzers version should match the Blazor version. -->
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
