@@ -23,7 +23,7 @@ public sealed class DocumentParserTests
 
 	#region Internal Methods
 
-	internal static DocumentParser Ungrouped() => new DocumentParser(groupers: DocumentParser.Ungrouped);
+	internal static DocumentParser Ungrouped() => new(groupers: DocumentParser.Ungrouped);
 
 	#endregion
 }
