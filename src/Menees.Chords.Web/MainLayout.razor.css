@@ -26,13 +26,3 @@
         text-overflow: ellipsis;
     }
 
-
-.description {
-	display: none;
-}
-
-@media (min-width: 992px) {
-	.description {
-		display: revert;
-	}
-}

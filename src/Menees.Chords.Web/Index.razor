@@ -2,9 +2,9 @@
 
 <PageTitle>Menees Chord Sheet Converter</PageTitle>
 
-<div class="container-fluid">
-    <div class="row">
-        <div class="col">
+<div class="container-fluid d-flex flex-grow-1">
+    <div class="row flex-grow-1">
+        <div class="col d-flex flex-column">
             <div class="row">
                 <div class="d-flex align-items-center gap-2">
                     <label for="from" class="text-nowrap">Input From:</label>
@@ -23,14 +23,14 @@
                     </div>
                 </div>
             </div>
-            <div class="row">
+            <div class="row flex-grow-1">
                 <div class="col">
                     <textarea @bind="@Input" @bind:event=@InputChangeEvent spellcheck="false" wrap="hard"
                               class="form-control font-monospace mono-font w-100 h-most" @ref="inputElement"></textarea>
                 </div>
             </div>
         </div>
-        <div class="col">
+        <div class="col d-flex flex-column">
             <div class="row">
                 <div class="d-flex align-items-center gap-2">
                     <label for="to" class="text-nowrap">Output To:</label>
@@ -47,7 +47,7 @@
                     </button>
                 </div>
             </div>
-            <div class="row">
+            <div class="row flex-grow-1">
                 <div class="col">
                     <textarea @bind="@output" @bind:event=oninput spellcheck="false" wrap="hard"
                               class="form-control font-monospace mono-font w-100 h-most" id="output"></textarea>

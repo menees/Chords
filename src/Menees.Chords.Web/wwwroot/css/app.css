@@ -1,7 +1,10 @@
 @import url('open-iconic/font/css/open-iconic-bootstrap.min.css');
 
 html, body {
-    font-family: Calibri, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	font-family: Calibri, 'Segoe UI', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
 }
 
 h1:focus {
@@ -23,7 +26,10 @@ a, .btn-link {
 }
 
 .content {
-    padding-top: 1rem;
+	padding-top: 1rem;
+	display: flex;
+	flex-direction: column;
+	height: 100%;
 }
 
 .valid.modified:not([type=checkbox]) {
@@ -112,13 +118,6 @@ textarea {
 	}
 
 	textarea.h-most {
-		/*Don't fill height. On tablets, user needs to see second textarea wrap under first.*/
-		height: 80vh;
-	}
-
-@media (min-width: 992px) {
-	textarea.h-most {
-		/*On wider screens (lg+), we can see both columns.*/
-		height: 85vh;
+		height: calc(100% - 0.75rem);
 	}
 }

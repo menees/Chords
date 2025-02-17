@@ -7,7 +7,9 @@
                 <img src="Music_Note_Double_64.png" alt="logo" style="width: 16px; height: 16px;" />
                 <b>Menees Chord Sheet Converter @DisplayVersion</b>
             </div>
-            <div class="px-4 description">
+            @* Only show this description on screens >= the lg breakpoint.
+            https://getbootstrap.com/docs/5.0/utilities/display/#hiding-elements *@
+            <div class="px-4 d-none d-lg-block">
                 Convert <a href="https://www.ultimate-guitar.com/">Ultimate Guitar</a>-style chords-over-text sheets into
                 <a href="https://www.chordpro.org/">ChordPro</a> format.
             </div>
@@ -23,7 +25,7 @@
         </div>
     </div>
 
-    <div class="content px-4">
+    <div class="content p-2">
         @Body
     </div>
 </div>
