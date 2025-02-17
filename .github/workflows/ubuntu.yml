@@ -11,8 +11,9 @@ on:
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
+    # DOTNET_VERSION: Use a Linux instance with the required netX.0 framework and SDK.
+    # https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md#net-tools
+    runs-on: ubuntu-22.04
 
     steps:
     - uses: actions/checkout@v3
@@ -28,6 +29,6 @@ jobs:
     - name: Build
       run: dotnet build --no-restore
 
-      # We can't run the net48 tests on Linux.
+      # DOTNET_VERSION: We can't run the net48 tests on Linux. We have to explicitly pass in the netX.0 framework to use.
     - name: Test
       run: dotnet test --no-build --verbosity normal --framework net6.0
