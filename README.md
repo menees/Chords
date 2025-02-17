@@ -27,6 +27,7 @@ Running `.\Menees.Chords.Cli.exe convert` with that input produces this output i
 ## Library
 The `Menees.Chords.dll` .NET library is the main focus of this repo, and it contains all of the parsing, transforming, 
 and formatting objects. It can be reused in any application targeting .NET Framework 4.8, .NET 6.0, or .NET Standard 2.0.
+<!-- DOTNET_VERSION: Document correct targets in readme. -->
 
 ### Code Example
 ``` C#
