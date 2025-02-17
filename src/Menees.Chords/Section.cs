@@ -24,7 +24,7 @@ public sealed class Section : Entry, IEntryContainer
 		: base(annotations)
 	{
 		Conditions.RequireNonEmpty(entries);
-		this.Entries = entries.ToList();
+		this.Entries = [.. entries];
 	}
 
 	#endregion

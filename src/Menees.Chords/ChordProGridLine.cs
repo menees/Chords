@@ -62,7 +62,7 @@ public sealed class ChordProGridLine : SegmentedEntry
 				else
 				{
 					// Don't allow Nashville-numbered chords because it's ambiguous with TablatureLines.
-					List<ChordSegment> chords = segments.OfType<ChordSegment>().ToList();
+					List<ChordSegment> chords = [.. segments.OfType<ChordSegment>()];
 					if (chords.Count >= (MinSeparators - 1)
 						&& chords.All(cs => cs.Chord.Notation == Notation.Name || cs.Chord.Notation == Notation.Roman))
 					{

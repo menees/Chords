@@ -33,7 +33,7 @@ public class EntryTests
 		entry1.Annotations.Count.ShouldBe(1);
 		entry1.Annotations[0].ShouldBeOfType<Comment>().ToString().ShouldBe("Testing");
 
-		TestEntry entry0 = testEntry.Clone(Array.Empty<Entry>());
+		TestEntry entry0 = testEntry.Clone([]);
 		entry0.Annotations.Count.ShouldBe(0);
 
 		TestEntry entryNull = testEntry.Clone(null);

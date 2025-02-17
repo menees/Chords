@@ -73,7 +73,7 @@ public sealed class LyricLine : TextEntry
 		if (sb != null && index > 0)
 		{
 			line = sb.ToString();
-			annotations = annotations.Skip(index).ToList();
+			annotations = [.. annotations.Skip(index)];
 		}
 
 		LyricLine result = new(line);

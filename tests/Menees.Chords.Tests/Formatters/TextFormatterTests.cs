@@ -92,7 +92,7 @@ public class TextFormatterTests
 			text.ShouldContain(indent);
 		}
 
-		string[] lines = text.Split('\n').Select(line => line.TrimEnd()).ToArray();
+		string[] lines = [.. text.Split('\n').Select(line => line.TrimEnd())];
 		lines.Length.ShouldBe(18);
 		return lines;
 	}

@@ -55,8 +55,8 @@ public sealed class DocumentParser
 		IEnumerable<Func<GroupContext, IReadOnlyList<Entry>>>? groupers = null,
 		int? tabWidth = DefaultTabWidth)
 	{
-		this.lineParsers = lineParsers != null ? lineParsers.ToArray() : DefaultLineParsers;
-		this.groupers = groupers != null ? groupers.ToArray() : DefaultGroupers;
+		this.lineParsers = lineParsers != null ? [.. lineParsers] : DefaultLineParsers;
+		this.groupers = groupers != null ? [.. groupers] : DefaultGroupers;
 		this.TabWidth = tabWidth;
 
 		this.TryChordDefinitions = this.lineParsers.Contains(ChordDefinitions.TryParse);

@@ -136,8 +136,8 @@ public sealed class LineContext
 		string comment = text[start.Length..^end.Length];
 		string trimStart = comment.TrimStart();
 		string trimmed = trimStart.TrimEnd();
-		string prefix = start + comment.Substring(0, comment.Length - trimStart.Length);
-		string suffix = comment.Substring(comment.Length - (trimStart.Length - trimmed.Length)) + end;
+		string prefix = start + comment[..^trimStart.Length];
+		string suffix = comment[^(trimStart.Length - trimmed.Length)..] + end;
 		Comment result = new(trimmed, prefix, suffix);
 		return result;
 	}

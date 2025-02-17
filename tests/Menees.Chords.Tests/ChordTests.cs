@@ -15,9 +15,9 @@ public class ChordTests
 	[TestMethod]
 	public void TryParseTest()
 	{
-		Chord.TryParse("Nope", out Chord? chord).ShouldBeFalse();
+		Chord.TryParse("Nope", out _).ShouldBeFalse();
 
-		Chord.TryParse("A#b13", out chord).ShouldBeTrue();
+		Chord.TryParse("A#b13", out Chord? chord).ShouldBeTrue();
 		chord.Name.ShouldBe("A#b13");
 	}
 

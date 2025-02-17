@@ -11,7 +11,7 @@ public static class TestUtility
 	#region Private Data Members
 
 	private static readonly Lazy<List<Document>> SampleDocumentCache = new(
-		() => GetSampleFileNames().Select(fileName => Document.Load(fileName)).ToList());
+		() => [.. GetSampleFileNames().Select(fileName => Document.Load(fileName))]);
 
 	#endregion
 

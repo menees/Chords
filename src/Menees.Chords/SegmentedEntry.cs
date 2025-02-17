@@ -17,7 +17,7 @@ public abstract class SegmentedEntry : Entry
 	#region Private Data Members
 
 	// https://www.ultimate-guitar.com/contribution/help/rubric#iii3 (section C. "No chord")
-	private static readonly ISet<string> PseudoChords = new HashSet<string>(ChordParser.Comparer) { "N.C.", "NC", "stop" };
+	private static readonly HashSet<string> PseudoChords = new(ChordParser.Comparer) { "N.C.", "NC", "stop" };
 
 	#endregion
 

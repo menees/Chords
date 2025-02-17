@@ -141,7 +141,7 @@ public sealed class TitleLine : TextEntry
 				return result;
 			}
 
-			static string[] SplitWords(string text) => text.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(ToTitleCase).ToArray();
+			static string[] SplitWords(string text) => [.. text.Split('-', StringSplitOptions.RemoveEmptyEntries).Select(ToTitleCase)];
 
 			const int ThreePathParts = 3;
 			if (MatchHostPath("ultimate-guitar.com", ThreePathParts, out string[] path) && path[0].Equals("tab", Compare))
@@ -262,7 +262,7 @@ public sealed class TitleLine : TextEntry
 				finalLength--;
 			}
 
-			string[] result = input.Take(finalLength).ToArray();
+			string[] result = [.. input.Take(finalLength)];
 			return result;
 		}
 

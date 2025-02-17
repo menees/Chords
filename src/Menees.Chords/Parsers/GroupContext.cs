@@ -18,7 +18,7 @@ public sealed class GroupContext
 	internal GroupContext(DocumentParser parser)
 	{
 		this.Parser = parser;
-		this.Entries = Array.Empty<Entry>();
+		this.Entries = [];
 	}
 
 	#endregion
