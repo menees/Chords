@@ -41,15 +41,17 @@ internal sealed class ConvertCommand
 
 	public static ConvertCommand? TryCreate(CommandLine commandLine, string[] args)
 	{
+		// CommandLine doesn't allow empty switches, so we can't use the Unix-style '-' to mean stdin.
+		const string ReadStdIn = "~";
+
 		string appName = Path.GetFileNameWithoutExtension(CommandLine.ExecutableFileName);
 		string versionInfo = ShellUtility.GetVersionInfo(typeof(ConvertCommand).Assembly);
 		commandLine.AddHeader($"{appName} - {versionInfo}");
 		commandLine.AddHeader("Converts a chord sheet file from one format to another.");
-		commandLine.AddHeader($"Usage: {CommandLine.ExecutableFileName} input|- [/output File] [/overwrite] [/clean]");
+		commandLine.AddHeader($"Usage: {CommandLine.ExecutableFileName} input|{ReadStdIn} [/output File] [/overwrite] [/clean]");
 		commandLine.AddHeader("            [/parse ...] [/transform ...] [/format ...] [/encoding ...]");
 
 		ConvertCommand command = new();
-		const string ReadStdIn = "-";
 		bool useStdIn = false;
 		commandLine.AddValueHandler(
 			(filePath, errors) =>
