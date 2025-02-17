@@ -67,7 +67,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		Conditions.RequireNonNull(pair);
 
 		List<TextSegment> segments = [];
-		string lyricText = pair.Lyrics.Text;
+		string lyricText = ScrubDelimiters(pair.Lyrics.Text);
 		int lyricIndex = 0;
 
 		// Examples:
@@ -263,6 +263,35 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	#region Private Methods
 
 	private static bool IsBracketed(string text) => text.StartsWith('[') && text.EndsWith(']');
+
+	private static string ScrubDelimiters(string text)
+	{
+		StringBuilder sb = new(text);
+		int length = sb.Length;
+
+		bool modified = false;
+		for (int index = 0; index < length; index++)
+		{
+			char oldChar = sb[index];
+			char newChar = oldChar switch
+			{
+				// ChordPro uses [ ] and { } in its syntax with no support for escaping them.
+				// Since those aren't commonly in lyric lines, we'll turn them into ( ).
+				'[' or '{' => '(',
+				']' or '}' => ')',
+				_ => oldChar,
+			};
+
+			if (newChar != oldChar)
+			{
+				sb[index] = newChar;
+				modified = true;
+			}
+		}
+
+		string result = modified ? sb.ToString() : text;
+		return result;
+	}
 
 	#endregion
 }

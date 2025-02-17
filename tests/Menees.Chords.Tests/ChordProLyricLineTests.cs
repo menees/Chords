@@ -133,6 +133,15 @@ public class ChordProLyricLineTests
 			""",
 			"Swing [D]lo[*↓]w, sweet [G↑]chari[D*]ot,  (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **");
 
+		// Convert [ ] to ( ) since [ ] are used by ChordPro with no supported escape syntax.
+		// https://tabs.ultimate-guitar.com/tab/fleetwood-mac/big-love-chords-2141137
+		Test(
+			"""
+			         F   E7   Am      F    E7   Am
+			big, big looo-oo-oove    [2X]
+			""",
+			"big, big [F]looo[E7]-oo-o[Am]ove    ([F]2X)  [E7]     [Am]");
+
 		static void Test(string chordLyricLines, string expectedText)
 		{
 			Document doc = Document.Parse(chordLyricLines);
