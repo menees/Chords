@@ -25,6 +25,7 @@ internal sealed class ConvertCommand
 	private FileInfo? output;
 	private bool overwrite;
 	private Formats format;
+	private bool clean;
 
 	#endregion
 
@@ -44,7 +45,7 @@ internal sealed class ConvertCommand
 		string versionInfo = ShellUtility.GetVersionInfo(typeof(ConvertCommand).Assembly);
 		commandLine.AddHeader($"{appName} - {versionInfo}");
 		commandLine.AddHeader("Converts a chord sheet file from one format to another.");
-		commandLine.AddHeader($"Usage: {CommandLine.ExecutableFileName} input|- [/output File] [/overwrite]");
+		commandLine.AddHeader($"Usage: {CommandLine.ExecutableFileName} input|- [/output File] [/overwrite] [/clean]");
 		commandLine.AddHeader("            [/parse ...] [/transform ...] [/format ...] [/encoding ...]");
 
 		ConvertCommand command = new();
@@ -77,6 +78,11 @@ internal sealed class ConvertCommand
 			nameof(overwrite),
 			"Whether to overwrite the output file if it already exists.",
 			value => command.overwrite = value);
+
+		commandLine.AddSwitch(
+			nameof(clean),
+			"Whether to clean (i.e., scrub) the input lines before parsing.",
+			value => command.clean = value);
 
 		commandLine.AddSwitch(
 			"parse",
@@ -171,7 +177,18 @@ internal sealed class ConvertCommand
 				this.parsers == Parsers.ChordPro
 					? DocumentParser.ChordProLineParsers
 					: DocumentParser.DefaultLineParsers);
-			Document inputDocument = Document.Load(reader, parser);
+
+			Document inputDocument;
+			if (this.clean)
+			{
+				Cleaner cleaner = new(reader.ReadToEnd());
+				inputDocument = Document.Parse(cleaner.CleanText, parser);
+			}
+			else
+			{
+				inputDocument = Document.Load(reader, parser);
+			}
+
 			return inputDocument;
 		}
 		finally
