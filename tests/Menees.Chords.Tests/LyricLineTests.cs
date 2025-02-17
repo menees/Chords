@@ -26,19 +26,13 @@ public class LyricLineTests
 		Test("Jesus loves you more than you will know (Wo, wo, wo)");
 		Test("A nation turns its lonely eyes to you (Woo, woo, woo)");
 		Test("(Hey, hey, hey...hey, hey, hey)");
+		Test("And be a simple kind of man                              (only in acoustic version)");
 
 		// Trailing whitespace is significant due to annotations.
 		Test("Test G 320033", "Test ", "G 320033");
 		Test("Test ** with comment **", "Test ", "** with comment **");
 		Test("Test ** with comment ** G 320033", "Test ", "** with comment **", "G 320033");
 		Test("I love you (love you) (love you)  Cmaj7 = x32000", "I love you (love you) (love you) ", "Cmaj7 x32000");
-
-		// If there's enough whitespace between the parenthetical comment and the lyric text,
-		// then it will be considered an annotation Comment.
-		Test(
-			"And be a simple kind of man                              (only in acoustic version)",
-			"And be a simple kind of man                              ",
-			"(only in acoustic version)");
 
 		static void Test(string text, string? expectedText = null, params string[] expectedAnnotations)
 		{
