@@ -194,7 +194,7 @@ public class ChordProTransformer : DocumentTransformer
 		{
 			if (allowChordProAnnotations && annotation is Comment comment && comment.Annotations.Count == 0)
 			{
-				Comment chordProAnnotation = new(comment.Text, "[*", "]");
+				Comment chordProAnnotation = new(comment.Text, $"[*{comment.Prefix}", $"{comment.Suffix}]");
 				target = target.Clone(target.Annotations.Concat([chordProAnnotation]));
 				output[targetIndex] = target;
 			}
@@ -206,7 +206,7 @@ public class ChordProTransformer : DocumentTransformer
 		}
 	}
 
-	private IReadOnlyList<Entry> GroupByEnvironment<T>(IReadOnlyList<Entry> input, string suffix)
+	private List<Entry> GroupByEnvironment<T>(IReadOnlyList<Entry> input, string suffix)
 		where T : Entry
 	{
 		List<Entry> result = new(input.Count);

@@ -8,7 +8,7 @@ Key: G
 [Testing]
 
 [Intro]
-G C (4x)
+G C 4x
 
 
 [Verse 1]
