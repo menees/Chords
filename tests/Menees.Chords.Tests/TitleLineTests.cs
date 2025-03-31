@@ -56,14 +56,12 @@ public class TitleLineTests
 			("key", "B"),
 			("tempo", "96"));
 
-		Test2(
+		Test(
 			"Hey There Delilah – Plain White T’s. Bpm: 104. Fingerpick, alternate bass note with double stops. UG.com.",
-			"Hey There Delilah – Plain White T’s. Bpm: 104. Fingerpick. alternate bass note with double stops. UG.com.",
 			("title", "Hey There Delilah"),
 			("artist", "Plain White T’s"),
 			("tempo", "104"),
-			("comment", "Fingerpick"),
-			("comment", "alternate bass note with double stops"),
+			("comment", "Fingerpick, alternate bass note with double stops"),
 			("comment", "UG.com"));
 
 		Test(
@@ -99,6 +97,13 @@ public class TitleLineTests
 			("artist", "Lynyrd Skynyrd"),
 			("key", "G"),
 			("tempo", "110,150"));
+
+		Test(
+			"Lawyers, Guns And Money – Warren Zevon. Key: A. Bpm: 95.",
+			("title", "Lawyers, Guns And Money"),
+			("artist", "Warren Zevon"),
+			("key", "A"),
+			("tempo", "95"));
 
 		static void Test(string text, params (string Name, string Argument)[] expected)
 		{
