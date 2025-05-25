@@ -36,4 +36,43 @@ public class MetadataEntryTests
 			metadata.ShouldBeNull();
 		}
 	}
+
+	[TestMethod]
+	public void TryParseDirectiveValidTest()
+	{
+		Test("{title: This is a test}", "title", "This is a test");
+		Test("{artist: Big Mike}", "artist", "Big Mike");
+
+		Test("{meta: name value}", "name", "value");
+		Test("{meta: artist The Beatles}", "artist", "The Beatles");
+		Test("{ meta  composer  Andrew Lloyd Webber }", "composer", "Andrew Lloyd Webber");
+		Test("{ meta  name='composer'  value='Andrew Lloyd Webber' }", "composer", "Andrew Lloyd Webber", 2);
+
+		Test("{meta-data: name value}", "name", "value"); // "-data" is a conditional directive selector here.
+
+		static void Test(string text, string expectedName, string expectedValue, int expectedAttributeCount = 0)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordProDirectiveLine directive = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			MetadataEntry metadataEntry = MetadataEntry.TryParse(directive).ShouldNotBeNull();
+			metadataEntry.Name.ShouldBe(expectedName);
+			metadataEntry.Argument.ShouldBe(expectedValue);
+			directive.Attributes.Count.ShouldBe(expectedAttributeCount);
+		}
+	}
+
+	[TestMethod]
+	public void TryParseDirectiveInvalidTest()
+	{
+		Test("{meta}");
+		Test("{meta: name}");
+		Test("{metadata: name value}");
+
+		static void Test(string text)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordProDirectiveLine directive = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			MetadataEntry.TryParse(directive).ShouldBeNull();
+		}
+	}
 }

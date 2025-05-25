@@ -49,6 +49,8 @@ public sealed class MetadataEntry : Entry
 		["bpm"] = "tempo",
 	};
 
+	private static readonly char[] MetaNameValueSeparators = [' ', '\t'];
+
 	#endregion
 
 	#region Constructors
@@ -56,7 +58,8 @@ public sealed class MetadataEntry : Entry
 	internal MetadataEntry(string name, string argument)
 	{
 		// We can allow any name here since we're not parsing.
-		// Presumably, the caller has verified the name (and argument).
+		// The caller should verify the name (and argument) for their context.
+		// If a {meta: name value} directive is used, then any name is allowed.
 		this.Name = name.ToLower();
 		this.Argument = argument;
 	}
@@ -102,6 +105,44 @@ public sealed class MetadataEntry : Entry
 		return result;
 	}
 
+	/// <summary>
+	/// Tries to parse the <paramref name="directive"/> as a metadata entry.
+	/// </summary>
+	/// <param name="directive">The directive to convert.</param>
+	/// <returns>A new metadata entry if <paramref name="directive"/>'s name is
+	/// an allowed metadata name or if its name is "meta" with name and value arguments.
+	/// </returns>
+	public static MetadataEntry? TryParse(ChordProDirectiveLine directive)
+	{
+		Conditions.RequireNonNull(directive);
+
+		MetadataEntry? result = null;
+
+		if (string.Equals("meta", directive.Name, ChordParser.Comparison))
+		{
+			if (directive.Attributes.Count >= 2
+				&& directive.Attributes.TryGetValue("name", out string? metadataName)
+				&& directive.Attributes.TryGetValue("value", out string? metadataValue))
+			{
+				result = new(metadataName, metadataValue);
+			}
+			else
+			{
+				string[]? parts = directive.Argument?.Split(MetaNameValueSeparators, 2, StringSplitOptions.RemoveEmptyEntries);
+				if (parts?.Length == 2)
+				{
+					result = new(parts[0], parts[1]);
+				}
+			}
+		}
+		else if (!string.IsNullOrWhiteSpace(directive.Argument))
+		{
+			result = TryParse(directive.Name, directive.Argument!);
+		}
+
+		return result;
+	}
+
 	#endregion
 
 	#region Internal Methods
@@ -120,14 +161,7 @@ public sealed class MetadataEntry : Entry
 			// to avoid parsing any line that contains a single colon as a MetadataEntry.
 			if (!string.IsNullOrEmpty(name) && !string.IsNullOrEmpty(argument))
 			{
-				if (AllowedNames.Contains(name))
-				{
-					result = new(name, argument);
-				}
-				else if (TranslatedNames.TryGetValue(name, out string? translation))
-				{
-					result = new(translation, argument);
-				}
+				result = TryParse(name, argument);
 			}
 		}
 
@@ -160,6 +194,26 @@ public sealed class MetadataEntry : Entry
 		writer.Write(this.Name);
 		writer.Write(": ");
 		writer.Write(this.Argument);
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static MetadataEntry? TryParse(string name, string argument)
+	{
+		MetadataEntry? result = null;
+
+		if (AllowedNames.Contains(name))
+		{
+			result = new(name, argument);
+		}
+		else if (TranslatedNames.TryGetValue(name, out string? translation))
+		{
+			result = new(translation, argument);
+		}
+
+		return result;
 	}
 
 	#endregion

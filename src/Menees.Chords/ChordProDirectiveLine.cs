@@ -14,7 +14,7 @@ using Menees.Chords.Parsers;
 /// A ChordPro directive in "{name}", "{name[:] argument}", or "{name[:] key='value'...}" format.
 /// </summary>
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/"/>
-public class ChordProDirectiveLine : Entry
+public sealed class ChordProDirectiveLine : Entry
 {
 	#region Internal Constants
 
@@ -28,7 +28,8 @@ public class ChordProDirectiveLine : Entry
 	private const StringComparison Comparison = ChordParser.Comparison;
 
 	private const string DirectiveLinePattern = """(?inx)^\s*\{\s* # Opening brace with optional ws"""
-		+ "\n" + """(?<name>[\w\-]+?) # meta docs say, "name must be a single word but may include underscores". Conditionals use dash."""
+		+ "\n" + """(?<name>\w+?) # meta docs say, "name must be a single word but may include underscores"."""
+		+ "\n" + """(\-(?<not>\!)?(?<selector>\w+))? # Operator and selector for conditional directive"""
 		+ "\n" + """((\s*:\s*|\s+) # Colon or ws separator is required if args are present"""
 		+ "\n" + """(?<argument>.*) # Single argument"""
 		+ "\n" + """)?\s*}\s*$ # Closing brace with optional ws""";
@@ -39,7 +40,6 @@ public class ChordProDirectiveLine : Entry
 	private static readonly Regex KeyValueRegex = new(KeyValuePattern, RegexOptions.Compiled);
 
 	private static readonly StringComparer Comparer = ChordParser.Comparer;
-	private static readonly char[] MetaNameValueSeparators = [' ', '\t'];
 
 	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(Comparer)
 	{
@@ -80,7 +80,7 @@ public class ChordProDirectiveLine : Entry
 
 	#region Constructors
 
-	private protected ChordProDirectiveLine(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
+	private ChordProDirectiveLine(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
 	{
 		this.Name = name;
 		this.Argument = argument;
@@ -279,31 +279,12 @@ public class ChordProDirectiveLine : Entry
 
 	#region Internal Methods
 
-	// TODO: Detect start_of_ directive types. [Bill, 5/24/2025]
 	internal static ChordProDirectiveLine Create(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
 	{
-		ChordProDirectiveLine? result = null;
-
-		if (string.Equals("meta", name, Comparison))
-		{
-			attributes ??= TryParseKeyValuePairs(argument);
-			if (attributes != null
-				&& attributes.TryGetValue("name", out string? metadataName)
-				&& attributes.TryGetValue("value", out string? metadataValue))
-			{
-				result = new ChordProMetaDirectiveLine(metadataName, metadataValue, argument, attributes);
-			}
-			else
-			{
-				string[]? parts = argument?.Split(MetaNameValueSeparators, 2, StringSplitOptions.RemoveEmptyEntries);
-				if (parts?.Length == 2)
-				{
-					result = new ChordProMetaDirectiveLine(parts[0], parts[1], argument, attributes);
-				}
-			}
-		}
-
-		result ??= new(name, argument, attributes);
+		// Use a factory method here in case we ever want to create derived directive types.
+		// Note: All this class's static methods will "leak" into the derived types though,
+		// e.g., TryParse will be visible and return the base type. :-(
+		ChordProDirectiveLine result = new(name, argument, attributes);
 		return result;
 	}
 
@@ -344,6 +325,9 @@ public class ChordProDirectiveLine : Entry
 				{
 					string key = keyGroup.Captures[i].Value;
 					string value = valueGroup.Captures[i].Value;
+
+					// TODO: start_of_ label attribute can contain \n per https://www.chordpro.org/chordpro/directives-env/. [Bill, 5/25/2025]
+					// TODO: Also decode &apos; &quot; &amp; &lt; &gt; https://stackoverflow.com/a/1091953/1882616 [Bill, 5/25/2025]
 					keyValuePairs[key] = value;
 				}
 

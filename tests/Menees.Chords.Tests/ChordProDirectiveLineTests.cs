@@ -57,10 +57,17 @@ public class ChordProDirectiveLineTests
 	[TestMethod]
 	public void TryParseInvalidTest()
 	{
-		// TODO: Finish TryParseInvalidTest. [Bill, 5/20/2025]
-		// Not surrounded by {}
-		// {[name]}
-		// {  }
+		Test("{}");
+		Test("Directive: Nope");
+		Test("{[name]}");
+		Test("{weird~ness value}");
+		Test("{Joe's}");
+
+		static void Test(string text)
+		{
+			LineContext context = LineContextTests.Create(text);
+			ChordProDirectiveLine.TryParse(context).ShouldBeNull();
+		}
 	}
 
 	[TestMethod]
