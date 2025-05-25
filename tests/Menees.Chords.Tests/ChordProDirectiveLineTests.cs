@@ -12,12 +12,14 @@ public class ChordProDirectiveLineTests
 	#region Public Methods
 
 	[TestMethod]
-	public void TryParseTest()
+	public void TryParseValidTest()
 	{
 		Test("{name}", "name");
 		Test("{name: argument}", "name", "argument");
 		Test("{name:argument}", "name", "argument");
 		Test(" { name : argument } ", "name", "argument");
+		Test("{name argument}", "name", "argument");
+		Test(" { name  argument } ", "name", "argument");
 
 		Test("{start_of_tab: Solo}", "start_of_tab", "Solo", "sot");
 		Test("{eot}", "eot", null, "end_of_tab");
@@ -50,6 +52,15 @@ public class ChordProDirectiveLineTests
 				}
 			}
 		}
+	}
+
+	[TestMethod]
+	public void TryParseInvalidTest()
+	{
+		// TODO: Finish TryParseInvalidTest. [Bill, 5/20/2025]
+		// Not surrounded by {}
+		// {[name]}
+		// {  }
 	}
 
 	[TestMethod]

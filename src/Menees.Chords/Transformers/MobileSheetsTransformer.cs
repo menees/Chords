@@ -44,7 +44,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			else
 			{
 				// MobileSheets doesn't support {chord} or {define} directives as of v3.8.12 (2023-08-15).
-				supportedInput.Add(new ChordProDirectiveLine("comment", definitions.ToString()));
+				supportedInput.Add(ChordProDirectiveLine.Create("comment", definitions.ToString()));
 			}
 		}
 
@@ -78,16 +78,14 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			else if (directive.ShortName.Equals("sov", Comparison) && string.IsNullOrEmpty(directive.Argument))
 			{
 				// MobileSheets won't show a header at all for {sov}, so we'll make it {sov: Verse}.
-				ChordProDirectiveLine transformed = new(directive.Name, "Verse");
+				ChordProDirectiveLine transformed = ChordProDirectiveLine.Create(directive.Name, "Verse");
 				result.Add(transformed);
 			}
 			else if (directive.ShortName.Equals("sog", Comparison) || directive.ShortName.Equals("eog", Comparison))
 			{
 				// MobileSheets v3.9.0 added support for chord grids, but they auto-size to the page width,
 				// so it'll only show one column per page. Yuck! https://zubersoft.com/mobilesheets/forum/thread-12271.html
-#pragma warning disable CC0021 // Use nameof. This suffix parameter has nothing to do with the earlier variable.
 				ChordProDirectiveLine transformed = ReplaceWithVerseDirective(directive, "grid");
-#pragma warning restore CC0021 // Use nameof
 				result.Add(transformed);
 			}
 			else
@@ -110,7 +108,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 
 		string? argument = directive.Name.StartsWith("s", Comparison) && string.IsNullOrEmpty(directive.Argument)
 			? defaultArgument : directive.Argument;
-		ChordProDirectiveLine result = new(newName, argument);
+		ChordProDirectiveLine result = ChordProDirectiveLine.Create(newName, argument);
 		return result;
 	}
 

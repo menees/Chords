@@ -101,7 +101,7 @@ public class ChordProTransformer : DocumentTransformer
 					}
 					else
 					{
-						this.Add(output, new ChordProDirectiveLine(nameof(comment), comment.Text), comment.Annotations);
+						this.Add(output, ChordProDirectiveLine.Create(nameof(comment), comment.Text), comment.Annotations);
 					}
 
 					break;
@@ -220,7 +220,7 @@ public class ChordProTransformer : DocumentTransformer
 					if (environment == Environment.None)
 					{
 						string startName = this.preferLongNames ?? true ? $"start_of_{suffix}" : $"so{suffix[0]}";
-						result.Add(new ChordProDirectiveLine(startName, null));
+						result.Add(ChordProDirectiveLine.Create(startName, null));
 						environment = Environment.Implicit;
 					}
 
@@ -268,7 +268,7 @@ public class ChordProTransformer : DocumentTransformer
 			if (environment == Environment.Implicit)
 			{
 				string endName = this.preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
-				result.Add(new ChordProDirectiveLine(endName, null));
+				result.Add(ChordProDirectiveLine.Create(endName, null));
 				environment = Environment.None;
 			}
 		}

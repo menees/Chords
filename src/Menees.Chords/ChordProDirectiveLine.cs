@@ -2,17 +2,19 @@
 
 #region Using Directives
 
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using Menees.Chords.Parsers;
 
 #endregion
 
 /// <summary>
-/// A ChordPro directive in "{name}" or "{name: argument}" format.
+/// A ChordPro directive in "{name}", "{name[:] argument}", or "{name[:] key='value'...}" format.
 /// </summary>
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/"/>
-public sealed class ChordProDirectiveLine : Entry
+public class ChordProDirectiveLine : Entry
 {
 	#region Internal Constants
 
@@ -25,7 +27,21 @@ public sealed class ChordProDirectiveLine : Entry
 
 	private const StringComparison Comparison = ChordParser.Comparison;
 
-	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(ChordParser.Comparer)
+	private const string DirectiveLinePattern = """(?inx)^\s*\{\s* # Opening brace with optional ws"""
+		+ "\n" + """(?<name>[\w\-]+?) # meta docs say, "name must be a single word but may include underscores". Conditionals use dash."""
+		+ "\n" + """((\s*:\s*|\s+) # Colon or ws separator is required if args are present"""
+		+ "\n" + """(?<argument>.*) # Single argument"""
+		+ "\n" + """)?\s*}\s*$ # Closing brace with optional ws""";
+
+	private const string KeyValuePattern = """(?in)^\s*(((?<key>\w+?)\s*=\s*(("(?<value>[^"]*?)")|('(?<value>[^']*?)')))\s*)+$""";
+
+	private static readonly Regex DirectiveRegex = new(DirectiveLinePattern, RegexOptions.Compiled);
+	private static readonly Regex KeyValueRegex = new(KeyValuePattern, RegexOptions.Compiled);
+
+	private static readonly StringComparer Comparer = ChordParser.Comparer;
+	private static readonly char[] MetaNameValueSeparators = [' ', '\t'];
+
+	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(Comparer)
 	{
 		{ "chordfont", "cf" },
 		{ "chordsize", "cs" },
@@ -58,14 +74,17 @@ public sealed class ChordProDirectiveLine : Entry
 	private static readonly Dictionary<string, string> ShortNameToLongNameMap = LongNameToShortNameMap
 		.ToDictionary(pair => pair.Value, pair => pair.Key, LongNameToShortNameMap.Comparer);
 
+	private static readonly ReadOnlyDictionary<string, string> EmptyAttributes = new(new Dictionary<string, string>(Comparer));
+
 	#endregion
 
 	#region Constructors
 
-	internal ChordProDirectiveLine(string name, string? argument)
+	private protected ChordProDirectiveLine(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
 	{
 		this.Name = name;
 		this.Argument = argument;
+		this.Attributes = attributes ?? TryParseKeyValuePairs(argument) ?? EmptyAttributes;
 
 		this.LongName = this.Name;
 		this.ShortName = this.Name;
@@ -89,9 +108,16 @@ public sealed class ChordProDirectiveLine : Entry
 	public string Name { get; }
 
 	/// <summary>
-	/// Gets the directive's optional argument (i.e., the part after the colon separator).
+	/// Gets the directive's optional argument (i.e., the part after the separator).
 	/// </summary>
+	/// <seealso cref="Attributes"/>
 	public string? Argument { get; }
+
+	/// <summary>
+	/// Gets the directive's key=value attribute pairs as defined in ChordPro v6+.
+	/// </summary>
+	/// <seealso cref="Argument"/>
+	public IReadOnlyDictionary<string, string> Attributes { get; }
 
 	/// <summary>
 	/// Gets the directive's long name form or <see cref="Name"/>.
@@ -124,23 +150,20 @@ public sealed class ChordProDirectiveLine : Entry
 			&& lexer.Token.Text[0] == '{')
 		{
 			string line = lexer.ReadToEnd(skipTrailingWhiteSpace: true);
-			if (line.Length > 2 && line[^1] == '}')
+			Match match;
+			if (line.Length > 2 && line[^1] == '}' && (match = DirectiveRegex.Match(line)).Success)
 			{
-				string name;
-				string? argument;
-				int colonIndex = line.IndexOf(':');
-				if (colonIndex >= 0)
+				// TODO: Look for "-selector" or "-!selector" suffix. [Bill, 5/24/2025]
+				string name = match.Groups["name"].Value;
+
+				string? argument = null;
+				Group argumentGroup = match.Groups[nameof(argument)];
+				if (argumentGroup.Success)
 				{
-					name = line[1..colonIndex];
-					argument = line[(colonIndex + 1)..^1];
-				}
-				else
-				{
-					name = line[1..^1];
-					argument = null;
+					argument = argumentGroup.Value;
 				}
 
-				result = new(name.Trim(), argument?.Trim());
+				result = Create(name, argument?.Trim());
 
 				// Push/pop the current grid or tab state to make parsing simpler for
 				// ChordProGridLine and TablatureLine.
@@ -192,7 +215,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 		string name = inline ? "chord" : "define";
 		string argument = arg.ToString();
-		ChordProDirectiveLine result = new(name, argument);
+		ChordProDirectiveLine result = Create(name, argument, EmptyAttributes);
 		return result;
 	}
 
@@ -222,9 +245,9 @@ public sealed class ChordProDirectiveLine : Entry
 		string endName = preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
 		string? startArgument = header.Text.Equals(suffix, comparison) ? null : header.Text;
 
-		ChordProDirectiveLine start = new(startName, startArgument);
+		ChordProDirectiveLine start = Create(startName, startArgument, EmptyAttributes);
 		start.AddAnnotations(header.Annotations);
-		ChordProDirectiveLine end = new(endName, null);
+		ChordProDirectiveLine end = Create(endName, null, EmptyAttributes);
 		return (start, end);
 	}
 
@@ -236,7 +259,7 @@ public sealed class ChordProDirectiveLine : Entry
 	public static ChordProDirectiveLine Convert(MetadataEntry metadata)
 	{
 		Conditions.RequireNonNull(metadata);
-		ChordProDirectiveLine result = new(metadata.Name, metadata.Argument);
+		ChordProDirectiveLine result = Create(metadata.Name, metadata.Argument, EmptyAttributes);
 		return result;
 	}
 
@@ -251,6 +274,38 @@ public sealed class ChordProDirectiveLine : Entry
 	/// </summary>
 	public string ToShortString()
 		=> this.ToString(this.ShortName);
+
+	#endregion
+
+	#region Internal Methods
+
+	// TODO: Detect start_of_ directive types. [Bill, 5/24/2025]
+	internal static ChordProDirectiveLine Create(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
+	{
+		ChordProDirectiveLine? result = null;
+
+		if (string.Equals("meta", name, Comparison))
+		{
+			attributes ??= TryParseKeyValuePairs(argument);
+			if (attributes != null
+				&& attributes.TryGetValue("name", out string? metadataName)
+				&& attributes.TryGetValue("value", out string? metadataValue))
+			{
+				result = new ChordProMetaDirectiveLine(metadataName, metadataValue, argument, attributes);
+			}
+			else
+			{
+				string[]? parts = argument?.Split(MetaNameValueSeparators, 2, StringSplitOptions.RemoveEmptyEntries);
+				if (parts?.Length == 2)
+				{
+					result = new ChordProMetaDirectiveLine(parts[0], parts[1], argument, attributes);
+				}
+			}
+		}
+
+		result ??= new(name, argument, attributes);
+		return result;
+	}
 
 	#endregion
 
@@ -269,6 +324,35 @@ public sealed class ChordProDirectiveLine : Entry
 	#endregion
 
 	#region Private Methods
+
+	private static IReadOnlyDictionary<string, string>? TryParseKeyValuePairs(string? text)
+	{
+		IReadOnlyDictionary<string, string>? result = null;
+
+		if (!string.IsNullOrEmpty(text))
+		{
+			Match match = KeyValueRegex.Match(text);
+			Group keyGroup, valueGroup;
+			if (match.Success
+				&& (keyGroup = match.Groups["key"]).Success
+				&& (valueGroup = match.Groups["value"]).Success
+				&& keyGroup.Captures.Count == valueGroup.Captures.Count)
+			{
+				// TODO: Use OrderedDictionary. [Bill, 5/24/2025]
+				Dictionary<string, string> keyValuePairs = new(Comparer);
+				for (int i = 0; i < keyGroup.Captures.Count; i++)
+				{
+					string key = keyGroup.Captures[i].Value;
+					string value = valueGroup.Captures[i].Value;
+					keyValuePairs[key] = value;
+				}
+
+				result = keyValuePairs;
+			}
+		}
+
+		return result;
+	}
 
 	private string ToString(string name)
 		=> "{" + name + (string.IsNullOrEmpty(this.Argument) ? string.Empty : (": " + this.Argument)) + "}";
