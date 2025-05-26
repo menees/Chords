@@ -14,11 +14,11 @@
 	</PropertyGroup>
 
 	<ItemGroup Condition="$(IsUnitTestProject)">
-		<PackageReference Include="MSTest" Version="3.6.3" />
-		<PackageReference Include="coverlet.collector" Version="6.0.2">
+		<PackageReference Include="MSTest" Version="3.9.0" />
+		<PackageReference Include="coverlet.collector" Version="6.0.4">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Shouldly" Version="4.2.1" />
+		<PackageReference Include="Shouldly" Version="4.3.0" />
 	</ItemGroup>
 </Project>

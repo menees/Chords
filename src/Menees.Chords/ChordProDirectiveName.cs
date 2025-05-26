@@ -60,7 +60,12 @@ public sealed class ChordProDirectiveName : IEquatable<ChordProDirectiveName>
 	/// <inheritdoc/>
 	public override int GetHashCode()
 	{
+#if NET
 		int result = HashCode.Combine(this.Name, this.Selector, this.InvertSelection);
+#else
+		// https://github.com/meziantou/Meziantou.Polyfill/issues/52
+		int result = this.ToString().GetHashCode();
+#endif
 		return result;
 	}
 
@@ -79,7 +84,7 @@ public sealed class ChordProDirectiveName : IEquatable<ChordProDirectiveName>
 		return result;
 	}
 
-	#endregion
+#endregion
 
 	#region Internal Methods
 

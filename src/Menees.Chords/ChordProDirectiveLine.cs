@@ -31,7 +31,7 @@ public sealed class ChordProDirectiveLine : Entry
 		+ "\n" + """(?<name>\w+?) # meta docs say, "name must be a single word but may include underscores"."""
 		+ "\n" + """(\-(?<not>\!)?(?<selector>\w+))? # Operator and selector for conditional directive"""
 		+ "\n" + """((\s*:\s*|\s+) # Colon or ws separator is required if args are present"""
-		+ "\n" + """(?<argument>.*) # Single argument"""
+		+ "\n" + """(?<argument>.+) # Single argument"""
 		+ "\n" + """)?\s*}\s*$ # Closing brace with optional ws""";
 
 	private static readonly Regex DirectiveRegex = new(DirectiveLinePattern, RegexOptions.Compiled);
@@ -78,7 +78,7 @@ public sealed class ChordProDirectiveLine : Entry
 	private ChordProDirectiveLine(ChordProDirectiveName name, ChordProDirectiveArgs args)
 	{
 		this.QualifiedName = name;
-		this.Arguments = args;
+		this.Args = args;
 
 		this.LongName = this.Name;
 		this.ShortName = this.Name;
@@ -107,16 +107,16 @@ public sealed class ChordProDirectiveLine : Entry
 	public string Name => this.QualifiedName.Name;
 
 	/// <summary>
-	/// Gets the directive's optional argument (i.e., the part after the separator).
-	/// </summary>
-	/// <seealso cref="Arguments"/>
-	public string? Argument => this.Arguments.Value;
-
-	/// <summary>
 	/// Gets the directive's parsed arguments, e.g., key=value attribute pairs in declaration order.
 	/// </summary>
 	/// <seealso cref="Argument"/>
-	public ChordProDirectiveArgs Arguments { get; }
+	public ChordProDirectiveArgs Args { get; }
+
+	/// <summary>
+	/// Gets the directive's optional argument (i.e., the part after the separator).
+	/// </summary>
+	/// <seealso cref="Args"/>
+	public string? Argument => this.Args.Value;
 
 	/// <summary>
 	/// Gets the directive's long name form or <see cref="Name"/>.

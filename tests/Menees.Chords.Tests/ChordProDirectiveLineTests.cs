@@ -6,9 +6,6 @@ using Menees.Chords.Parsers;
 
 #endregion
 
-// TODO: Add tests with key=value attributes. [Bill, 5/25/2025]
-// TODO: Add tests for FirstValue. [Bill, 5/25/2025]
-// TODO: Add tests for ChordProDirectiveName and ChordProDirectiveArgs [Bill, 5/26/2025]
 [TestClass]
 public class ChordProDirectiveLineTests
 {
@@ -27,7 +24,17 @@ public class ChordProDirectiveLineTests
 		Test("{start_of_tab: Solo}", "start_of_tab", "Solo", "sot");
 		Test("{eot}", "eot", null, "end_of_tab");
 
-		static void Test(string text, string? expectedName = null, string? expectedArgument = null, string? expectedAlternateName = null)
+		var directive = Test(" { name-tenor : argument } ", "name", "argument");
+		directive.QualifiedName.ToString().ShouldBe("name-tenor");
+		directive.Args.Attributes.Count.ShouldBe(0);
+
+		directive = Test(" { name-!bass : key1='value1' key2 = 'value2' } ", "name", "key1='value1' key2 = 'value2'");
+		directive.QualifiedName.ToString().ShouldBe("name-!bass");
+		directive.Args.Attributes.Count.ShouldBe(2);
+		directive.Args.Attributes["key1"].ShouldBe("value1");
+		directive.Args.Attributes["key2"].ShouldBe("value2");
+
+		static ChordProDirectiveLine Test(string text, string? expectedName = null, string? expectedArgument = null, string? expectedAlternateName = null)
 		{
 			LineContext context = LineContextTests.Create(text);
 			ChordProDirectiveLine? line = ChordProDirectiveLine.TryParse(context);
@@ -54,6 +61,8 @@ public class ChordProDirectiveLineTests
 					}
 				}
 			}
+
+			return line!;
 		}
 	}
 
@@ -80,11 +89,12 @@ public class ChordProDirectiveLineTests
 		Test("{name: argument}");
 		Test("{name:argument}", "{name: argument}");
 		Test(" { name : argument } ", "{name: argument}");
+		Test(" { name-tenor : argument } ", "{name-tenor: argument}");
+		Test(" { name-!bass : key1='value1' key2 = 'value2' } ", "{name-!bass: key1='value1' key2 = 'value2'}");
 
 		static void Test(string text, string? expectedText = null)
 		{
-			LineContext context = LineContextTests.Create(text);
-			ChordProDirectiveLine line = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			ChordProDirectiveLine line = Parse(text);
 			line.ToString().ShouldBe(expectedText ?? text);
 		}
 	}
@@ -98,11 +108,11 @@ public class ChordProDirectiveLineTests
 		Test("{soc: argument}", "{start_of_chorus: argument}");
 		Test("{sot:argument}", "{start_of_tab: argument}");
 		Test(" { sov : argument } ", "{start_of_verse: argument}");
+		Test("{soc: label=\"Main Chorus\" part = 'bass'}", "{start_of_chorus: label=\"Main Chorus\" part = 'bass'}");
 
 		static void Test(string text, string? expectedText = null)
 		{
-			LineContext context = LineContextTests.Create(text);
-			ChordProDirectiveLine line = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			ChordProDirectiveLine line = Parse(text);
 			line.ToLongString().ShouldBe(expectedText ?? text);
 		}
 	}
@@ -116,11 +126,11 @@ public class ChordProDirectiveLineTests
 		Test("{start_of_chorus: argument}", "{soc: argument}");
 		Test("{start_of_tab:argument}", "{sot: argument}");
 		Test(" { start_of_verse : argument } ", "{sov: argument}");
+		Test("{start_of_chorus: label=\"Main Chorus\" part = 'alto'}", "{soc: label=\"Main Chorus\" part = 'alto'}");
 
 		static void Test(string text, string? expectedText = null)
 		{
-			LineContext context = LineContextTests.Create(text);
-			ChordProDirectiveLine line = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+			ChordProDirectiveLine line = Parse(text);
 			line.ToShortString().ShouldBe(expectedText ?? text);
 		}
 	}
@@ -197,6 +207,17 @@ public class ChordProDirectiveLineTests
 			directive.Name.ShouldBe(metadata.Name);
 			directive.Argument.ShouldBe(metadata.Argument);
 		}
+	}
+
+	#endregion
+
+	#region Internal Methods
+
+	internal static ChordProDirectiveLine Parse(string text)
+	{
+		LineContext context = LineContextTests.Create(text);
+		ChordProDirectiveLine result = ChordProDirectiveLine.TryParse(context).ShouldNotBeNull();
+		return result;
 	}
 
 	#endregion

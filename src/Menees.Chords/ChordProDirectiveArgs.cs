@@ -36,6 +36,8 @@ public sealed class ChordProDirectiveArgs
 
 	internal ChordProDirectiveArgs(string? value, bool tryParse = true)
 	{
+		// Note: Storing the original value string means we never have to worry about
+		// building the string from the attributes and correctly escaping its values.
 		this.Value = value;
 		this.attributes = (tryParse ? TryParseKeyValuePairs(value) : null) ?? EmptyAttributes;
 	}
@@ -70,6 +72,16 @@ public sealed class ChordProDirectiveArgs
 	public string? FirstValue => this.Attributes.Count > 0
 		? this.attributes.FirstValue
 		: this.Value;
+
+	#endregion
+
+	#region Public Methods
+
+	/// <summary>
+	/// Gets <see cref="Value"/>.
+	/// </summary>
+	public override string? ToString()
+		=> this.Value;
 
 	#endregion
 
