@@ -44,7 +44,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			else
 			{
 				// MobileSheets doesn't support {chord} or {define} directives as of v3.8.12 (2023-08-15).
-				supportedInput.Add(ChordProDirectiveLine.Create("comment", definitions.ToString()));
+				supportedInput.Add(ChordProDirectiveLine.Create("comment", definitions.ToString(), false));
 			}
 		}
 
@@ -78,7 +78,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			else if (directive.ShortName.Equals("sov", Comparison) && string.IsNullOrEmpty(directive.Argument))
 			{
 				// MobileSheets won't show a header at all for {sov}, so we'll make it {sov: Verse}.
-				ChordProDirectiveLine transformed = ChordProDirectiveLine.Create(directive.Name, "Verse");
+				ChordProDirectiveLine transformed = ChordProDirectiveLine.Create(directive.QualifiedName, "Verse", false);
 				result.Add(transformed);
 			}
 			else if (directive.ShortName.Equals("sog", Comparison) || directive.ShortName.Equals("eog", Comparison))
@@ -104,7 +104,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 	private static ChordProDirectiveLine ReplaceWithVerseDirective(ChordProDirectiveLine directive, string longSuffix, string? defaultArgument = null)
 	{
 		int suffixLength = directive.Name.EndsWith(longSuffix, Comparison) ? longSuffix.Length : 1;
-		string newName = directive.Name[0..^suffixLength] + (suffixLength == 1 ? "v" : "verse");
+		ChordProDirectiveName newName = directive.QualifiedName.Rename(directive.Name[0..^suffixLength] + (suffixLength == 1 ? "v" : "verse"));
 
 		string? argument = directive.Name.StartsWith("s", Comparison) && string.IsNullOrEmpty(directive.Argument)
 			? defaultArgument : directive.Argument;

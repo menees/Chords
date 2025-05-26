@@ -34,10 +34,7 @@ public sealed class ChordProDirectiveLine : Entry
 		+ "\n" + """(?<argument>.*) # Single argument"""
 		+ "\n" + """)?\s*}\s*$ # Closing brace with optional ws""";
 
-	private const string KeyValuePattern = """(?in)^\s*(((?<key>\w+?)\s*=\s*(("(?<value>[^"]*?)")|('(?<value>[^']*?)')))\s*)+$""";
-
 	private static readonly Regex DirectiveRegex = new(DirectiveLinePattern, RegexOptions.Compiled);
-	private static readonly Regex KeyValueRegex = new(KeyValuePattern, RegexOptions.Compiled);
 
 	private static readonly StringComparer Comparer = ChordParser.Comparer;
 
@@ -74,17 +71,14 @@ public sealed class ChordProDirectiveLine : Entry
 	private static readonly Dictionary<string, string> ShortNameToLongNameMap = LongNameToShortNameMap
 		.ToDictionary(pair => pair.Value, pair => pair.Key, LongNameToShortNameMap.Comparer);
 
-	private static readonly ReadOnlyDictionary<string, string> EmptyAttributes = new(new Dictionary<string, string>(Comparer));
-
 	#endregion
 
 	#region Constructors
 
-	private ChordProDirectiveLine(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
+	private ChordProDirectiveLine(ChordProDirectiveName name, ChordProDirectiveArgs args)
 	{
-		this.Name = name;
-		this.Argument = argument;
-		this.Attributes = attributes ?? TryParseKeyValuePairs(argument) ?? EmptyAttributes;
+		this.QualifiedName = name;
+		this.Arguments = args;
 
 		this.LongName = this.Name;
 		this.ShortName = this.Name;
@@ -103,21 +97,26 @@ public sealed class ChordProDirectiveLine : Entry
 	#region Public Properties
 
 	/// <summary>
-	/// Gets the directive's name.
+	/// Gets the directive's full name including any optional selector and inversion operator.
 	/// </summary>
-	public string Name { get; }
+	public ChordProDirectiveName QualifiedName { get; }
+
+	/// <summary>
+	/// Gets the directive's simple name without any optional selector or inversion operator.
+	/// </summary>
+	public string Name => this.QualifiedName.Name;
 
 	/// <summary>
 	/// Gets the directive's optional argument (i.e., the part after the separator).
 	/// </summary>
-	/// <seealso cref="Attributes"/>
-	public string? Argument { get; }
+	/// <seealso cref="Arguments"/>
+	public string? Argument => this.Arguments.Value;
 
 	/// <summary>
-	/// Gets the directive's key=value attribute pairs as defined in ChordPro v6+.
+	/// Gets the directive's parsed arguments, e.g., key=value attribute pairs in declaration order.
 	/// </summary>
 	/// <seealso cref="Argument"/>
-	public IReadOnlyDictionary<string, string> Attributes { get; }
+	public ChordProDirectiveArgs Arguments { get; }
 
 	/// <summary>
 	/// Gets the directive's long name form or <see cref="Name"/>.
@@ -215,7 +214,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 		string name = inline ? "chord" : "define";
 		string argument = arg.ToString();
-		ChordProDirectiveLine result = Create(name, argument, EmptyAttributes);
+		ChordProDirectiveLine result = Create(name, argument, false);
 		return result;
 	}
 
@@ -245,9 +244,9 @@ public sealed class ChordProDirectiveLine : Entry
 		string endName = preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
 		string? startArgument = header.Text.Equals(suffix, comparison) ? null : header.Text;
 
-		ChordProDirectiveLine start = Create(startName, startArgument, EmptyAttributes);
+		ChordProDirectiveLine start = Create(startName, startArgument);
 		start.AddAnnotations(header.Annotations);
-		ChordProDirectiveLine end = Create(endName, null, EmptyAttributes);
+		ChordProDirectiveLine end = Create(endName, null, false);
 		return (start, end);
 	}
 
@@ -259,7 +258,7 @@ public sealed class ChordProDirectiveLine : Entry
 	public static ChordProDirectiveLine Convert(MetadataEntry metadata)
 	{
 		Conditions.RequireNonNull(metadata);
-		ChordProDirectiveLine result = Create(metadata.Name, metadata.Argument, EmptyAttributes);
+		ChordProDirectiveLine result = Create(metadata.Name, metadata.Argument);
 		return result;
 	}
 
@@ -279,12 +278,18 @@ public sealed class ChordProDirectiveLine : Entry
 
 	#region Internal Methods
 
-	internal static ChordProDirectiveLine Create(string name, string? argument, IReadOnlyDictionary<string, string>? attributes = null)
+	internal static ChordProDirectiveLine Create(string name, string? argument, bool tryParseArgument = true)
+		=> Create(new ChordProDirectiveName(name), new ChordProDirectiveArgs(argument, tryParseArgument));
+
+	internal static ChordProDirectiveLine Create(ChordProDirectiveName name, string? argument, bool tryParseArgument = true)
+		=> Create(name, new ChordProDirectiveArgs(argument, tryParseArgument));
+
+	internal static ChordProDirectiveLine Create(ChordProDirectiveName name, ChordProDirectiveArgs args)
 	{
 		// Use a factory method here in case we ever want to create derived directive types.
 		// Note: All this class's static methods will "leak" into the derived types though,
 		// e.g., TryParse will be visible and return the base type. :-(
-		ChordProDirectiveLine result = new(name, argument, attributes);
+		ChordProDirectiveLine result = new(name, args);
 		return result;
 	}
 
@@ -306,38 +311,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 	#region Private Methods
 
-	private static IReadOnlyDictionary<string, string>? TryParseKeyValuePairs(string? text)
-	{
-		IReadOnlyDictionary<string, string>? result = null;
-
-		if (!string.IsNullOrEmpty(text))
-		{
-			Match match = KeyValueRegex.Match(text);
-			Group keyGroup, valueGroup;
-			if (match.Success
-				&& (keyGroup = match.Groups["key"]).Success
-				&& (valueGroup = match.Groups["value"]).Success
-				&& keyGroup.Captures.Count == valueGroup.Captures.Count)
-			{
-				// TODO: Use OrderedDictionary. [Bill, 5/24/2025]
-				Dictionary<string, string> keyValuePairs = new(Comparer);
-				for (int i = 0; i < keyGroup.Captures.Count; i++)
-				{
-					string key = keyGroup.Captures[i].Value;
-					string value = valueGroup.Captures[i].Value;
-
-					// TODO: start_of_ label attribute can contain \n per https://www.chordpro.org/chordpro/directives-env/. [Bill, 5/25/2025]
-					// TODO: Also decode &apos; &quot; &amp; &lt; &gt; https://stackoverflow.com/a/1091953/1882616 [Bill, 5/25/2025]
-					keyValuePairs[key] = value;
-				}
-
-				result = keyValuePairs;
-			}
-		}
-
-		return result;
-	}
-
+	// TODO: Include Selector and InvertSelection. [Bill, 5/26/2025]
 	private string ToString(string name)
 		=> "{" + name + (string.IsNullOrEmpty(this.Argument) ? string.Empty : (": " + this.Argument)) + "}";
 

@@ -57,7 +57,7 @@ public class MetadataEntryTests
 			MetadataEntry metadataEntry = MetadataEntry.TryParse(directive).ShouldNotBeNull();
 			metadataEntry.Name.ShouldBe(expectedName);
 			metadataEntry.Argument.ShouldBe(expectedValue);
-			directive.Attributes.Count.ShouldBe(expectedAttributeCount);
+			directive.Arguments.Attributes.Count.ShouldBe(expectedAttributeCount);
 		}
 	}
 

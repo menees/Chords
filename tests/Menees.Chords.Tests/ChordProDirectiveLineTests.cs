@@ -6,6 +6,9 @@ using Menees.Chords.Parsers;
 
 #endregion
 
+// TODO: Add tests with key=value attributes. [Bill, 5/25/2025]
+// TODO: Add tests for FirstValue. [Bill, 5/25/2025]
+// TODO: Add tests for ChordProDirectiveName and ChordProDirectiveArgs [Bill, 5/26/2025]
 [TestClass]
 public class ChordProDirectiveLineTests
 {
