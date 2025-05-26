@@ -152,8 +152,10 @@ public sealed class ChordProDirectiveLine : Entry
 			Match match;
 			if (line.Length > 2 && line[^1] == '}' && (match = DirectiveRegex.Match(line)).Success)
 			{
-				// TODO: Look for "-selector" or "-!selector" suffix. [Bill, 5/24/2025]
-				string name = match.Groups["name"].Value;
+				Group selectorGroup = match.Groups["selector"];
+				string? selector = selectorGroup.Success ? selectorGroup.Value : null;
+				bool invertSelection = match.Groups["not"].Success;
+				ChordProDirectiveName name = new(match.Groups["name"].Value, selector, invertSelection);
 
 				string? argument = null;
 				Group argumentGroup = match.Groups[nameof(argument)];
@@ -311,9 +313,22 @@ public sealed class ChordProDirectiveLine : Entry
 
 	#region Private Methods
 
-	// TODO: Include Selector and InvertSelection. [Bill, 5/26/2025]
 	private string ToString(string name)
-		=> "{" + name + (string.IsNullOrEmpty(this.Argument) ? string.Empty : (": " + this.Argument)) + "}";
+	{
+		StringBuilder sb = new();
+		sb.Append('{');
+		sb.Append(this.QualifiedName.Rename(name));
+		if (!string.IsNullOrEmpty(this.Argument))
+		{
+			sb.Append(": ");
+			sb.Append(this.Argument);
+		}
+
+		sb.Append('}');
+
+		string result = sb.ToString();
+		return result;
+	}
 
 	#endregion
 }
