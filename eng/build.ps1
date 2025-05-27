@@ -62,7 +62,7 @@ if ($test)
 
 if ($publish)
 {
-	$buildPropsFile = "$repoPath\src\Directory.Build.props"
+	$buildPropsFile = "$repoPath\Directory.Build.props"
 	$version = GetXmlPropertyValue $buildPropsFile 'Version'
 
     $published = $false

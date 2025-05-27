@@ -48,7 +48,7 @@ function Main()
         #
         # As of .NET 7.0, a folder-published Blazor app includes a web.config and a wwwroot folder. IIS requires the "URL Rewrite Module"
         # to be manually installed first to process the <rewrite> section of the generated web.config and redirect all requests to files
-        # in the wwwroot folder. 
+        # in the wwwroot folder.
         # https://learn.microsoft.com/en-us/aspnet/core/blazor/host-and-deploy/webassembly#install-the-url-rewrite-module
         # https://stackoverflow.com/a/65111913/1882616 and https://stackoverflow.com/a/75577442/1882616.
         #
@@ -59,7 +59,7 @@ function Main()
         # Note: On real web hosts (e.g., SmarterASP.NET), the rewrite module is already present. At SmarterASP, I just had to create
         # a Chords folder, upload the Web artifact's .zip, unzip it, and then create a new web site that pointed to that folder.
         # The *.*tempurl.com site was immediately available, so I created a chords.menees.com subdomain that also pointed to the "temporary" site.
-        Write-Host "Manual next steps:"        
+        Write-Host "Manual next steps:"
         Write-Host "  Install URL Rewrite Module: https://iis-umbraco.azurewebsites.net/downloads/microsoft/url-rewrite"
         Write-Host "  Create Chords web site (not app due to index.html's <base> href) at port 1233 pointed to artifacts\Web folder."
     }
@@ -111,10 +111,10 @@ function CheckDotNetRuntime($forceDotNetInstall)
     {
         $scriptPath = Split-Path -Parent $scriptFullName
         $repoPath = Resolve-Path (Join-Path $scriptPath '..')
-        $buildPropsFile = "$repoPath\src\Directory.Build.props"
+        $buildPropsFile = "$repoPath\Directory.Build.props"
         $requiredDotNetVersion = (GetXmlPropertyValue $buildPropsFile 'MeneesTargetNetWeb').Replace('net', '')
         $minimumDotNetBuild = $requiredDotNetVersion
-    
+
         $latestRuntime = $null
         try
         {
