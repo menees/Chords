@@ -20,10 +20,6 @@ public partial class MainLayout
 				if (version.Revision == 0)
 				{
 					fieldCount--;
-					if (version.Build == 0)
-					{
-						fieldCount--;
-					}
 				}
 
 				result = name.Version?.ToString(fieldCount);
