@@ -1,7 +1,7 @@
 <Project>
 	<ImportGroup>
-		<!--Include all src folder build props first. From https://stackoverflow.com/a/45976205/1882616 -->
-		<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..\src'))" />
+		<!--Include all root folder build props first. From https://stackoverflow.com/a/45976205/1882616 -->
+		<Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)..'))" />
 	</ImportGroup>
 
 	<PropertyGroup>
@@ -14,11 +14,11 @@
 	</PropertyGroup>
 
 	<ItemGroup Condition="$(IsUnitTestProject)">
-		<PackageReference Include="MSTest" Version="3.9.0" />
-		<PackageReference Include="coverlet.collector" Version="6.0.4">
+		<PackageReference Include="MSTest" />
+		<PackageReference Include="coverlet.collector">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Shouldly" Version="4.3.0" />
+		<PackageReference Include="Shouldly" />
 	</ItemGroup>
 </Project>

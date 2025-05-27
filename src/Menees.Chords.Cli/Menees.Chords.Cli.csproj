@@ -12,7 +12,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="Menees.Common" Version="5.1.2" />
+	  <PackageReference Include="Menees.Common" />
 	</ItemGroup>
 
 	<ItemGroup>

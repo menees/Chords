@@ -19,7 +19,7 @@
 		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
 		<MeneesTargetNetWeb>net9.0</MeneesTargetNetWeb>
 
-		<RepoSrcFolder>$(MSBuildThisFileDirectory)</RepoSrcFolder>
+		<RepoSrcFolder>$(MSBuildThisFileDirectory)src</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>
 		<Nullable>enable</Nullable>
 		<TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -28,7 +28,7 @@
 		<IsPublishable>false</IsPublishable>
 
 		<!-- Make the assembly, file, and NuGet package versions the same. -->
-		<Version>1.0.2</Version>
+		<Version>1.1.0</Version>
 		<UseLocaMeneesLibraries>false</UseLocaMeneesLibraries>
 		<LocaMeneesLibrariesSrc/>
 		<BuildingInsideVisualStudio Condition="'$(BuildingInsideVisualStudio)' == ''">false</BuildingInsideVisualStudio>
@@ -63,27 +63,27 @@
 	</ItemGroup>
 
 	<ItemGroup Condition="$(UseCustomCodeAnalyzers)">
-		<PackageReference Include="codecracker.CSharp" Version="1.1.0">
+		<PackageReference Include="codecracker.CSharp">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Menees.Analyzers" Version="3.2.2">
+		<PackageReference Include="Menees.Analyzers">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0">
+		<PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers">
 			<!-- DOTNET_VERSION: NetAnalyzers version should match the Blazor version. -->
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="StyleCop.Analyzers" Version="1.2.0-beta.556">
+		<PackageReference Include="StyleCop.Analyzers">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Meziantou.Polyfill" Version="1.0.49">
+		<PackageReference Include="Meziantou.Polyfill">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
