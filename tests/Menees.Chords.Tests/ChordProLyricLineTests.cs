@@ -191,6 +191,11 @@ public class ChordProLyricLineTests
 			"      D ↓        G↑   D* (* Use higher D second time) D* x57775 ** Sing \"low\" as bass **",
 			"Swing low, sweet chariot,");
 
+		Test(
+			"[Db][D] Sang [D]on the [D]corner, [Db][D] poured [D]out my [D]heart",
+			"Db D     D      D       Db D       D      D",
+			"    Sang on the corner,     poured out my heart");
+
 		static void Test(string text, string expectedChords, string? expectedLyrics = null)
 		{
 			LineContext context = LineContextTests.Create(text);

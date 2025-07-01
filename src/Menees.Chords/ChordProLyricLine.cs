@@ -182,6 +182,8 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		// [A]All right[G] now => All right now
 		//                                                 D/F#      A
 		// Baby, it's [D/F#]all right [A]now => Baby, it's all right now
+		//                                     Db D     D      D
+		// [Db][D] Sang [D]on the [D]corner =>     Sang on the corner
 		int indentChord = 0;
 		List<TextSegment> chordLineSegments = [];
 		StringBuilder lyricLineText = new();
@@ -215,6 +217,12 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			// Ensure there's at least some whitespace between chords.
 			if (chordLineSegments.Count > 0 && chordLineSegments[^1] is not WhiteSpaceSegment)
 			{
+				// If we have a negative indent for the chords, we need to indent the lyrics instead.
+				if (indentChord < 0)
+				{
+					lyricLineText.Append(' ', 1 - indentChord);
+				}
+
 				indentChord = Math.Max(indentChord, 1);
 			}
 
