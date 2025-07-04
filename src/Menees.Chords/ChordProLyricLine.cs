@@ -217,8 +217,9 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			// Ensure there's at least some whitespace between chords.
 			if (chordLineSegments.Count > 0 && chordLineSegments[^1] is not WhiteSpaceSegment)
 			{
-				// If we have a negative indent for the chords, we need to indent the lyrics instead.
-				if (indentChord < 0)
+				// If we have a non-positive indent for the chords, we need to indent the lyrics instead.
+				// This happens with multiple lead-in chords or with chords longer than their associated word.
+				if (indentChord <= 0)
 				{
 					lyricLineText.Append(' ', 1 - indentChord);
 				}

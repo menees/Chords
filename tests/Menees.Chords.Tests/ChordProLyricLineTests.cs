@@ -196,6 +196,8 @@ public class ChordProLyricLineTests
 			"Db D     D      D       Db D       D      D",
 			"    Sang on the corner,     poured out my heart");
 
+		Test("[Dsus4]I am [Dsus2]a [D]rock", "Dsus4 Dsus2 D", "I am  a     rock");
+
 		static void Test(string text, string expectedChords, string? expectedLyrics = null)
 		{
 			LineContext context = LineContextTests.Create(text);
