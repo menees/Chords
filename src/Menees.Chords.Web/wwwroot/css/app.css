@@ -119,5 +119,5 @@ textarea {
 
 	textarea.h-most {
 		height: calc(100% - 0.75rem);
+		resize: none; /* https://stackoverflow.com/a/5235160/1882616 */
 	}
-}
