@@ -54,11 +54,11 @@ public sealed class UriLine : TextEntry
 			string uriText = lexer.Token.Text;
 
 			// Since annotations were removed earlier, make sure there's nothing else on the line.
-			// And make sure the header text isn't a chord. We won't look for specific header values
-			// since Ultimate Guitar has many header variations:
-			// Intro, Outro, Verse, Verse #, Chorus, Interlude, Bridge, Pre-Chorus, Solo, Solo #, Break, Post-Chorus, Pre-Verse
+			// And make sure we don't parse a "Label:" line as a "label" Uri.
 			if ((!lexer.Read() || string.IsNullOrEmpty(lexer.ReadToEnd(skipTrailingWhiteSpace: true)))
-				&& Uri.TryCreate(uriText, UriKind.Absolute, out Uri? uri))
+				&& Uri.TryCreate(uriText, UriKind.Absolute, out Uri? uri)
+				&& ((uriText.StartsWith(uri.Scheme, StringComparison.Ordinal) && uriText.Length > (uri.Scheme.Length + ":".Length))
+					|| (uri.IsFile && !string.IsNullOrEmpty(uri.AbsolutePath))))
 			{
 				result = new(uriText, uri, annotations);
 			}

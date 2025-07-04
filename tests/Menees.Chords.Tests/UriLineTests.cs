@@ -43,6 +43,8 @@ public class UriLineTests
 		Test("Not a Uri");
 		Test("[A#]");
 		Test("Mesa/Boogie");
+		Test("Correct:");
+		Test("label:");
 
 		static void Test(string text)
 		{
