@@ -181,9 +181,11 @@ public sealed partial class Index : IDisposable
 			Document outputDocument = transformer.Transform().Document;
 			TextFormatter formatter = new(outputDocument);
 			this.output = formatter.ToString();
-			this.title = DocumentTransformer.Flatten(outputDocument.Entries)
+			IReadOnlyList<Entry> flattenedOutputEntries = DocumentTransformer.Flatten(outputDocument.Entries);
+			this.title = flattenedOutputEntries
 				.OfType<ChordProDirectiveLine>()
-				.FirstOrDefault(directive => directive.LongName.Equals(nameof(this.title), ChordParser.Comparison))?.Argument;
+				.FirstOrDefault(directive => directive.LongName.Equals(nameof(this.title), ChordParser.Comparison))?.Argument
+				?? flattenedOutputEntries.FirstOrDefault()?.ToString();
 			this.StateHasChanged();
 		}
 	}
@@ -218,7 +220,8 @@ public sealed partial class Index : IDisposable
 	{
 		// https://www.meziantou.net/generating-and-downloading-a-file-in-a-blazor-webassembly-application.htm
 		byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(this.output);
-		string fileName = string.IsNullOrEmpty(this.title) ? $"{this.toType}.cho" : $"{this.title}.cho";
+		string extension = this.toType == "ChordOverLyric" ? ".txt" : ".cho";
+		string fileName = string.IsNullOrEmpty(this.title) ? $"{this.toType}{extension}" : $"{this.title}{extension}";
 		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", fileName, "text/plain", fileBytes);
 	}
 
