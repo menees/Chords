@@ -12,6 +12,7 @@ public class UriLineTests
 		Test(" https://learn.microsoft.com/en-us/dotnet/core/install/windows?tabs=net70 ");
 		Test("https://learn.microsoft.com/en-us/dotnet/core/install/windows?tabs=net70#install-with-windows-installer");
 		Test(@"C:\Windows\System32\aadtb.dll", "file:///C:/Windows/System32/aadtb.dll");
+		Test("https://en.wikipedia.org/wiki/Swayin%27_to_the_Music_(Slow_Dancing)");
 		Test(
 			"https://learn.microsoft.com/en-us/dotnet/core/install/windows (install-with-windows-installer)",
 			"https://learn.microsoft.com/en-us/dotnet/core/install/windows",

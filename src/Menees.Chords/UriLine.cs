@@ -47,7 +47,17 @@ public sealed class UriLine : TextEntry
 
 		UriLine? result = null;
 
+		// Ensure annotations are whitespace-separated because Uris can end with parentheses.
+		// E.g., https://en.wikipedia.org/wiki/Swayin%27_to_the_Music_(Slow_Dancing)
 		Lexer lexer = context.CreateLexer(out IReadOnlyList<Entry> annotations);
+		if (annotations.Count > 0
+			&& lexer.LineText.Length > 0
+			&& !char.IsWhiteSpace(lexer.LineText[^1]))
+		{
+			lexer = context.CreateLexer();
+			annotations = [];
+		}
+
 		if (lexer.Read(skipLeadingWhiteSpace: true) && lexer.Token.Type == TokenType.Text)
 		{
 			// We have to pull the token text out here because we're about to move the lexer forward.

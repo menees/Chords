@@ -45,6 +45,12 @@ public sealed class Lexer
 
 	#endregion
 
+	#region Internal Properties
+
+	internal string LineText => this.text;
+
+	#endregion
+
 	#region Public Methods
 
 	/// <summary>
