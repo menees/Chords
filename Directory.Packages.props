@@ -5,12 +5,12 @@
 
 	<ItemGroup>
 		<PackageVersion Include="Blazored.LocalStorage" Version="4.5.0" />
-		<PackageVersion Include="MSTest" Version="3.9.0" />
+		<PackageVersion Include="MSTest" Version="3.9.3" />
 		<PackageVersion Include="Menees.Analyzers" Version="3.2.2" />
 		<PackageVersion Include="Menees.Common" Version="5.1.2" />
 		<PackageVersion Include="Meziantou.Polyfill" Version="1.0.49" />
-		<PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.5" />
-		<PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.5" PrivateAssets="all" />
+		<PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.7" />
+		<PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.7" PrivateAssets="all" />
 		<PackageVersion Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="9.0.0" />
 		<PackageVersion Include="Shouldly" Version="4.3.0" />
 		<PackageVersion Include="StyleCop.Analyzers" Version="1.2.0-beta.556" />
