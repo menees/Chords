@@ -185,7 +185,7 @@ public sealed partial class Index : IDisposable
 			this.title = flattenedOutputEntries
 				.OfType<ChordProDirectiveLine>()
 				.FirstOrDefault(directive => directive.LongName.Equals(nameof(this.title), ChordParser.Comparison))?.Argument
-				?? flattenedOutputEntries.FirstOrDefault()?.ToString();
+				?? (flattenedOutputEntries.Count > 0 ? flattenedOutputEntries[0].ToString() : null);
 			this.StateHasChanged();
 		}
 	}
