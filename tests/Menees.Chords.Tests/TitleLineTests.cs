@@ -19,6 +19,7 @@ public class TitleLineTests
 	{
 		Test2("This is a test", "This is a test", ("title", "This is a test"));
 		Test("Every Rose Has Its Thorn - Poison", ("title", "Every Rose Has Its Thorn"), ("artist", "Poison"));
+		Test("Stand By Me – Ben E King", ("title", "Stand By Me"), ("artist", "Ben E King"));
 
 		Test(
 			"867-5309/Jenny - Tommy Tutone. Recorded sharp (A = 445).",
