@@ -1,0 +1,25 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Build.cmd" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="Directory.Version.props" />
+    <File Path="global.json" />
+    <File Path="LICENSE" />
+    <File Path="NuGet.Config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Src/">
+    <Project Path="src/Menees.Chords.Cli/Menees.Chords.Cli.csproj" />
+    <Project Path="src/Menees.Chords.Web/Menees.Chords.Web.csproj" />
+    <Project Path="src/Menees.Chords/Menees.Chords.csproj" />
+  </Folder>
+  <Folder Name="/Tests/">
+    <File Path="tests/.runsettings" />
+    <File Path="tests/Directory.Build.props" />
+    <Project Path="tests/Menees.Chords.Tests/Menees.Chords.Tests.csproj" />
+  </Folder>
+</Solution>

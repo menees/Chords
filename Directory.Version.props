@@ -1,6 +1,6 @@
 <Project>
 	<PropertyGroup>
 		<!-- Make the assembly, file, and NuGet package versions the same. -->
-		<Version>1.1.4</Version>
+		<Version>1.2.0</Version>
 	</PropertyGroup>
 </Project>

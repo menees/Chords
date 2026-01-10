@@ -3,176 +3,179 @@
 #region Using Directives
 
 using System;
+using System.CommandLine;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
 using Menees.Chords.Transformers;
-using Menees.Shell;
 
 #endregion
 
-internal sealed class ConvertCommand
+internal sealed class ConvertCommand : BaseCommand
 {
 	#region Private Data Members
 
-	private Parsers parsers;
-	private Transformers transformers;
-	private Encoding encoding = Encoding.UTF8;
-	private FileInfo? input;
-	private FileInfo? output;
-	private bool overwrite;
-	private Formats format;
-	private bool clean;
+	private const string ReadStdIn = "-";
+
+	private readonly Parsers parsers;
+	private readonly Transformers transformers;
+	private readonly Encoding inputEncoding;
+	private readonly Encoding outputEncoding;
+	private readonly FileInfo? input;
+	private readonly FileInfo? output;
+	private readonly bool overwrite;
+	private readonly Formats format;
+	private readonly bool clean;
 
 	#endregion
 
 	#region Constructors
 
-	private ConvertCommand()
+	private ConvertCommand(
+		ParseResult parseResult,
+		FileInfo? input,
+		Parsers parsers,
+		Transformers transformers,
+		Encoding[] encodings,
+		FileInfo? output,
+		bool overwrite,
+		Formats format,
+		bool clean)
+		: base(parseResult)
 	{
+		this.input = input;
+		this.parsers = parsers;
+		this.transformers = transformers;
+		this.inputEncoding = encodings[0];
+		this.outputEncoding = encodings.Length > 1 ? encodings[1] : this.inputEncoding;
+		this.output = output;
+		this.overwrite = overwrite;
+		this.format = format;
+		this.clean = clean;
 	}
 
 	#endregion
 
 	#region Public Methods
 
-	public static ConvertCommand? TryCreate(CommandLine commandLine, string[] args)
+	public static Command Create()
 	{
-		// CommandLine doesn't allow empty switches, so we can't use the Unix-style '-' to mean stdin.
-		const string ReadStdIn = "~";
+		Command result = new("convert", "Converts a chord sheet file from one format to another.");
 
-		string appName = Path.GetFileNameWithoutExtension(CommandLine.ExecutableFileName);
-		string versionInfo = ShellUtility.GetVersionInfo(typeof(ConvertCommand).Assembly);
-		commandLine.AddHeader($"{appName} - {versionInfo}");
-		commandLine.AddHeader("Converts a chord sheet file from one format to another.");
-		commandLine.AddHeader($"Usage: {CommandLine.ExecutableFileName} input|{ReadStdIn} [/output File] [/overwrite] [/clean]");
-		commandLine.AddHeader("            [/parse ...] [/transform ...] [/format ...] [/encoding ...]");
-
-		ConvertCommand command = new();
-		bool useStdIn = false;
-		commandLine.AddValueHandler(
-			(filePath, errors) =>
-			{
-				if (filePath == ReadStdIn)
-				{
-					useStdIn = true;
-				}
-				else if (File.Exists(filePath))
-				{
-					command.input = new FileInfo(filePath);
-				}
-				else
-				{
-					errors.Add("Input file does not exist.");
-				}
-			},
-			new KeyValuePair<string, string>(nameof(input), $"The file to convert. Use \"{ReadStdIn}\" to read from stdin."));
-
-		commandLine.AddSwitch(
-			nameof(output),
-			"The output file name. Omit to write to stdout.",
-			(value, errors) => command.output = new FileInfo(value));
-
-		commandLine.AddSwitch(
-			nameof(overwrite),
-			"Whether to overwrite the output file if it already exists.",
-			value => command.overwrite = value);
-
-		commandLine.AddSwitch(
-			nameof(clean),
-			"Whether to clean (i.e., scrub) the input lines before parsing.",
-			value => command.clean = value);
-
-		commandLine.AddSwitch(
-			"parse",
-			GetDescription("How the input file should be parsed.", command.parsers),
-			(value, errors) => TryParse(value, errors, ref command.parsers));
-
-		commandLine.AddSwitch(
-			"transform",
-			GetDescription("How the input should be transformed in memory.", command.transformers),
-			(value, errors) => TryParse(value, errors, ref command.transformers));
-
-		commandLine.AddSwitch(
-			nameof(format),
-			GetDescription("How the output should be formatted.", command.format),
-			(value, errors) => TryParse(value, errors, ref command.format));
-
-		commandLine.AddSwitch(
-			nameof(encoding),
-			$"How the input and output text is encoded. [default: {command.encoding.WebName}]",
-			(value, errors) =>
-			{
-				try
-				{
-					command.encoding = Encoding.GetEncoding(value);
-				}
-				catch (ArgumentException ex)
-				{
-					errors.Add($"Unable to find encoding {value}. {ex.Message}");
-				}
-			});
-
-		commandLine.AddFinalValidation(errors =>
+		Argument<FileInfo?> inputArgument = new(nameof(input))
 		{
-			if (!useStdIn && command.input is null)
+			Description = $"The file to convert. Use \"{ReadStdIn}\" to read from stdin.",
+			CustomParser = argumentResult =>
 			{
-				errors.Add($"An input file (or \"{ReadStdIn}\" for stdin) is required.");
+				// https://learn.microsoft.com/en-us/dotnet/standard/commandline/get-started-tutorial#add-subcommands-and-custom-validation
+				FileInfo? fileInfo = null;
+				string? filePath = argumentResult.Tokens.Single().Value;
+				if (filePath != ReadStdIn)
+				{
+					if (File.Exists(filePath))
+					{
+						fileInfo = new FileInfo(filePath);
+					}
+					else
+					{
+						argumentResult.AddError("Input file does not exist.");
+					}
+				}
+
+				return fileInfo;
+			},
+		};
+		result.Add(inputArgument);
+
+		Option<FileInfo> outputOption = new("--output", "-o") { Description = "The output file name. Omit to write to stdout." };
+		result.Add(outputOption);
+
+		Option<bool> overwriteOption = new("--overwrite", "-y") { Description = "Whether to overwrite the output file if it already exists." };
+		result.Add(overwriteOption);
+
+		Option<bool> cleanOption = new("--clean", "-c") { Description = "Whether to clean (i.e., scrub) the input lines before parsing." };
+		result.Add(cleanOption);
+
+		Option<Parsers> parseOption = new("--parse", "-p")
+		{
+			DefaultValueFactory = _ => Parsers.Default,
+			Description = "How the input file should be parsed.",
+		};
+		result.Add(parseOption);
+
+		Option<Transformers> transformOption = new("--transform", "-t")
+		{
+			DefaultValueFactory = _ => Transformers.ChordPro,
+			Description = "How the input should be transformed in memory.",
+		};
+		result.Add(transformOption);
+
+		Option<Formats> formatOption = new("--format", "-f")
+		{
+			DefaultValueFactory = _ => Formats.Text,
+			Description = "How the output should be formatted.",
+		};
+		result.Add(formatOption);
+
+		const string DefaultEncoding = "UTF-8";
+		Option<string[]?> encodingOption = new("--encoding", "-e")
+		{
+			DefaultValueFactory = _ => [DefaultEncoding],
+			Description = "How the input and output text are encoded. Takes 1 or 2 encoding names.",
+			AllowMultipleArgumentsPerToken = true,
+		};
+		encodingOption.Validators.Add(result =>
+		{
+			if (result.GetValue(encodingOption) is string[] array && array.Length > 2)
+			{
+				result.AddError("No more than two encodings can be specified.");
 			}
 		});
 
-		// LONG-TERM-TODO: Other possible command line options:
-		// transpose - +N use sharps. -N use flats. Like https://www.chordpro.org/chordpro/using-chordpro/#transpose
-		// normalize - Call Chord.Normalize() for every parsed Chord in a document.
-		// compact - Replace identical start/end_of_chorus sections with {chorus} directive. One blank line per section.
-		// clean - Run Cleaner class first to remove extra whitespace lines.
-		CommandLineParseResult parseResult = commandLine.Parse(args);
-		ConvertCommand? result = parseResult == CommandLineParseResult.Valid ? command : null;
+		result.Add(encodingOption);
+
+		result.SetAction((parseResult, cancellationToken) =>
+		{
+			FileInfo? input = GetArgumentValue(parseResult, inputArgument);
+			Parsers parsers = GetOptionValue(parseResult, parseOption);
+			Transformers transformers = GetOptionValue(parseResult, transformOption);
+			Encoding[] encodings = [.. (GetOptionValue(parseResult, encodingOption) ?? [DefaultEncoding]).Select(e => Encoding.GetEncoding(e))];
+			FileInfo? output = GetOptionValue(parseResult, outputOption);
+			bool overwrite = GetOptionValue(parseResult, overwriteOption);
+			Formats format = GetOptionValue(parseResult, formatOption);
+			bool clean = GetOptionValue(parseResult, cleanOption);
+
+			ConvertCommand command = new(parseResult, input, parsers, transformers, encodings, output, overwrite, format, clean);
+			return command.ExecuteAsync(cancellationToken);
+		});
+
 		return result;
 	}
 
-	public void Execute()
+	#endregion
+
+	#region Protected Methods
+
+	protected override Task<int?> OnExecuteAsync(CancellationToken cancellationToken)
 	{
 		Document inputDocument = this.ParseInput();
 		Document outputDocument = this.TransformInMemory(inputDocument);
 		string outputText = this.FormatOutputText(outputDocument);
 		this.WriteOutput(outputText);
+		return Task.FromResult(this.ExitCode);
 	}
 
 	#endregion
 
 	#region Private Methods
 
-	private static string GetDescription<T>(string description, T defaultValue)
-		where T : struct, Enum
-	{
-		StringBuilder sb = new(description);
-		sb.Append(" (");
-		sb.AppendJoin(
-			"|",
-			Enum.GetValues(typeof(T)).Cast<T>()
-				.Select(e => e.Equals(defaultValue) ? $"[{e}]" : e.ToString()));
-		sb.Append(')');
-		string result = sb.ToString();
-		return result;
-	}
-
-	private static void TryParse<T>(string text, IList<string> errors, ref T value)
-		where T : struct, Enum
-	{
-		if (!Enum.TryParse(text, out value))
-		{
-			errors.Add($"Unable to parse {text} as {typeof(T).Name}.");
-		}
-	}
-
 	private Document ParseInput()
 	{
 		bool readStdIn = this.input is null;
-		TextReader reader = readStdIn ? Console.In : new StreamReader(this.input!.FullName, this.encoding, true);
+		TextReader reader = readStdIn ? Console.In : new StreamReader(this.input!.FullName, this.inputEncoding, true);
 		try
 		{
 			DocumentParser parser = new(
@@ -227,16 +230,16 @@ internal sealed class ConvertCommand
 	{
 		if (this.output is null)
 		{
-			Console.Write(outputText);
+			this.Write(outputText);
 		}
 		else if (this.overwrite || !this.output.Exists)
 		{
-			File.WriteAllText(this.output.FullName, outputText, this.encoding);
+			File.WriteAllText(this.output.FullName, outputText, this.outputEncoding);
 		}
 		else
 		{
-			Console.Error.WriteLine("The specified output file already exists, and the --overwrite option was not used.");
-			Environment.ExitCode = 1;
+			this.WriteErrorLine("The specified output file already exists, and the --overwrite option was not used.");
+			this.ExitCode = 1;
 		}
 	}
 

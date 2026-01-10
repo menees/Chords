@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 
 $scriptPath = [IO.Path]::GetDirectoryName($MyInvocation.MyCommand.Definition)
 $repoPath = Resolve-Path (Join-Path $scriptPath '..')
-$slnPath = @(Get-ChildItem -Path $repoPath -Filter '*.sln')
+$slnPath = @(Get-ChildItem -Path $repoPath -Filter '*.slnx')
 if (!$slnPath)
 {
 	throw "Solution not found at $repoPath."
@@ -84,8 +84,7 @@ if ($publish)
 
             # I deleted the PublishProfiles in commit 80b95254b44b788914fba397fbdf3221dc9f01df on 9/2/23.
             # It's easier to publish projects individually than try to publish the solution using profiles.
-            PublishProject 'src\Menees.Chords.Cli\Menees.Chords.Cli.csproj' 'Core' $configuration
-            PublishProject 'src\Menees.Chords.Cli\Menees.Chords.Cli.csproj' 'Framework' $configuration
+            PublishProject 'src\Menees.Chords.Cli\Menees.Chords.Cli.csproj' 'Cli' $configuration
             PublishProject 'src\Menees.Chords.Web\Menees.Chords.Web.csproj' 'Web' $configuration
 
             Write-Host "Publishing version $version $configuration packages to $artifactsPath"

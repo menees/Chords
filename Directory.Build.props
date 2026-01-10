@@ -7,7 +7,7 @@
 		<NeutralLanguage>en-US</NeutralLanguage>
 		<SatelliteResourceLanguages>en</SatelliteResourceLanguages>
 		<Authors>Bill Menees</Authors>
-		<PackageProjectUrl>http://www.menees.com</PackageProjectUrl>
+		<PackageProjectUrl>https://www.menees.com</PackageProjectUrl>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<RepositoryType>git</RepositoryType>
 		<RepositoryUrl>https://github.com/menees/Chords</RepositoryUrl>
@@ -20,8 +20,9 @@
 		<!-- DOTNET_VERSION: Set framework and core versions for libraries. Set core version for Blazor. Update README.md. -->
 		<!-- We'll support older LTS releases for library builds. We'll use the latest STS release for web builds. -->
 		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
-		<MeneesTargetNetCore>net6.0</MeneesTargetNetCore>
-		<MeneesTargetNetWeb>net9.0</MeneesTargetNetWeb>
+		<MeneesTargetNetCore>net8.0</MeneesTargetNetCore>
+		<MeneesTargetNetCli>net10.0</MeneesTargetNetCli>
+		<MeneesTargetNetWeb>net10.0</MeneesTargetNetWeb>
 
 		<RepoSrcFolder>$(MSBuildThisFileDirectory)src</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>

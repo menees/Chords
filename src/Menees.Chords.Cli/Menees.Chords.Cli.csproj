@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFrameworks>$(MeneesTargetNetCore);$(MeneesTargetNetFramework)</TargetFrameworks>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
 		<OutputType>Exe</OutputType>
 		<ApplicationIcon>Vista_Music_Note_Double.ico</ApplicationIcon>
 		<IsPublishable>true</IsPublishable>
@@ -12,7 +12,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="Menees.Common" />
+		<PackageReference Include="System.CommandLine" />
 	</ItemGroup>
 
 	<ItemGroup>

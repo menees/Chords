@@ -1,0 +1,31 @@
+{
+	"profiles": {
+		"<No Args>": {
+			"commandName": "Project"
+		},
+		"--Help": {
+			"commandName": "Project",
+			"commandLineArgs": "--help"
+		},
+		"--Version": {
+			"commandName": "Project",
+			"commandLineArgs": "--version"
+		},
+		"Convert --Help": {
+			"commandName": "Project",
+			"commandLineArgs": "convert --help"
+		},
+		"Convert \"Alone With You\" ChordPro": {
+			"commandName": "Project",
+			"commandLineArgs": "convert \"../../../../../tests/Menees.Chords.Tests/Samples/Alone With You.txt\" --overwrite --clean --transform ChordPro"
+		},
+		"Convert \"Alone With You\" MobileSheets": {
+			"commandName": "Project",
+			"commandLineArgs": "convert \"../../../../../tests/Menees.Chords.Tests/Samples/Alone With You.txt\" --overwrite --clean --transform MobileSheets"
+		},
+		"[WSL]": {
+			"commandName": "WSL2",
+			"distributionName": ""
+		}
+	}
+}
