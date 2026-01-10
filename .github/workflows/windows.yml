@@ -12,8 +12,8 @@ on:
 jobs:
   build:
     # DOTNET_VERSION: Use a Windows instance with the required .NET SDK.
-    # https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md#net-core-tools
-    runs-on: windows-2022
+    # https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md#net-core-tools
+    runs-on: windows-2025
 
     steps:
     - uses: actions/checkout@v3
@@ -21,7 +21,7 @@ jobs:
       uses: actions/setup-dotnet@v3
       with:
         # DOTNET_VERSION: Use .NET SDK for Blazor app
-        dotnet-version: 9.0.x
+        dotnet-version: 10.0.x
 
     - name: Restore dependencies
       run: dotnet restore
