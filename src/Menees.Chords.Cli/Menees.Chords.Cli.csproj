@@ -4,11 +4,27 @@
 		<OutputType>Exe</OutputType>
 		<ApplicationIcon>Vista_Music_Note_Double.ico</ApplicationIcon>
 		<IsPublishable>true</IsPublishable>
+
+		<!-- Package metadata -->
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<Description>Command-line tool for Menees.Chords</Description>
+		<IsPackable>true</IsPackable>
+		<PackAsTool>true</PackAsTool>
+		<!-- This doesn't use a 'dotnet-' prefix, so global tool usage is simpler.
+		It can be invoked as 'menees-chords' when installed as a global tool.
+		It can be invoked as 'dotnet menees-chords' when installed as a local tool.
+		https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools#invoke-a-global-tool -->
+		<ToolCommandName>menees-chords</ToolCommandName>
 	</PropertyGroup>
 
 	<ItemGroup>
+		<None Include="../../README.md" Pack="true" PackagePath="/" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!-- Based on VS 2010 Image Library\Objects\png_format\WinVista\Music_Note_Double_*.png -->
-		<Content Include="Vista_Music_Note_Double.ico" />
+		<None Include="Vista_Music_Note_Double.ico" />
 	</ItemGroup>
 
 	<ItemGroup>

@@ -93,9 +93,33 @@ The library also contains some helper classes for specialized parsing situtation
 * [Lexer](src/Menees.Chords/Parsers/Lexer.cs)
 
 ## Applications
-* **Web**: The [Menees Chord Sheet Converter](https://chords.menees.com/) web application converts [Ultimate Guitar](https://www.ultimate-guitar.com/)-style chords-over-text sheets into [ChordPro](https://www.chordpro.org/) format or [MobileSheets](https://www.zubersoft.com/mobilesheets/) format. The converter is a Blazor WebAssembly app, so it needs to be run in a modern, up-to-date web browser.
-* **Console**: The `.\Menees.Chords.Cli.exe` .NET console application is a wrapper over the `Menees.Chords.dll` library.
-Run `.\Menees.Chords.Cli.exe --help` to see its available commands and options.
+### Web
+The [Menees Chord Sheet Converter](https://chords.menees.com/) web application converts [Ultimate Guitar](https://www.ultimate-guitar.com/)-style chords-over-text sheets into [ChordPro](https://www.chordpro.org/) format or [MobileSheets](https://www.zubersoft.com/mobilesheets/) format. The converter is a Blazor WebAssembly app, so it needs to be run in a modern, up-to-date web browser.
+
+Because this is a WebAssembly app, it runs completely in your browser. It never sends any data to an external server. None of the information you enter into it leaves your brower, so it's safe to use it to convert private transcriptions.
+ 
+### Console
+The `.\Menees.Chords.Cli.exe` .NET console application is a wrapper over the `Menees.Chords.dll` library.
+Run `.\Menees.Chords.Cli.exe --help` to see its available commands and options. This is also available as the `menees-chords` [dotnet tool](https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools). 
+#### DotNet Local Tool
+It can be installed a local tool with:
+```
+dotnet tool install Menees.Chords.Cli --local
+```
+To run it as a local tool to see the `convert` command's help:
+```
+dotnet menees-chords convert --help
+```
+#### DotNet Global Tool
+It can be installed as a global tool with:
+```
+dotnet tool install Menees.Chords.Cli --global
+```
+To run it as a global tool to see the `convert` command's help:
+```
+menees-chords convert --help
+```
+Note that the `dotnet` prefix isn't required to run it as a global tool.
 
 ## Others
 Here are some links to similar software that might be of interest:

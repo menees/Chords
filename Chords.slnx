@@ -1,8 +1,4 @@
 <Solution>
-  <Folder Name="/GitHub Workflows/">
-    <File Path=".github/workflows/ubuntu.yml" />
-    <File Path=".github/workflows/windows.yml" />
-  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitattributes" />
@@ -15,6 +11,10 @@
     <File Path="LICENSE" />
     <File Path="NuGet.Config" />
     <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/GitHub Actions/">
+    <File Path=".github/workflows/ubuntu.yml" />
+    <File Path=".github/workflows/windows.yml" />
   </Folder>
   <Folder Name="/Src/">
     <Project Path="src/Menees.Chords.Cli/Menees.Chords.Cli.csproj" />
