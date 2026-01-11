@@ -1,6 +1,7 @@
 [![Windows](https://github.com/menees/Chords/actions/workflows/windows.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/windows.yml)
 [![Ubuntu](https://github.com/menees/Chords/actions/workflows/ubuntu.yml/badge.svg)](https://github.com/menees/Chords/actions/workflows/ubuntu.yml)
-[![NuGet](https://img.shields.io/nuget/vpre/Menees.Chords)](https://www.nuget.org/packages/Menees.Chords/)
+[![NuGet Chords](https://img.shields.io/nuget/vpre/Menees.Chords?label=NuGet%20Chords)](https://www.nuget.org/packages/Menees.Chords/)
+[![NuGet Cli](https://img.shields.io/nuget/vpre/Menees.Chords.Cli?label=NuGet%20CLI)](https://www.nuget.org/packages/Menees.Chords.Cli/)
 
 # Chords
 This repo contains a .NET library and applications (e.g., an online [Blazor WebAssembly app](https://chords.menees.com/)) for parsing, transforming, and reformatting chord sheets.
@@ -102,11 +103,11 @@ Because this is a WebAssembly app, it runs completely in your browser. It never 
 The `.\Menees.Chords.Cli.exe` .NET console application is a wrapper over the `Menees.Chords.dll` library.
 Run `.\Menees.Chords.Cli.exe --help` to see its available commands and options. This is also available as the `menees-chords` [dotnet tool](https://learn.microsoft.com/en-us/dotnet/core/tools/global-tools). 
 #### DotNet Local Tool
-It can be installed a local tool with:
+It can be installed as a local tool with:
 ```
 dotnet tool install Menees.Chords.Cli --local
 ```
-To run it as a local tool to see the `convert` command's help:
+To run it as a local tool and see the `convert` command's help:
 ```
 dotnet menees-chords convert --help
 ```
@@ -115,11 +116,11 @@ It can be installed as a global tool with:
 ```
 dotnet tool install Menees.Chords.Cli --global
 ```
-To run it as a global tool to see the `convert` command's help:
+To run it as a global tool and see the `convert` command's help:
 ```
 menees-chords convert --help
 ```
-Note that the `dotnet` prefix isn't required to run it as a global tool.
+*Note:* The `dotnet` prefix isn't required (or supported) when running it as a global tool.
 
 ## Others
 Here are some links to similar software that might be of interest:
