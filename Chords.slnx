@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/GitHub Workflows/">
+    <File Path=".github/workflows/ubuntu.yml" />
+    <File Path=".github/workflows/windows.yml" />
+  </Folder>
   <Folder Name="/Solution Items/">
     <File Path=".editorconfig" />
     <File Path=".gitattributes" />
@@ -21,9 +25,5 @@
     <File Path="tests/.runsettings" />
     <File Path="tests/Directory.Build.props" />
     <Project Path="tests/Menees.Chords.Tests/Menees.Chords.Tests.csproj" />
-  </Folder>
-  <Folder Name="/workflows/">
-    <File Path=".github/workflows/ubuntu.yml" />
-    <File Path=".github/workflows/windows.yml" />
   </Folder>
 </Solution>
