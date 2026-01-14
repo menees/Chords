@@ -6,28 +6,6 @@
 		<IsTestProject>true</IsTestProject>
 	</PropertyGroup>
 	<ItemGroup>
-	  <None Remove="Samples\Alone With You.txt" />
-	  <None Remove="Samples\Bring Him Home.txt" />
-	  <None Remove="Samples\Every Rose Has Its Thorn.txt" />
-	  <None Remove="Samples\Expected ChordOverLyric\Alone With You.txt" />
-	  <None Remove="Samples\Expected ChordOverLyric\Bring Him Home.txt" />
-	  <None Remove="Samples\Expected ChordOverLyric\Every Rose Has Its Thorn.txt" />
-	  <None Remove="Samples\Expected ChordOverLyric\Swing Low Sweet Chariot.txt" />
-	  <None Remove="Samples\Expected ChordOverLyric\Test Only.txt" />
-	  <None Remove="Samples\Expected ChordPro\Alone With You.cho" />
-	  <None Remove="Samples\Expected ChordPro\Bring Him Home.cho" />
-	  <None Remove="Samples\Expected ChordPro\Every Rose Has Its Thorn.cho" />
-	  <None Remove="Samples\Expected ChordPro\Swing Low Sweet Chariot.cho" />
-	  <None Remove="Samples\Expected ChordPro\Test Only.cho" />
-	  <None Remove="Samples\Expected MobileSheets\Alone With You.cho" />
-	  <None Remove="Samples\Expected MobileSheets\Bring Him Home.cho" />
-	  <None Remove="Samples\Expected MobileSheets\Every Rose Has Its Thorn.cho" />
-	  <None Remove="Samples\Expected MobileSheets\Swing Low Sweet Chariot.cho" />
-	  <None Remove="Samples\Expected MobileSheets\Test Only.cho" />
-	  <None Remove="Samples\Swing Low Sweet Chariot.cho" />
-	  <None Remove="Samples\Test Only.txt" />
-	</ItemGroup>
-	<ItemGroup>
 	  <Content Include="Samples\Alone With You.txt">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	  </Content>
@@ -92,10 +70,5 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\src\Menees.Chords\Menees.Chords.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
-		<Using Include="Shouldly" />
 	</ItemGroup>
 </Project>

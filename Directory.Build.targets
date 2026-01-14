@@ -1,0 +1,10 @@
+<Project>
+	<!--
+		Disable some analyzers when the project targets net48:
+			CA1510 - Use ArgumentNullException throw helper
+			SYSLIB1045 - Use GeneratedRegexAttribute
+	-->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net48' Or ('$(TargetFrameworks)' != '' And '$(TargetFrameworks.IndexOf(`net48`))' != '-1')">
+		<NoWarn>$(NoWarn);CA1510;SYSLIB1045</NoWarn>
+	</PropertyGroup>
+</Project>

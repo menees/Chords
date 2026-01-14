@@ -13,6 +13,10 @@
 		<IsUnitTestProject>true</IsUnitTestProject>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<Compile Include="..\AssemblyInfo.cs" Link="AssemblyInfo.cs" />
+	</ItemGroup>
+
 	<ItemGroup Condition="$(IsUnitTestProject)">
 		<PackageReference Include="MSTest" />
 		<PackageReference Include="coverlet.collector">
@@ -20,5 +24,10 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Shouldly" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Using Include="Microsoft.VisualStudio.TestTools.UnitTesting" />
+		<Using Include="Shouldly" />
 	</ItemGroup>
 </Project>
