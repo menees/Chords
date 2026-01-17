@@ -14,7 +14,8 @@
                     </select>
 
                     <!-- Hidden native file input; label below acts as the visible Bootstrap button -->
-                    <InputFile id="fileInput" OnChange="OpenAsync" accept=".txt,.cho,.crd,.pro,.cpm,.chopro,.chordpro" style="display:none" />
+                    <InputFile id="fileInput" OnChange="OpenAsync" style="display:none"
+                        accept=".txt,.tab,.cho,.crd,.pro,.cpm,.chopro,.chord,.chordpro"  />
                     <label class="btn btn-secondary text-nowrap" for="fileInput" role="button" aria-label="Open">
                         <Icon Name="IconName.Open" /><span class="d-none d-lg-inline"> Open</span>
                     </label>
@@ -43,9 +44,9 @@
                 <div class="d-flex align-items-center gap-2">
                     <label for="to" class="text-nowrap">Output:</label>
                     <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2 min-width">
-                        <option value="ChordPro">ChordPro</option>
-                        <option value="MobileSheets">MobileSheets</option>
-                        <option value="ChordOverLyric">Chords Over Text</option>
+                        <option value="@Transformer.ChordPro">ChordPro</option>
+                        <option value="@Transformer.MobileSheets">MobileSheets</option>
+                        <option value="@Transformer.ChordOverLyric">Chords Over Text</option>
                     </select>
                     <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled aria-label="@copyState.Text">
                         <Icon Name="@copyState.IconName" /><span class="d-none d-lg-inline"> @copyState.Text</span>

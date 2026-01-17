@@ -21,7 +21,7 @@ internal sealed class ConvertCommand : BaseCommand
 	private const string ReadStdIn = "-";
 
 	private readonly Parsers parsers;
-	private readonly Transformers transformers;
+	private readonly Transformer transformer;
 	private readonly Encoding inputEncoding;
 	private readonly Encoding outputEncoding;
 	private readonly FileInfo? input;
@@ -38,7 +38,7 @@ internal sealed class ConvertCommand : BaseCommand
 		ParseResult parseResult,
 		FileInfo? input,
 		Parsers parsers,
-		Transformers transformers,
+		Transformer transformers,
 		Encoding[] encodings,
 		FileInfo? output,
 		bool overwrite,
@@ -48,7 +48,7 @@ internal sealed class ConvertCommand : BaseCommand
 	{
 		this.input = input;
 		this.parsers = parsers;
-		this.transformers = transformers;
+		this.transformer = transformers;
 		this.inputEncoding = encodings[0];
 		this.outputEncoding = encodings.Length > 1 ? encodings[1] : this.inputEncoding;
 		this.output = output;
@@ -106,9 +106,9 @@ internal sealed class ConvertCommand : BaseCommand
 		};
 		result.Add(parseOption);
 
-		Option<Transformers> transformOption = new("--transform", "-t")
+		Option<Transformer> transformOption = new("--transform", "-t")
 		{
-			DefaultValueFactory = _ => Transformers.ChordPro,
+			DefaultValueFactory = _ => Transformer.ChordPro,
 			Description = "How the input should be transformed in memory.",
 		};
 		result.Add(transformOption);
@@ -141,7 +141,7 @@ internal sealed class ConvertCommand : BaseCommand
 		{
 			FileInfo? input = GetArgumentValue(parseResult, inputArgument);
 			Parsers parsers = GetOptionValue(parseResult, parseOption);
-			Transformers transformers = GetOptionValue(parseResult, transformOption);
+			Transformer transformers = GetOptionValue(parseResult, transformOption);
 			Encoding[] encodings = [.. (GetOptionValue(parseResult, encodingOption) ?? [DefaultEncoding]).Select(e => Encoding.GetEncoding(e))];
 			FileInfo? output = GetOptionValue(parseResult, outputOption);
 			bool overwrite = GetOptionValue(parseResult, overwriteOption);
@@ -207,10 +207,10 @@ internal sealed class ConvertCommand : BaseCommand
 
 	private Document TransformInMemory(Document inputDocument)
 	{
-		DocumentTransformer transformer = this.transformers switch
+		DocumentTransformer transformer = this.transformer switch
 		{
-			Transformers.MobileSheets => new MobileSheetsTransformer(inputDocument),
-			Transformers.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
+			Transformer.MobileSheets => new MobileSheetsTransformer(inputDocument),
+			Transformer.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
 			_ => new ChordProTransformer(inputDocument),
 		};
 		Document outputDocument = transformer.Transform().Document;

@@ -23,13 +23,13 @@ public sealed partial class Index : IDisposable
 	private readonly CancellationTokenSource cts = new();
 
 	private string fromType = "General";
-	private string toType = "ChordPro";
+	private Transformer toType = Transformer.ChordPro;
 	private string input = string.Empty;
 	private string output = string.Empty;
 	private bool whenTyping = true;
 	private CopyState copyState = new("Copy", IconName.Copy, "btn-secondary");
-	private string? title;
 	private ElementReference? inputElement;
+	private Document? outputDocument;
 
 	#endregion
 
@@ -57,20 +57,6 @@ public sealed partial class Index : IDisposable
 			{
 				this.fromType = value;
 				this.Storage.SetItem(nameof(this.fromType), this.fromType);
-				this.ConvertInput();
-			}
-		}
-	}
-
-	public string ToType
-	{
-		get => this.toType;
-		set
-		{
-			if (this.toType != value)
-			{
-				this.toType = value;
-				this.Storage.SetItem(nameof(this.toType), this.toType);
 				this.ConvertInput();
 			}
 		}
@@ -112,6 +98,24 @@ public sealed partial class Index : IDisposable
 
 	#endregion
 
+	#region Internal Properties
+
+	internal Transformer ToType
+	{
+		get => this.toType;
+		set
+		{
+			if (this.toType != value)
+			{
+				this.toType = value;
+				this.Storage.SetItem(nameof(this.toType), this.toType);
+				this.ConvertInput();
+			}
+		}
+	}
+
+	#endregion
+
 	#region Private Properties
 
 	// IntelliSense kept showing an error if this was inlined in the @bind:event syntax.
@@ -140,7 +144,7 @@ public sealed partial class Index : IDisposable
 
 		if (this.Storage.ContainKey(nameof(this.toType)))
 		{
-			this.toType = this.Storage.GetItem<string>(nameof(this.toType)) ?? this.toType;
+			this.toType = this.Storage.GetItem<Transformer>(nameof(this.toType));
 		}
 
 		if (this.Storage.ContainKey(nameof(this.whenTyping)))
@@ -178,18 +182,13 @@ public sealed partial class Index : IDisposable
 			Document inputDocument = Document.Parse(this.input, parser);
 			DocumentTransformer transformer = this.toType switch
 			{
-				"MobileSheets" => new MobileSheetsTransformer(inputDocument),
-				"ChordOverLyric" => new ChordOverLyricTransformer(inputDocument),
+				Transformer.MobileSheets => new MobileSheetsTransformer(inputDocument),
+				Transformer.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
 				_ => new ChordProTransformer(inputDocument),
 			};
-			Document outputDocument = transformer.Transform().Document;
-			TextFormatter formatter = new(outputDocument);
+			this.outputDocument = transformer.Transform().Document;
+			TextFormatter formatter = new(this.outputDocument);
 			this.output = formatter.ToString();
-			IReadOnlyList<Entry> flattenedOutputEntries = DocumentTransformer.Flatten(outputDocument.Entries);
-			this.title = flattenedOutputEntries
-				.OfType<ChordProDirectiveLine>()
-				.FirstOrDefault(directive => directive.LongName.Equals(nameof(this.title), ChordParser.Comparison))?.Argument
-				?? (flattenedOutputEntries.Count > 0 ? flattenedOutputEntries[0].ToString() : null);
 			this.StateHasChanged();
 		}
 	}
@@ -224,9 +223,47 @@ public sealed partial class Index : IDisposable
 	{
 		// https://www.meziantou.net/generating-and-downloading-a-file-in-a-blazor-webassembly-application.htm
 		byte[] fileBytes = UTF8.GetBytes(this.output);
-		string extension = this.toType == "ChordOverLyric" ? ".txt" : ".cho";
-		string fileName = string.IsNullOrEmpty(this.title) ? $"{this.toType}{extension}" : $"{this.title}{extension}";
-		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", fileName, "text/plain", fileBytes);
+		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", this.GetFileName(), "text/plain", fileBytes);
+	}
+
+	private string GetFileName()
+	{
+		StringBuilder sb = new();
+		if (this.outputDocument != null)
+		{
+			IReadOnlyList<Entry> flattenedOutputEntries = DocumentTransformer.Flatten(this.outputDocument.Entries);
+			List<ChordProDirectiveLine> directives = [.. flattenedOutputEntries.OfType<ChordProDirectiveLine>()];
+
+			string? title = TryGetDirectiveArgument(nameof(title));
+			string? artist = TryGetDirectiveArgument(nameof(artist));
+
+			string? TryGetDirectiveArgument(string longName)
+				=> directives.FirstOrDefault(directive => directive.LongName.Equals(longName, ChordParser.Comparison))?.Argument;
+
+			sb.Append(title);
+
+			if (sb.Length > 0 && !string.IsNullOrEmpty(artist))
+			{
+				sb.Append(" - ");
+			}
+
+			sb.Append(artist);
+
+			if (sb.Length == 0 && flattenedOutputEntries.Count > 0)
+			{
+				sb.Append(flattenedOutputEntries[0]);
+			}
+		}
+
+		if (sb.Length == 0)
+		{
+			sb.Append(this.toType);
+		}
+
+		sb.Append(this.toType == Transformer.ChordOverLyric ? ".txt" : ".cho");
+
+		string result = sb.ToString();
+		return result;
 	}
 
 	private async Task CleanInputAsync()
