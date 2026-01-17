@@ -220,7 +220,7 @@ public sealed partial class Index : IDisposable
 		}
 	}
 
-	private async Task DownloadAsync()
+	private async Task SaveAsync()
 	{
 		// https://www.meziantou.net/generating-and-downloading-a-file-in-a-blazor-webassembly-application.htm
 		byte[] fileBytes = UTF8.GetBytes(this.output);
@@ -239,13 +239,28 @@ public sealed partial class Index : IDisposable
 		}
 	}
 
-	private async Task LoadFileAsync(InputFileChangeEventArgs e)
+	private async Task OpenAsync(InputFileChangeEventArgs e)
 	{
-		// Enforce a max size to avoid out-of-memory on WASM.
-		const long MaxFileSize = 128 * 1024;
-		using var stream = e.File.OpenReadStream(MaxFileSize);
-		using var reader = new StreamReader(stream, UTF8, detectEncodingFromByteOrderMarks: true);
-		this.Input = await reader.ReadToEndAsync();
+		IBrowserFile file = e.File;
+		string fileName = file.Name;
+		string newLine = Environment.NewLine;
+
+		try
+		{
+			// Enforce a max size to avoid out-of-memory on WASM.
+			const long MaxFileBytes = 128 * 1024;
+			using var stream = file.OpenReadStream(MaxFileBytes);
+			using var reader = new StreamReader(stream, UTF8, detectEncodingFromByteOrderMarks: true);
+			string text = await reader.ReadToEndAsync();
+			this.Input = string.IsNullOrWhiteSpace(fileName)
+				? text
+				: $"# {fileName}{newLine}{text}";
+		}
+		catch (IOException ex)
+		{
+			this.Input = $"Error uploading {fileName}:{newLine}{ex.Message}{newLine}({ex.GetType().Name})";
+		}
+
 		this.StateHasChanged();
 	}
 
