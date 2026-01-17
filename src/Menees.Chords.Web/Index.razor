@@ -16,14 +16,14 @@
                     <!-- Hidden native file input; label below acts as the visible Bootstrap button -->
                     <InputFile id="fileInput" OnChange="LoadFileAsync" accept=".txt,.cho,.crd,.chordpro" style="display:none" />
                     <label class="btn btn-secondary text-nowrap" for="fileInput" role="button" aria-label="Open">
-                        <i class="oi oi-data-transfer-upload"></i><span class="d-none d-lg-inline"> Open</span>
+                        <Icon Name="IconName.Open" /><span class="d-none d-lg-inline"> Open</span>
                     </label>
 
                     <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync" aria-label="Clean">
-                        <i class="oi oi-collapse-down"></i><span class="d-none d-lg-inline"> Clean</span>
+                        <Icon Name="IconName.Clean" /><span class="d-none d-lg-inline"> Clean</span>
                     </button>
                     <button class="btn btn-primary text-nowrap" @onclick="ConvertInput" aria-label="Convert">
-                        <i class="oi oi-share"></i><span class="d-none d-lg-inline"> Convert</span>
+                        <Icon Name="IconName.Convert" /><span class="d-none d-lg-inline"> Convert</span>
                     </button>
                     <div class="form-check form-switch">
                         <input id="whenTyping" type="checkbox" class="form-check-input" @bind="WhenTyping" @bind:event="onchange" />
@@ -48,10 +48,10 @@
                         <option value="ChordOverLyric">Chords Over Text</option>
                     </select>
                     <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled aria-label="@copyState.Text">
-                        <i class="@copyState.ImageClass"></i><span class="d-none d-lg-inline"> @copyState.Text</span>
+                        <Icon Name="@copyState.IconName" /><span class="d-none d-lg-inline"> @copyState.Text</span>
                     </button>
                     <button class="btn btn-secondary text-nowrap" @onclick="DownloadAsync" aria-label="Save">
-                        <i class="oi oi-data-transfer-download"></i><span class="d-none d-lg-inline"> Save</span>
+                        <Icon Name="IconName.Save" /><span class="d-none d-lg-inline"> Save</span>
                     </button>
                 </div>
             </div>

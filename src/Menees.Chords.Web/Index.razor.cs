@@ -27,7 +27,7 @@ public sealed partial class Index : IDisposable
 	private string input = string.Empty;
 	private string output = string.Empty;
 	private bool whenTyping = true;
-	private CopyState copyState = new("Copy", "oi oi-clipboard", "btn-secondary");
+	private CopyState copyState = new("Copy", IconName.Copy, "btn-secondary");
 	private string? title;
 	private ElementReference? inputElement;
 
@@ -200,13 +200,13 @@ public sealed partial class Index : IDisposable
 		var temp = this.copyState;
 		try
 		{
-			this.copyState = new("Copied", "oi oi-check", "btn-success", IsDisabled: true);
+			this.copyState = new("Copied", IconName.Success, "btn-success", IsDisabled: true);
 			await this.JavaScript.InvokeVoidAsync("CopyOutputToClipboard", this.output);
 		}
 		catch (JSException ex)
 		{
 			Console.WriteLine($"Cannot write text to clipboard: {ex}");
-			this.copyState = new("Failed", "oi oi-warning", "btn-danger", IsDisabled: true);
+			this.copyState = new("Failed", IconName.Warning, "btn-danger", IsDisabled: true);
 
 			// Blazor seems to call StateHasChanged implicitly before invoking the JavaScript,
 			// so if we don't do this here, then only the successful "Copied" state will show
@@ -253,7 +253,7 @@ public sealed partial class Index : IDisposable
 
 	#region Private Types
 
-	private sealed record CopyState(string Text, string ImageClass, string ButtonClass, bool IsDisabled = false);
+	private sealed record CopyState(string Text, IconName IconName, string ButtonClass, bool IsDisabled = false);
 
 	#endregion
 }
