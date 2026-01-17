@@ -3,11 +3,13 @@ namespace Menees.Chords.Web;
 #region Using Directives
 
 using System.Linq;
+using System.Text;
 using Blazored.LocalStorage;
 using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
 using Menees.Chords.Transformers;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.JSInterop;
 
 #endregion
@@ -15,6 +17,8 @@ using Microsoft.JSInterop;
 public sealed partial class Index : IDisposable
 {
 	#region Private Data Members
+
+	private static readonly Encoding UTF8 = Encoding.UTF8;
 
 	private readonly CancellationTokenSource cts = new();
 
@@ -219,7 +223,7 @@ public sealed partial class Index : IDisposable
 	private async Task DownloadAsync()
 	{
 		// https://www.meziantou.net/generating-and-downloading-a-file-in-a-blazor-webassembly-application.htm
-		byte[] fileBytes = System.Text.Encoding.UTF8.GetBytes(this.output);
+		byte[] fileBytes = UTF8.GetBytes(this.output);
 		string extension = this.toType == "ChordOverLyric" ? ".txt" : ".cho";
 		string fileName = string.IsNullOrEmpty(this.title) ? $"{this.toType}{extension}" : $"{this.title}{extension}";
 		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", fileName, "text/plain", fileBytes);
@@ -233,6 +237,16 @@ public sealed partial class Index : IDisposable
 		{
 			await this.inputElement.Value.FocusAsync();
 		}
+	}
+
+	private async Task LoadFileAsync(InputFileChangeEventArgs e)
+	{
+		// Enforce a max size to avoid out-of-memory on WASM.
+		const long MaxFileSize = 128 * 1024;
+		using var stream = e.File.OpenReadStream(MaxFileSize);
+		using var reader = new StreamReader(stream, UTF8, detectEncodingFromByteOrderMarks: true);
+		this.Input = await reader.ReadToEndAsync();
+		this.StateHasChanged();
 	}
 
 	#endregion

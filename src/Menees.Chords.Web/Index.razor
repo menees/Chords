@@ -12,6 +12,13 @@
                         <option value="General">General</option>
                         <option value="ChordPro">ChordPro</option>
                     </select>
+
+                    <!-- Hidden native file input; label below acts as the visible Bootstrap button -->
+                    <InputFile id="fileInput" OnChange="LoadFileAsync" accept=".txt,.cho,.crd,.chordpro" style="display:none" />
+                    <label class="btn btn-secondary text-nowrap" for="fileInput" role="button" aria-label="Open">
+                        <i class="oi oi-data-transfer-upload"></i><span class="d-none d-lg-inline"> Open</span>
+                    </label>
+
                     <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync" aria-label="Clean">
                         <i class="oi oi-collapse-down"></i><span class="d-none d-lg-inline"> Clean</span>
                     </button>
