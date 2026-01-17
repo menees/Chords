@@ -7,15 +7,16 @@
         <div class="col d-flex flex-column">
             <div class="row">
                 <div class="d-flex align-items-center gap-2">
-                    <label for="from" class="text-nowrap">Input From:</label>
-                    <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2">
+                    <label for="from" class="text-nowrap">Input:</label>
+                    <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2 min-width">
                         <option value="General">General</option>
                         <option value="ChordPro">ChordPro</option>
                     </select>
-                    <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync">
-                        <i class="oi oi-minus"></i> Scrub
-                    </button>                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput">
-                        <i class="oi oi-share"></i> Convert
+                    <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync" aria-label="Clean">
+                        <i class="oi oi-collapse-down"></i><span class="d-none d-lg-inline"> Clean</span>
+                    </button>
+                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput" aria-label="Convert">
+                        <i class="oi oi-share"></i><span class="d-none d-lg-inline"> Convert</span>
                     </button>
                     <div class="form-check form-switch">
                         <input id="whenTyping" type="checkbox" class="form-check-input" @bind="WhenTyping" @bind:event="onchange" />
@@ -33,17 +34,17 @@
         <div class="col d-flex flex-column">
             <div class="row">
                 <div class="d-flex align-items-center gap-2">
-                    <label for="to" class="text-nowrap">Output To:</label>
-                    <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2">
+                    <label for="to" class="text-nowrap">Output:</label>
+                    <select id="to" @bind="@ToType" @bind:event="onchange" class="form-select my-2 min-width">
                         <option value="ChordPro">ChordPro</option>
                         <option value="MobileSheets">MobileSheets</option>
                         <option value="ChordOverLyric">Chords Over Text</option>
                     </select>
-                    <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled>
-                        <i class="@copyState.ImageClass"></i> @copyState.Text
+                    <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled aria-label="@copyState.Text">
+                        <i class="@copyState.ImageClass"></i><span class="d-none d-lg-inline"> @copyState.Text</span>
                     </button>
-                    <button class="btn btn-secondary text-nowrap" @onclick="DownloadAsync">
-                        <i class="oi oi-data-transfer-download"></i> Download
+                    <button class="btn btn-secondary text-nowrap" @onclick="DownloadAsync" aria-label="Save">
+                        <i class="oi oi-data-transfer-download"></i><span class="d-none d-lg-inline"> Save</span>
                     </button>
                 </div>
             </div>
