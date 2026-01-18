@@ -22,7 +22,7 @@ public sealed partial class Index : IDisposable
 
 	private readonly CancellationTokenSource cts = new();
 
-	private string fromType = "General";
+	private Parser fromType = Parser.General;
 	private Transformer toType = Transformer.ChordPro;
 	private string input = string.Empty;
 	private string output = string.Empty;
@@ -30,6 +30,16 @@ public sealed partial class Index : IDisposable
 	private CopyState copyState = new("Copy", IconName.Copy, "btn-secondary");
 	private ElementReference? inputElement;
 	private Document? outputDocument;
+
+	#endregion
+
+	#region Private Enums
+
+	private enum Parser
+	{
+		General,
+		ChordPro,
+	}
 
 	#endregion
 
@@ -47,20 +57,6 @@ public sealed partial class Index : IDisposable
 	#endregion
 
 	#region Public Properties
-
-	public string FromType
-	{
-		get => this.fromType;
-		set
-		{
-			if (this.fromType != value)
-			{
-				this.fromType = value;
-				this.Storage.SetItem(nameof(this.fromType), this.fromType);
-				this.ConvertInput();
-			}
-		}
-	}
 
 	public string Input
 	{
@@ -118,6 +114,20 @@ public sealed partial class Index : IDisposable
 
 	#region Private Properties
 
+	private Parser FromType
+	{
+		get => this.fromType;
+		set
+		{
+			if (this.fromType != value)
+			{
+				this.fromType = value;
+				this.Storage.SetItem(nameof(this.fromType), this.fromType);
+				this.ConvertInput();
+			}
+		}
+	}
+
 	// IntelliSense kept showing an error if this was inlined in the @bind:event syntax.
 	private string InputChangeEvent => this.whenTyping ? "oninput" : "onchange";
 
@@ -139,12 +149,20 @@ public sealed partial class Index : IDisposable
 	{
 		if (this.Storage.ContainKey(nameof(this.fromType)))
 		{
-			this.fromType = this.Storage.GetItem<string>(nameof(this.fromType)) ?? this.fromType;
+			// Old versions stored fromType as a string; new versions use an int (for the enum).
+			// GetItem<Parser> throws a JsonException if it finds a string, so we'll use
+			// Enum.TryParse, which can handle either format.
+			string? fromType = this.Storage.GetItem<string>(nameof(this.fromType));
+			this.fromType = Enum.TryParse(fromType, out Parser parsed) ? parsed : this.fromType;
 		}
 
 		if (this.Storage.ContainKey(nameof(this.toType)))
 		{
-			this.toType = this.Storage.GetItem<Transformer>(nameof(this.toType));
+			// Old versions stored toType as a string; new versions use an int (for the enum).
+			// GetItem<Transformer> throws a JsonException if it finds a string, so we'll use
+			// Enum.TryParse, which can handle either format.
+			string? toType = this.Storage.GetItem<string>(nameof(this.toType));
+			this.toType = Enum.TryParse(toType, out Transformer parsed) ? parsed : this.toType;
 		}
 
 		if (this.Storage.ContainKey(nameof(this.whenTyping)))
@@ -172,11 +190,12 @@ public sealed partial class Index : IDisposable
 	{
 		if (string.IsNullOrWhiteSpace(this.input))
 		{
+			this.outputDocument = null;
 			this.output = string.Empty;
 		}
 		else
 		{
-			DocumentParser parser = new(this.fromType == "ChordPro"
+			DocumentParser parser = new(this.fromType == Parser.ChordPro
 				? DocumentParser.ChordProLineParsers
 				: DocumentParser.DefaultLineParsers);
 			Document inputDocument = Document.Parse(this.input, parser);
@@ -189,8 +208,9 @@ public sealed partial class Index : IDisposable
 			this.outputDocument = transformer.Transform().Document;
 			TextFormatter formatter = new(this.outputDocument);
 			this.output = formatter.ToString();
-			this.StateHasChanged();
 		}
+
+		this.StateHasChanged();
 	}
 
 	private async Task CopyToClipboardAsync()
@@ -233,25 +253,34 @@ public sealed partial class Index : IDisposable
 		{
 			IReadOnlyList<Entry> flattenedOutputEntries = DocumentTransformer.Flatten(this.outputDocument.Entries);
 			List<ChordProDirectiveLine> directives = [.. flattenedOutputEntries.OfType<ChordProDirectiveLine>()];
-
-			string? title = TryGetDirectiveArgument(nameof(title));
-			string? artist = TryGetDirectiveArgument(nameof(artist));
-
-			string? TryGetDirectiveArgument(string longName)
+			static string? TryGetDirectiveArgument(List<ChordProDirectiveLine> directives, string longName)
 				=> directives.FirstOrDefault(directive => directive.LongName.Equals(longName, ChordParser.Comparison))?.Argument;
 
+			string? title = TryGetDirectiveArgument(directives, nameof(title));
 			sb.Append(title);
 
-			if (sb.Length > 0 && !string.IsNullOrEmpty(artist))
+			string? artist = TryGetDirectiveArgument(directives, nameof(artist));
+			if (!string.IsNullOrEmpty(artist))
 			{
-				sb.Append(" - ");
-			}
+				if (sb.Length > 0)
+				{
+					sb.Append(" - ");
+				}
 
-			sb.Append(artist);
+				sb.Append(artist);
+			}
 
 			if (sb.Length == 0 && flattenedOutputEntries.Count > 0)
 			{
-				sb.Append(flattenedOutputEntries[0]);
+				// If there was a usable DirectiveLine or TitleLine, the logic above would have used it.
+				LyricLine? lyrics = flattenedOutputEntries.Select(entry => entry switch
+				{
+					ChordProLyricLine chordProLyricLine => chordProLyricLine.Split().Lyrics,
+					LyricLine lyricLine => lyricLine,
+					_ => null,
+				}).FirstOrDefault(line => line is not null);
+
+				sb.Append(lyrics);
 			}
 		}
 

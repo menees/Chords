@@ -9,8 +9,8 @@
                 <div class="d-flex align-items-center gap-2">
                     <label for="from" class="text-nowrap">Input:</label>
                     <select id="from" @bind="@FromType" @bind:event="onchange" class="form-select my-2 min-width">
-                        <option value="General">General</option>
-                        <option value="ChordPro">ChordPro</option>
+                        <option value="@Parser.General">General</option>
+                        <option value="@Parser.ChordPro">ChordPro</option>
                     </select>
 
                     <!-- Hidden native file input; label below acts as the visible Bootstrap button -->
