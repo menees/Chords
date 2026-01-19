@@ -17,18 +17,24 @@
                     <InputFile id="fileInput" OnChange="OpenAsync" style="display:none"
                         accept=".txt,.tab,.cho,.crd,.pro,.cpm,.chopro,.chord,.chordpro"  />
                     <label class="btn btn-secondary text-nowrap" for="fileInput" role="button" aria-label="Open">
-                        <Icon Name="IconName.Open" /><span class="d-none d-lg-inline"> Open</span>
+                        <Icon Name="IconName.Open" /><span class="d-none d-xl-inline"> Open</span>
                     </label>
 
                     <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync" aria-label="Clean">
-                        <Icon Name="IconName.Clean" /><span class="d-none d-lg-inline"> Clean</span>
+                        <Icon Name="IconName.Clean" /><span class="d-none d-xl-inline"> Clean</span>
                     </button>
                     <button class="btn btn-primary text-nowrap" @onclick="ConvertInput" aria-label="Convert">
-                        <Icon Name="IconName.Convert" /><span class="d-none d-lg-inline"> Convert</span>
+                        <Icon Name="IconName.Convert" /><span class="d-none d-xl-inline"> Convert</span>
                     </button>
-                    <div class="form-check form-switch">
-                        <input id="whenTyping" type="checkbox" class="form-check-input" @bind="WhenTyping" @bind:event="onchange" />
-                        <label for="whenTyping" class="form-check-label text-nowrap">When Typing</label>
+                    <div class="d-flex flex-column">
+                        <div class="form-check form-check">
+                            <input id="whenTyping" type="checkbox" class="form-check-input" @bind="WhenTyping" @bind:event="onchange" />
+                            <label for="whenTyping" class="form-check-label text-nowrap">When Typing</label>
+                        </div>
+                        <div class="form-check form-check">
+                            <input id="longNames" type="checkbox" class="form-check-input" @bind="LongNames" @bind:event="onchange" />
+                            <label for="longNames" class="form-check-label text-nowrap">To Long Names</label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -49,10 +55,10 @@
                         <option value="@Transformer.ChordOverLyric">Chords Over Text</option>
                     </select>
                     <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled aria-label="@copyState.Text">
-                        <Icon Name="@copyState.IconName" /><span class="d-none d-lg-inline"> @copyState.Text</span>
+                        <Icon Name="@copyState.IconName" /><span class="d-none d-xl-inline"> @copyState.Text</span>
                     </button>
                     <button class="btn btn-secondary text-nowrap" @onclick="SaveAsync" aria-label="Save">
-                        <Icon Name="IconName.Save" /><span class="d-none d-lg-inline"> Save</span>
+                        <Icon Name="IconName.Save" /><span class="d-none d-xl-inline"> Save</span>
                     </button>
                 </div>
             </div>

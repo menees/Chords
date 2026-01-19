@@ -29,6 +29,7 @@ internal sealed class ConvertCommand : BaseCommand
 	private readonly bool overwrite;
 	private readonly Formats format;
 	private readonly bool clean;
+	private readonly bool? preferLongNames;
 
 	#endregion
 
@@ -43,7 +44,8 @@ internal sealed class ConvertCommand : BaseCommand
 		FileInfo? output,
 		bool overwrite,
 		Formats format,
-		bool clean)
+		bool clean,
+		bool? preferLongNames)
 		: base(parseResult)
 	{
 		this.input = input;
@@ -55,6 +57,7 @@ internal sealed class ConvertCommand : BaseCommand
 		this.overwrite = overwrite;
 		this.format = format;
 		this.clean = clean;
+		this.preferLongNames = preferLongNames;
 	}
 
 	#endregion
@@ -90,13 +93,7 @@ internal sealed class ConvertCommand : BaseCommand
 		};
 		result.Add(inputArgument);
 
-		Option<FileInfo> outputOption = new("--output", "-o") { Description = "The output file name. Omit to write to stdout." };
-		result.Add(outputOption);
-
-		Option<bool> overwriteOption = new("--overwrite", "-y") { Description = "Whether to overwrite the output file if it already exists." };
-		result.Add(overwriteOption);
-
-		Option<bool> cleanOption = new("--clean", "-c") { Description = "Whether to clean (i.e., scrub) the input lines before parsing." };
+		Option<bool> cleanOption = new("--clean", "-c") { Description = "Clean the input lines before parsing." };
 		result.Add(cleanOption);
 
 		Option<Parsers> parseOption = new("--parse", "-p")
@@ -113,12 +110,26 @@ internal sealed class ConvertCommand : BaseCommand
 		};
 		result.Add(transformOption);
 
+		Option<NullableBool> longOption = new("--longNames", "-l")
+		{
+			DefaultValueFactory = _ => NullableBool.Null,
+			Description = "Prefer long ChordPro directive names.",
+			CustomParser = NullableBoolExtensions.ToNullableBool,
+		};
+		result.Add(longOption);
+
 		Option<Formats> formatOption = new("--format", "-f")
 		{
 			DefaultValueFactory = _ => Formats.Text,
 			Description = "How the output should be formatted.",
 		};
 		result.Add(formatOption);
+
+		Option<FileInfo> outputOption = new("--output", "-o") { Description = "The output file name. Omit to write to stdout." };
+		result.Add(outputOption);
+
+		Option<bool> overwriteOption = new("--overwrite", "-y") { Description = "Overwrite the output file if it already exists." };
+		result.Add(overwriteOption);
 
 		const string DefaultEncoding = "UTF-8";
 		Option<string[]?> encodingOption = new("--encoding", "-e")
@@ -147,8 +158,9 @@ internal sealed class ConvertCommand : BaseCommand
 			bool overwrite = GetOptionValue(parseResult, overwriteOption);
 			Formats format = GetOptionValue(parseResult, formatOption);
 			bool clean = GetOptionValue(parseResult, cleanOption);
+			bool? preferLongNames = GetOptionValue(parseResult, longOption).ToStandardType();
 
-			ConvertCommand command = new(parseResult, input, parsers, transformers, encodings, output, overwrite, format, clean);
+			ConvertCommand command = new(parseResult, input, parsers, transformers, encodings, output, overwrite, format, clean, preferLongNames);
 			return command.ExecuteAsync(cancellationToken);
 		});
 
@@ -209,9 +221,9 @@ internal sealed class ConvertCommand : BaseCommand
 	{
 		DocumentTransformer transformer = this.transformer switch
 		{
-			Transformer.MobileSheets => new MobileSheetsTransformer(inputDocument),
+			Transformer.MobileSheets => new MobileSheetsTransformer(inputDocument, this.preferLongNames),
 			Transformer.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
-			_ => new ChordProTransformer(inputDocument),
+			_ => new ChordProTransformer(inputDocument, this.preferLongNames),
 		};
 		Document outputDocument = transformer.Transform().Document;
 		return outputDocument;

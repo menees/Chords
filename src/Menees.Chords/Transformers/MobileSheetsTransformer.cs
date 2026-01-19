@@ -44,7 +44,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			else
 			{
 				// MobileSheets doesn't support {chord} or {define} directives as of v3.8.12 (2023-08-15).
-				supportedInput.Add(ChordProDirectiveLine.Create("comment", definitions.ToString(), false));
+				supportedInput.Add(ChordProDirectiveLine.Create("comment", definitions.ToString(), this.PreferLongNames, false));
 			}
 		}
 

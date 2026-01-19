@@ -4,7 +4,8 @@
 
 using System;
 using System.Collections.Generic;
-using System.Text;
+using System.Diagnostics.CodeAnalysis;
+using Menees.Chords.Parsers;
 
 #endregion
 
@@ -14,6 +15,45 @@ using System.Text;
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/#conditional-directives"/>
 public sealed class ChordProDirectiveName : IEquatable<ChordProDirectiveName>
 {
+	#region Private Data Members
+
+	private static readonly StringComparer Comparer = ChordParser.Comparer;
+
+	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(Comparer)
+	{
+		{ "chordfont", "cf" },
+		{ "chordsize", "cs" },
+		{ "column_break", "colb" },
+		{ "columns", "col" },
+		{ "comment", "c" },
+		{ "comment_box", "cb" },
+		{ "comment_italic", "ci" },
+		{ "end_of_bridge", "eob" },
+		{ "end_of_chorus", "eoc" },
+		{ "end_of_grid", "eog" },
+		{ "end_of_tab", "eot" },
+		{ "end_of_verse", "eov" },
+		{ "grid", "g" },
+		{ "new_page", "np" },
+		{ "new_physical_page", "npp" },
+		{ "new_song", "ns" },
+		{ "no_grid", "ng" },
+		{ "start_of_bridge", "sob" },
+		{ "start_of_chorus", "soc" },
+		{ "start_of_grid", "sog" },
+		{ "start_of_tab", "sot" },
+		{ "start_of_verse", "sov" },
+		{ "subtitle", "st" },
+		{ "textfont", "tf" },
+		{ "textsize", "ts" },
+		{ "title", "t" },
+	};
+
+	private static readonly Dictionary<string, string> ShortNameToLongNameMap = LongNameToShortNameMap
+		.ToDictionary(pair => pair.Value, pair => pair.Key, LongNameToShortNameMap.Comparer);
+
+	#endregion
+
 	#region Constructors
 
 	internal ChordProDirectiveName(string name, string? selector = null, bool invertSelection = false)
@@ -21,6 +61,9 @@ public sealed class ChordProDirectiveName : IEquatable<ChordProDirectiveName>
 		this.Name = name;
 		this.Selector = selector;
 		this.InvertSelection = invertSelection;
+
+		this.LongName = ShortNameToLongNameMap.TryGetValue(this.Name, out string? longName) ? longName : this.Name;
+		this.ShortName = LongNameToShortNameMap.TryGetValue(this.Name, out string? shortName) ? shortName : this.Name;
 	}
 
 	#endregion
@@ -44,6 +87,16 @@ public sealed class ChordProDirectiveName : IEquatable<ChordProDirectiveName>
 	/// This is indicated with a '!' prefix after the dash and before the <see cref="Selector"/>.
 	/// </remarks>
 	public bool InvertSelection { get; }
+
+	/// <summary>
+	/// Gets the directive's long name form or <see cref="Name"/>.
+	/// </summary>
+	public string LongName { get; }
+
+	/// <summary>
+	/// Gets the directive's short name form or <see cref="Name"/>.
+	/// </summary>
+	public string ShortName { get; }
 
 	#endregion
 
@@ -93,6 +146,23 @@ public sealed class ChordProDirectiveName : IEquatable<ChordProDirectiveName>
 	/// </returns>
 	internal ChordProDirectiveName Rename(string name)
 		=> new(name, this.Selector, this.InvertSelection);
+
+	internal bool TryGetPreferredName(bool? preferLongNames, [NotNullWhen(true)] out ChordProDirectiveName? preferred)
+	{
+		bool result = false;
+		preferred = null;
+
+		if (preferLongNames is not null
+			&& !this.ShortName.Equals(this.LongName, ChordParser.Comparison)
+			&& ((preferLongNames.Value && !this.Name.Equals(this.LongName, ChordParser.Comparison))
+				|| (!preferLongNames.Value && !this.Name.Equals(this.ShortName, ChordParser.Comparison))))
+		{
+			preferred = this.Rename(preferLongNames.Value ? this.LongName : this.ShortName);
+			result = true;
+		}
+
+		return result;
+	}
 
 	#endregion
 }

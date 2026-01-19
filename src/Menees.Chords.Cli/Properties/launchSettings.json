@@ -21,7 +21,7 @@
 		},
 		"Convert \"Alone With You\" MobileSheets": {
 			"commandName": "Project",
-			"commandLineArgs": "convert \"../../../../../tests/Menees.Chords.Tests/Samples/Alone With You.txt\" --overwrite --clean --transform MobileSheets"
+			"commandLineArgs": "convert \"../../../../../tests/Menees.Chords.Tests/Samples/Alone With You.txt\" --overwrite --clean --transform MobileSheets --longNames 0"
 		},
 		"[WSL]": {
 			"commandName": "WSL2",

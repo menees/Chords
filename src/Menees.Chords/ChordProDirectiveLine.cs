@@ -2,11 +2,11 @@
 
 #region Using Directives
 
-using System.Collections.ObjectModel;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using Menees.Chords.Parsers;
+using Menees.Chords.Transformers;
 
 #endregion
 
@@ -36,41 +36,6 @@ public sealed class ChordProDirectiveLine : Entry
 
 	private static readonly Regex DirectiveRegex = new(DirectiveLinePattern, RegexOptions.Compiled);
 
-	private static readonly StringComparer Comparer = ChordParser.Comparer;
-
-	private static readonly Dictionary<string, string> LongNameToShortNameMap = new(Comparer)
-	{
-		{ "chordfont", "cf" },
-		{ "chordsize", "cs" },
-		{ "column_break", "colb" },
-		{ "columns", "col" },
-		{ "comment", "c" },
-		{ "comment_box", "cb" },
-		{ "comment_italic", "ci" },
-		{ "end_of_bridge", "eob" },
-		{ "end_of_chorus", "eoc" },
-		{ "end_of_grid", "eog" },
-		{ "end_of_tab", "eot" },
-		{ "end_of_verse", "eov" },
-		{ "grid", "g" },
-		{ "new_page", "np" },
-		{ "new_physical_page", "npp" },
-		{ "new_song", "ns" },
-		{ "no_grid", "ng" },
-		{ "start_of_bridge", "sob" },
-		{ "start_of_chorus", "soc" },
-		{ "start_of_grid", "sog" },
-		{ "start_of_tab", "sot" },
-		{ "start_of_verse", "sov" },
-		{ "subtitle", "st" },
-		{ "textfont", "tf" },
-		{ "textsize", "ts" },
-		{ "title", "t" },
-	};
-
-	private static readonly Dictionary<string, string> ShortNameToLongNameMap = LongNameToShortNameMap
-		.ToDictionary(pair => pair.Value, pair => pair.Key, LongNameToShortNameMap.Comparer);
-
 	#endregion
 
 	#region Constructors
@@ -79,17 +44,6 @@ public sealed class ChordProDirectiveLine : Entry
 	{
 		this.QualifiedName = name;
 		this.Args = args;
-
-		this.LongName = this.Name;
-		this.ShortName = this.Name;
-		if (LongNameToShortNameMap.TryGetValue(this.Name, out string? shortName))
-		{
-			this.ShortName = shortName;
-		}
-		else if (ShortNameToLongNameMap.TryGetValue(this.Name, out string? longName))
-		{
-			this.LongName = longName;
-		}
 	}
 
 	#endregion
@@ -121,12 +75,12 @@ public sealed class ChordProDirectiveLine : Entry
 	/// <summary>
 	/// Gets the directive's long name form or <see cref="Name"/>.
 	/// </summary>
-	public string LongName { get; }
+	public string LongName => this.QualifiedName.LongName;
 
 	/// <summary>
 	/// Gets the directive's short name form or <see cref="Name"/>.
 	/// </summary>
-	public string ShortName { get; }
+	public string ShortName => this.QualifiedName.ShortName;
 
 	#endregion
 
@@ -216,7 +170,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 		string name = inline ? "chord" : "define";
 		string argument = arg.ToString();
-		ChordProDirectiveLine result = Create(name, argument, false);
+		ChordProDirectiveLine result = Create(name, argument, null, false);
 		return result;
 	}
 
@@ -225,9 +179,7 @@ public sealed class ChordProDirectiveLine : Entry
 	/// </summary>
 	/// <param name="header">The header to convert.</param>
 	/// <param name="preferLongNames">How ChordPro directive names should be converted to text.
-	/// If null, then <see cref="Name"/> will be used if available or a long name will be generated.
-	/// If true, then <see cref="LongName"/> will be used.
-	/// If false, then <see cref="ShortName"/> will be used.</param>
+	/// See <see cref="ChordProTransformer(Document, bool?)"/> for more information.</param>
 	/// <returns>A pair of new start and end directive instances.</returns>
 	/// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/#environment-directives"/>
 	public static (ChordProDirectiveLine Start, ChordProDirectiveLine End) Convert(HeaderLine header, bool? preferLongNames)
@@ -242,13 +194,11 @@ public sealed class ChordProDirectiveLine : Entry
 			: StartsWith("Verse") ? "verse"
 			: "bridge";
 
-		string startName = preferLongNames ?? true ? $"start_of_{suffix}" : $"so{suffix[0]}";
-		string endName = preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
 		string? startArgument = header.Text.Equals(suffix, comparison) ? null : header.Text;
 
-		ChordProDirectiveLine start = Create(startName, startArgument);
+		ChordProDirectiveLine start = Create($"start_of_{suffix}", startArgument, preferLongNames);
 		start.AddAnnotations(header.Annotations);
-		ChordProDirectiveLine end = Create(endName, null, false);
+		ChordProDirectiveLine end = Create($"end_of_{suffix}", null, preferLongNames, false);
 		return (start, end);
 	}
 
@@ -256,11 +206,13 @@ public sealed class ChordProDirectiveLine : Entry
 	/// Converts a metadata entry to a ChordPro directive.
 	/// </summary>
 	/// <param name="metadata">The metadata entry to convert.</param>
+	/// <param name="preferLongNames">How ChordPro directive names should be converted to text.
+	/// See <see cref="ChordProTransformer(Document, bool?)"/> for more information.</param>
 	/// <returns>A new directive instance using <paramref name="metadata"/>'s name and argument.</returns>
-	public static ChordProDirectiveLine Convert(MetadataEntry metadata)
+	public static ChordProDirectiveLine Convert(MetadataEntry metadata, bool? preferLongNames = null)
 	{
 		Conditions.RequireNonNull(metadata);
-		ChordProDirectiveLine result = Create(metadata.Name, metadata.Argument);
+		ChordProDirectiveLine result = Create(metadata.Name, metadata.Argument, preferLongNames);
 		return result;
 	}
 
@@ -280,8 +232,16 @@ public sealed class ChordProDirectiveLine : Entry
 
 	#region Internal Methods
 
-	internal static ChordProDirectiveLine Create(string name, string? argument, bool tryParseArgument = true)
-		=> Create(new ChordProDirectiveName(name), new ChordProDirectiveArgs(argument, tryParseArgument));
+	internal static ChordProDirectiveLine Create(string name, string? argument, bool? preferLongNames, bool tryParseArgument = true)
+	{
+		ChordProDirectiveName qualifiedName = new(name);
+		if (qualifiedName.TryGetPreferredName(preferLongNames, out ChordProDirectiveName? preferred))
+		{
+			qualifiedName = preferred;
+		}
+
+		return Create(qualifiedName, new ChordProDirectiveArgs(argument, tryParseArgument));
+	}
 
 	internal static ChordProDirectiveLine Create(ChordProDirectiveName name, string? argument, bool tryParseArgument = true)
 		=> Create(name, new ChordProDirectiveArgs(argument, tryParseArgument));

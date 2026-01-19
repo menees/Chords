@@ -24,9 +24,12 @@ public class ChordProTransformer : DocumentTransformer
 	/// </summary>
 	/// <param name="document">The document to transform.</param>
 	/// <param name="preferLongNames">How ChordPro directive names should be converted to text.
-	/// If null, then <see cref="ChordProDirectiveLine.Name"/> will be used if available or a long name will be generated.
 	/// If true, then <see cref="ChordProDirectiveLine.LongName"/> will be used.
-	/// If false, then <see cref="ChordProDirectiveLine.ShortName"/> will be used.</param>
+	/// If false, then <see cref="ChordProDirectiveLine.ShortName"/> will be used.
+	/// If null, then <see cref="ChordProDirectiveLine.Name"/> will be used as-is if a ChordPro directive is already
+	/// declared in <paramref name="document"/>, or a long directive name will be used if a new ChordPro directive
+	/// is generated during conversion, e.g., converting a <c>[Chorus]</c> <see cref="HeaderLine"/> to <c>start_of_chorus</c>.
+	/// </param>
 	public ChordProTransformer(Document document, bool? preferLongNames = null)
 		: base(document)
 	{
@@ -43,6 +46,18 @@ public class ChordProTransformer : DocumentTransformer
 		Implicit,
 		Explicit,
 	}
+
+	#endregion
+
+	#region Protected Properties
+
+	/// <summary>
+	/// Gets whether long names should be preferred over short names for ChordPro directives.
+	/// </summary>
+	/// <remarks>
+	/// See <see cref="ChordProTransformer(Document, bool?)"/> for more information.
+	/// </remarks>
+	protected bool? PreferLongNames => this.preferLongNames;
 
 	#endregion
 
@@ -101,7 +116,7 @@ public class ChordProTransformer : DocumentTransformer
 					}
 					else
 					{
-						this.Add(output, ChordProDirectiveLine.Create("comment", comment.Text), comment.Annotations);
+						this.Add(output, ChordProDirectiveLine.Create("comment", comment.Text, this.preferLongNames), comment.Annotations);
 					}
 
 					break;
@@ -136,13 +151,13 @@ public class ChordProTransformer : DocumentTransformer
 					break;
 
 				case MetadataEntry metadata:
-					this.Add(output, ChordProDirectiveLine.Convert(metadata));
+					this.Add(output, ChordProDirectiveLine.Convert(metadata, this.preferLongNames));
 					break;
 
 				case TitleLine title:
 					foreach (MetadataEntry titleMetadata in title.Metadata)
 					{
-						this.Add(output, ChordProDirectiveLine.Convert(titleMetadata));
+						this.Add(output, ChordProDirectiveLine.Convert(titleMetadata, this.preferLongNames));
 					}
 
 					break;
@@ -150,6 +165,14 @@ public class ChordProTransformer : DocumentTransformer
 				case UriLine uri:
 					this.Add(output, new ChordProRemarkLine("# " + uri.Text));
 					this.AddAnnotations(output, uri.Annotations);
+					break;
+
+				case ChordProDirectiveLine directive:
+					directive = directive.QualifiedName.TryGetPreferredName(
+						this.preferLongNames, out ChordProDirectiveName? preferred)
+							? ChordProDirectiveLine.Create(preferred, directive.Args)
+							: directive;
+					this.Add(output, directive);
 					break;
 
 				default:
@@ -219,8 +242,7 @@ public class ChordProTransformer : DocumentTransformer
 				case T target:
 					if (environment == Environment.None)
 					{
-						string startName = this.preferLongNames ?? true ? $"start_of_{suffix}" : $"so{suffix[0]}";
-						result.Add(ChordProDirectiveLine.Create(startName, null, false));
+						result.Add(ChordProDirectiveLine.Create($"start_of_{suffix}", null, this.preferLongNames, false));
 						environment = Environment.Implicit;
 					}
 
@@ -267,8 +289,7 @@ public class ChordProTransformer : DocumentTransformer
 		{
 			if (environment == Environment.Implicit)
 			{
-				string endName = this.preferLongNames ?? true ? $"end_of_{suffix}" : $"eo{suffix[0]}";
-				result.Add(ChordProDirectiveLine.Create(endName, null, false));
+				result.Add(ChordProDirectiveLine.Create($"end_of_{suffix}", null, this.preferLongNames, false));
 				environment = Environment.None;
 			}
 		}

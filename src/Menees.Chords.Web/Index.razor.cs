@@ -27,6 +27,7 @@ public sealed partial class Index : IDisposable
 	private string input = string.Empty;
 	private string output = string.Empty;
 	private bool whenTyping = true;
+	private bool longNames = true;
 	private CopyState copyState = new("Copy", IconName.Copy, "btn-secondary");
 	private ElementReference? inputElement;
 	private Document? outputDocument;
@@ -71,6 +72,20 @@ public sealed partial class Index : IDisposable
 				{
 					this.ConvertInput();
 				}
+			}
+		}
+	}
+
+	public bool LongNames
+	{
+		get => this.longNames;
+		set
+		{
+			if (this.longNames != value)
+			{
+				this.longNames = value;
+				this.Storage.SetItem(nameof(this.longNames), this.longNames);
+				this.ConvertInput();
 			}
 		}
 	}
@@ -165,6 +180,11 @@ public sealed partial class Index : IDisposable
 			this.toType = Enum.TryParse(toType, out Transformer parsed) ? parsed : this.toType;
 		}
 
+		if (this.Storage.ContainKey(nameof(this.longNames)))
+		{
+			this.longNames = this.Storage.GetItem<bool>(nameof(this.longNames));
+		}
+
 		if (this.Storage.ContainKey(nameof(this.whenTyping)))
 		{
 			this.whenTyping = this.Storage.GetItem<bool>(nameof(this.whenTyping));
@@ -201,9 +221,9 @@ public sealed partial class Index : IDisposable
 			Document inputDocument = Document.Parse(this.input, parser);
 			DocumentTransformer transformer = this.toType switch
 			{
-				Transformer.MobileSheets => new MobileSheetsTransformer(inputDocument),
+				Transformer.MobileSheets => new MobileSheetsTransformer(inputDocument, this.longNames),
 				Transformer.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
-				_ => new ChordProTransformer(inputDocument),
+				_ => new ChordProTransformer(inputDocument, this.longNames),
 			};
 			this.outputDocument = transformer.Transform().Document;
 			TextFormatter formatter = new(this.outputDocument);

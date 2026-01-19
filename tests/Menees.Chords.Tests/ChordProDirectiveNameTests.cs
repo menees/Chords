@@ -8,17 +8,19 @@ public class ChordProDirectiveNameTests
 	[TestMethod]
 	public void ToStringTest()
 	{
-		Test("start_of_verse", "start_of_verse", null, false);
+		Test("start_of_verse", "start_of_verse", null, false, "sov");
 		Test("define-tenor", "define", "tenor", false);
 		Test("define-!soprano", "define", "soprano", true);
 
-		static void Test(string text, string name, string? selector, bool invertSelection)
+		static void Test(string text, string name, string? selector, bool invertSelection, string? shortName = null, string? longName = null)
 		{
 			var qualifiedName = Create(text);
 			qualifiedName.Name.ShouldBe(name);
 			qualifiedName.Selector.ShouldBe(selector);
 			qualifiedName.InvertSelection.ShouldBe(invertSelection);
 			qualifiedName.ToString().ShouldBe(text);
+			qualifiedName.LongName.ShouldBe(longName ?? name);
+			qualifiedName.ShortName.ShouldBe(shortName ?? name);
 		}
 	}
 

@@ -63,6 +63,46 @@ public class ChordProTransformerTests
 		TestGroupEnvironment<ChordProGridLine>(GridLines, "grid");
 	}
 
+	[TestMethod]
+	public void PreferLongNamesTest()
+	{
+		const string Long = "{comment: Test}";
+		const string Short = "{c: Test}";
+		const string Parenthesized = "(Test)";
+		const string Starred = "** Test";
+
+		Test(null, Long, Long);
+		Test(true, Long, Long);
+		Test(false, Long, Short);
+
+		Test(null, Short, Short);
+		Test(true, Short, Long);
+		Test(false, Short, Short);
+
+		Test(null, Parenthesized, Long);
+		Test(true, Parenthesized, Long);
+		Test(false, Parenthesized, Short);
+
+		Test(null, Starred, Long);
+		Test(true, Starred, Long);
+		Test(false, Starred, Short);
+
+		const string Unknown = "{unknown: Test}";
+		Test(null, Unknown, Unknown);
+		Test(true, Unknown, Unknown);
+		Test(false, Unknown, Unknown);
+
+		static void Test(bool? preferLongNames, string text, string expected)
+		{
+			Document original = Document.Parse(text);
+			DocumentTransformer transformer = new ChordProTransformer(original, preferLongNames);
+			Document converted = transformer.Transform().Document;
+			TextFormatter formatter = new(converted);
+			string actual = formatter.ToString();
+			actual.ShouldBe(expected, text);
+		}
+	}
+
 	#endregion
 
 	#region Internal Methods
