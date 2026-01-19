@@ -233,14 +233,14 @@ public sealed partial class Index : IDisposable
 		this.StateHasChanged();
 	}
 
-	private async Task CopyToClipboardAsync()
+	private async Task CopyToClipboardAsync(string text, string? elementId)
 	{
-		// Writing to the clipboard may be denied, so you must handle the exception
+		// Writing to the clipboard may be denied, so we must handle the exception
 		var temp = this.copyState;
 		try
 		{
 			this.copyState = new("Copied", IconName.Success, "btn-success", IsDisabled: true);
-			await this.JavaScript.InvokeVoidAsync("CopyOutputToClipboard", this.output);
+			await this.JavaScript.InvokeVoidAsync("CopyToClipboard", text, elementId);
 		}
 		catch (JSException ex)
 		{
@@ -258,6 +258,12 @@ public sealed partial class Index : IDisposable
 			this.copyState = temp;
 		}
 	}
+
+	private Task CopyOutputToClipboardAsync()
+		=> this.CopyToClipboardAsync(this.output, "output");
+
+	private Task CopyFileNameToClipboardAsync()
+		=> this.CopyToClipboardAsync(this.GetFileName(), null);
 
 	private async Task SaveAsync()
 	{

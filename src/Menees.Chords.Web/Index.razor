@@ -16,15 +16,15 @@
                     <!-- Hidden native file input; label below acts as the visible Bootstrap button -->
                     <InputFile id="fileInput" OnChange="OpenAsync" style="display:none"
                         accept=".txt,.tab,.cho,.crd,.pro,.cpm,.chopro,.chord,.chordpro"  />
-                    <label class="btn btn-secondary text-nowrap" for="fileInput" role="button" aria-label="Open">
-                        <Icon Name="IconName.Open" /><span class="d-none d-xl-inline"> Open</span>
+                    <label class="btn btn-primary text-nowrap" for="fileInput" role="button" aria-label="Open">
+                        <Icon Name="IconName.Open" /><span class="d-none d-xl-inline ps-1"> Open</span>
                     </label>
 
                     <button class="btn btn-secondary text-nowrap" @onclick="CleanInputAsync" aria-label="Clean">
-                        <Icon Name="IconName.Clean" /><span class="d-none d-xl-inline"> Clean</span>
+                        <Icon Name="IconName.Clean" /><span class="d-none d-xl-inline ps-1"> Clean</span>
                     </button>
-                    <button class="btn btn-primary text-nowrap" @onclick="ConvertInput" aria-label="Convert">
-                        <Icon Name="IconName.Convert" /><span class="d-none d-xl-inline"> Convert</span>
+                    <button class="btn btn-secondary text-nowrap" @onclick="ConvertInput" aria-label="Convert">
+                        <Icon Name="IconName.Convert" /><span class="d-none d-xl-inline ps-1"> Convert</span>
                     </button>
                     <div class="d-flex flex-column">
                         <div class="form-check form-check">
@@ -54,11 +54,30 @@
                         <option value="@Transformer.MobileSheets">MobileSheets</option>
                         <option value="@Transformer.ChordOverLyric">Chords Over Text</option>
                     </select>
-                    <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyToClipboardAsync" disabled=@copyState.IsDisabled aria-label="@copyState.Text">
-                        <Icon Name="@copyState.IconName" /><span class="d-none d-xl-inline"> @copyState.Text</span>
-                    </button>
-                    <button class="btn btn-secondary text-nowrap" @onclick="SaveAsync" aria-label="Save">
-                        <Icon Name="IconName.Save" /><span class="d-none d-xl-inline"> Save</span>
+                    <div class="btn-group">
+                        <button class="btn @copyState.ButtonClass text-nowrap" @onclick="CopyOutputToClipboardAsync" disabled=@copyState.IsDisabled aria-label="@copyState.Text">
+                            <Icon Name="@copyState.IconName" /><span class="d-none d-xl-inline ps-1"> @copyState.Text</span>
+                        </button>
+                        <button class="btn @copyState.ButtonClass dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="visually-hidden">Toggle Dropdown</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#" @onclick="CopyOutputToClipboardAsync">
+                                    <Icon Name="IconName.CopyDocument" />
+                                    <span class="ps-1">Copy Output</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="#" @onclick="CopyFileNameToClipboardAsync">
+                                    <Icon Name="IconName.CopyDetail" />
+                                    <span class="ps-1">Copy File Name</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <button class="btn btn-primary text-nowrap" @onclick="SaveAsync" aria-label="Save">
+                        <Icon Name="IconName.Save" /><span class="d-none d-xl-inline ps-1"> Save</span>
                     </button>
                 </div>
             </div>

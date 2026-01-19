@@ -17,15 +17,17 @@ function BlazorDownloadFile(filename, contentType, content) {
 	URL.revokeObjectURL(exportUrl);
 }
 
-function CopyOutputToClipboard(text) {
+function CopyToClipboard(text, elementId) {
 	// The modern navigator.clipboard API is only available in secure contexts (e.g., localhost or HTTPS).
 	// If it's not available, we'll try to fallback to the old way to do it.
 	if (navigator.clipboard) {
 		navigator.clipboard.writeText(text);
 	}
-	else {
-		var output = document.getElementById('output');
-		output.select()
-		document.execCommand('copy');
+	else if (elementId) {
+		var element = document.getElementById(elementId);
+		if (element) {
+			element.select();
+			document.execCommand('copy');
+		}
 	}
 }
