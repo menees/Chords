@@ -120,7 +120,7 @@ public sealed class MetadataEntry : Entry
 
 		if (string.Equals("meta", directive.Name, ChordParser.Comparison))
 		{
-			var attributes = directive.Args.Attributes;
+			IReadOnlyDictionary<string, string> attributes = directive.Args.Attributes;
 			if (attributes.Count >= 2
 				&& attributes.TryGetValue("name", out string? metadataName)
 				&& attributes.TryGetValue("value", out string? metadataValue))

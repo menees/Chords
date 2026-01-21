@@ -18,6 +18,8 @@ public sealed partial class Index : IDisposable
 {
 	#region Private Data Members
 
+	private const string MetaFileName = "filename";
+
 	private static readonly Encoding UTF8 = Encoding.UTF8;
 
 	private readonly CancellationTokenSource cts = new();
@@ -279,34 +281,46 @@ public sealed partial class Index : IDisposable
 		{
 			IReadOnlyList<Entry> flattenedOutputEntries = DocumentTransformer.Flatten(this.outputDocument.Entries);
 			List<ChordProDirectiveLine> directives = [.. flattenedOutputEntries.OfType<ChordProDirectiveLine>()];
-			static string? TryGetDirectiveArgument(List<ChordProDirectiveLine> directives, string longName)
-				=> directives.FirstOrDefault(directive => directive.LongName.Equals(longName, ChordParser.Comparison))?.Argument;
+			const StringComparison Comparison = ChordParser.Comparison;
 
-			string? title = TryGetDirectiveArgument(directives, nameof(title));
-			sb.Append(title);
-
-			string? artist = TryGetDirectiveArgument(directives, nameof(artist));
-			if (!string.IsNullOrEmpty(artist))
+			string? inputFileName = directives.Select(d => MetadataEntry.TryParse(d) is MetadataEntry meta
+					&& meta.Name.Equals(MetaFileName, Comparison) ? meta.Argument : null).FirstOrDefault();
+			if (!string.IsNullOrEmpty(inputFileName) && Path.GetFileNameWithoutExtension(inputFileName) is string nameOnly)
 			{
-				if (sb.Length > 0)
-				{
-					sb.Append(" - ");
-				}
+				sb.Append(nameOnly);
+			}
 
-				sb.Append(artist);
+			if (sb.Length == 0)
+			{
+				static string? TryGetDirectiveArgument(List<ChordProDirectiveLine> directives, string longName)
+					=> directives.FirstOrDefault(directive => directive.LongName.Equals(longName, Comparison))?.Argument;
+
+				string? title = TryGetDirectiveArgument(directives, nameof(title));
+				sb.Append(title);
+
+				string? artist = TryGetDirectiveArgument(directives, nameof(artist));
+				if (!string.IsNullOrEmpty(artist))
+				{
+					if (sb.Length > 0)
+					{
+						sb.Append(" - ");
+					}
+
+					sb.Append(artist);
+				}
 			}
 
 			if (sb.Length == 0 && flattenedOutputEntries.Count > 0)
 			{
 				// If there was a usable DirectiveLine or TitleLine, the logic above would have used it.
-				LyricLine? lyrics = flattenedOutputEntries.Select(entry => entry switch
+				string? firstLyrics = flattenedOutputEntries.Select(entry => entry switch
 				{
 					ChordProLyricLine chordProLyricLine => chordProLyricLine.Split().Lyrics,
 					LyricLine lyricLine => lyricLine,
 					_ => null,
-				}).FirstOrDefault(line => line is not null);
+				}).FirstOrDefault(line => line is not null)?.Text.Trim();
 
-				sb.Append(lyrics);
+				sb.Append(firstLyrics);
 			}
 		}
 
@@ -346,7 +360,7 @@ public sealed partial class Index : IDisposable
 			string text = await reader.ReadToEndAsync();
 			this.Input = string.IsNullOrWhiteSpace(fileName)
 				? text
-				: $"# {fileName}{newLine}{text}";
+				: $"{{meta: {MetaFileName} {fileName}}}{newLine}{text}";
 		}
 		catch (IOException ex)
 		{
