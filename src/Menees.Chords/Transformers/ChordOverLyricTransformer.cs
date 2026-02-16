@@ -175,17 +175,21 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 		{
 			string initialSectionName = string.Empty;
 			string name = parts[0];
-			List<string> current = [];
-			Dictionary<string, List<string>> sections = new(ChordParser.Comparer) { { initialSectionName, current } };
+			List<byte?> current = [];
+			Dictionary<string, List<byte?>> sections = new(ChordParser.Comparer) { { initialSectionName, current } };
 			foreach (string part in parts.Skip(1))
 			{
 				// If it's a fret or finger position, then add it to the current list.
 				// Otherwise, make a new section with a new list.
-				if (byte.TryParse(part, out _) || part.Equals("x", Comparison))
+				if (byte.TryParse(part, out byte value))
 				{
-					current.Add(part);
+					current.Add(value);
 				}
-				else if (sections.TryGetValue(part, out List<string>? list))
+				else if (ChordDefinition.IsUnplayedString(part))
+				{
+					current.Add(null);
+				}
+				else if (sections.TryGetValue(part, out List<byte?>? list))
 				{
 					current = list;
 				}
@@ -196,40 +200,56 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 				}
 			}
 
-			const string CommentPrefix = "(";
-			const string CommentSuffix = ")";
-			ChordDefinition? definition;
-			if (!sections.TryGetValue("frets", out List<string>? frets)
-				|| (definition = ChordDefinition.TryParse(name, string.Join("-", frets))) is null)
+			static Comment CreateComment(string comment, IReadOnlyList<Entry>? annotations = null)
+				=> new(comment, "(", ")", annotations);
+
+			if (!sections.TryGetValue("frets", out List<byte?>? frets))
 			{
 				// A chord directive can have just a name (e.g., {chord: Am}).
-				result = new Comment(text, CommentPrefix, CommentSuffix, annotations);
+				result = CreateComment(text, annotations);
 			}
 			else
 			{
 				sections.Remove(nameof(frets));
-				if (sections.TryGetValue("base-fret", out List<string>? baseFrets)
-					&& baseFrets.Count == 1
-					&& frets.Contains(baseFrets[0]))
+
+				byte offset = 0;
+				if (sections.TryGetValue("base-fret", out List<byte?>? baseFrets)
+					&& baseFrets is [byte baseFret and >= 1])
 				{
 					sections.Remove("base-fret");
+					offset = (byte)(baseFret - 1);
 				}
 
-				if (sections.TryGetValue(initialSectionName, out List<string>? initialSection)
-					&& initialSection.Count == 0)
+				if (sections.TryGetValue("fingers", out List<byte?>? fingers))
 				{
-					sections.Remove(initialSectionName);
+					sections.Remove("fingers");
 				}
 
-				// If there are leftover sections (e.g. fingers # # # #), then add them as a comment annotation.
-				string annotationText = string.Join(" ", sections.OrderBy(pair => pair.Key)
-					.Select(pair => $"{pair.Key} {string.Join(" ", pair.Value)}"));
-				if (!string.IsNullOrEmpty(annotationText))
+				List<byte?> absoluteFrets = [.. frets.Select(f => f is null ? null : (byte?)checked(f + offset))];
+				ChordDefinition? definition = ChordDefinition.TryCreate(name, absoluteFrets, fingers);
+				if (definition is null)
 				{
-					annotations = [.. annotations, new Comment(annotationText, CommentPrefix, CommentSuffix)];
+					// The directive may have only unplayed strings, too few strings, or an unparsable chord name.
+					result = CreateComment(text, annotations);
 				}
+				else
+				{
+					if (sections.TryGetValue(initialSectionName, out List<byte?>? initialSection)
+						&& initialSection.Count == 0)
+					{
+						sections.Remove(initialSectionName);
+					}
 
-				result = new ChordDefinitions([definition], annotations);
+					// If there are leftover sections, then add them as a comment annotation.
+					string annotationText = string.Join(" ", sections.OrderBy(pair => pair.Key)
+						.Select(pair => $"{pair.Key} {string.Join(" ", pair.Value)}"));
+					if (!string.IsNullOrEmpty(annotationText))
+					{
+						annotations = [.. annotations, CreateComment(annotationText)];
+					}
+
+					result = new ChordDefinitions([definition], annotations);
+				}
 			}
 		}
 

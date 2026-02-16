@@ -34,21 +34,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 	/// <inheritdoc/>
 	protected override IReadOnlyList<Entry> TransformEntries(IReadOnlyList<Entry> input)
 	{
-		List<Entry> supportedInput = new(input.Count);
-		foreach (Entry entry in input)
-		{
-			if (entry is not ChordDefinitions definitions)
-			{
-				supportedInput.Add(entry);
-			}
-			else
-			{
-				// MobileSheets doesn't support {chord} or {define} directives as of v3.8.12 (2023-08-15).
-				supportedInput.Add(ChordProDirectiveLine.Create("comment", definitions.ToString(), this.PreferLongNames, false));
-			}
-		}
-
-		IReadOnlyList<Entry> chordPro = base.TransformEntries(supportedInput);
+		IReadOnlyList<Entry> chordPro = base.TransformEntries(input);
 		List<Entry> result = new(chordPro.Count);
 
 		foreach (Entry entry in chordPro)

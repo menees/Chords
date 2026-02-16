@@ -11,6 +11,8 @@ public class ChordDefinitionsTests
 		Test1("A/C# _4222_", "A/C# x4222x");
 		Test1("C# = x46664", "C# x46664");
 		Test1("Em 022000 (Haunting)", "Em 022000", "(Haunting)");
+		Test1("A/C# _4222_ _3111_", "A/C# x4222x x3111x");
+		Test1("Em 022000 x23xxx (Haunting)", "Em 022000 x23xxx", "(Haunting)");
 
 		TestN(" C x32010, D/F# = 200232    ** Soft **", ["C x32010", "D/F# 200232"], ["** Soft **"]);
 		TestN(" C x32010; D/F# = 200232;    ** Soft **", ["C x32010", "D/F# 200232"], ["** Soft **"]);
@@ -22,7 +24,7 @@ public class ChordDefinitionsTests
 		static void TestN(string text, string[] expectedDefinitions, string[]? expectedComments = null)
 		{
 			LineContext context = LineContextTests.Create(text);
-			ChordDefinitions definitions = ChordDefinitions.TryParse(context).ShouldNotBeNull();
+			ChordDefinitions definitions = ChordDefinitions.TryParse(context).ShouldNotBeNull(text);
 			definitions.Definitions.Select(def => def.ToString()).ShouldBe(expectedDefinitions);
 			definitions.Annotations.Select(anno => anno.ToString()).ShouldBe(expectedComments ?? []);
 		}

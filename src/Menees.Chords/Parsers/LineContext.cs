@@ -17,14 +17,16 @@ public sealed class LineContext
 {
 	#region Private Data Members
 
+#pragma warning disable MEN002 // Line is too long. The "chord" pattern is complicated.
 	private const string EndOfLineAnnotationPattern = """
 		(?imnx) # Apply this with RegexOptions.RightToLeft
 		^.* # Ignore anything to the beginning of the line
 		(((?<parencomment>\(.*?\))|(?<starcomment>\*\*.*?\*\*)) # EOL comments can be surrounded by ( ) or ** **
 		|(\s+(?<repeatcomment>(\d{1,2}x|x(\d{1,2})))) # EOL comment can be xN or Nx repeats.
-		|((?<chord>[A-HIV1-79][a-z1-79#\-\+\^/]*[*~←↑↓→]?)\s*[=:]?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})(\s*[,;]\s*)?) # [Chord [=]] x or digit...
-		\s*$ # Ignore trailing whitespace
+		|(((?<chord>[A-HIV1-79][a-z1-79#\-\+\^/]*[*~←↑↓→]?)\s*[=:]?\s*)?(?<definition>[\d_x](\-?[\d_x]){3,})(\s+(?<fingering>[\d_x](\-?[\d_x]){3,}))?(\s*[,;]\s*)?) # [Chord [=:]] x or digit...
+		)\s*$ # Ignore trailing whitespace
 		""";
+#pragma warning restore MEN002 // Line is too long
 
 	private static readonly Regex EndOfLineAnnotation = new(EndOfLineAnnotationPattern, RegexOptions.RightToLeft | RegexOptions.Compiled);
 
@@ -178,8 +180,9 @@ public sealed class LineContext
 			else if (tryDefinition && (group = match.Groups["definition"]).Success)
 			{
 				Group chord = match.Groups["chord"];
+				string? fingering = match.Groups["fingering"] is Group { Success: true } fingeringGroup ? fingeringGroup.Value : null;
 				ChordDefinition? chordDefinition;
-				if (chord.Success && (chordDefinition = ChordDefinition.TryParse(chord.Value, group.Value)) != null)
+				if (chord.Success && (chordDefinition = ChordDefinition.TryParse(chord.Value, group.Value, fingering)) != null)
 				{
 					List<ChordDefinition> definitions = [chordDefinition];
 					ChordDefinitions? previousDefinitionEntry = result.Count > 0 ? result[^1] as ChordDefinitions : null;

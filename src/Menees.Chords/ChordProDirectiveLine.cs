@@ -158,7 +158,7 @@ public sealed class ChordProDirectiveLine : Entry
 		Conditions.RequireNonNull(definition);
 
 		IReadOnlyList<byte?> frets = definition.Definition;
-		byte baseFret = Math.Max((byte)1, frets.Where(value => value != null).Select(value => value!.Value).Min());
+		byte baseFret = Math.Max((byte)1, frets.Where(value => value != null).Min(value => value!.Value));
 
 		// {define: NAME base-fret OFFSET frets POS POS … POS}
 		StringBuilder arg = new();
@@ -166,7 +166,18 @@ public sealed class ChordProDirectiveLine : Entry
 		arg.Append(" base-fret ");
 		arg.Append(baseFret);
 		arg.Append(" frets ");
-		arg.AppendJoin(' ', frets.Select(fret => fret?.ToString() ?? "x"));
+		IEnumerable<int?> relativeFrets = frets.Select(fret => fret switch
+			{
+				0 => 0,
+				>= 1 => fret - (baseFret - 1),
+				_ => null,
+			});
+		arg.AppendJoin(' ', relativeFrets.Select(fret => fret?.ToString() ?? "x"));
+		if (definition.Fingering is not null)
+		{
+			arg.Append(" fingers ");
+			arg.AppendJoin(' ', definition.Fingering.Select(finger => finger?.ToString() ?? "x"));
+		}
 
 		string name = inline ? "chord" : "define";
 		string argument = arg.ToString();

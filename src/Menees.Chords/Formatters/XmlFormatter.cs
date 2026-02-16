@@ -127,7 +127,7 @@ public sealed class XmlFormatter : ContainerFormatter
 		container.Add(element);
 	}
 
-	[MemberNotNull(nameof(this.root))]
+	[MemberNotNull(nameof(root))]
 	private void EnsureRoot()
 	{
 		if (this.root is null)

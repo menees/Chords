@@ -140,16 +140,17 @@ public class ChordProDirectiveLineTests
 	{
 		Test("Am", "x02210", "{define: Am base-fret 1 frets x 0 2 2 1 0}");
 		Test("A/C#", "x42220", "{define: A/C# base-fret 1 frets x 4 2 2 2 0}");
-		Test("A/C#", "_4222_", "{define: A/C# base-fret 2 frets x 4 2 2 2 x}");
+		Test("A/C#", "_4222_", "{define: A/C# base-fret 2 frets x 3 1 1 1 x}");
 		Test("G7", "320001", "{define: G7 base-fret 1 frets 3 2 0 0 0 1}");
 		Test("C", "x-3-2-0-1-0", "{define: C base-fret 1 frets x 3 2 0 1 0}");
 		Test("D/F#", "200232", "{define: D/F# base-fret 1 frets 2 0 0 2 3 2}");
-		Test("A/C#", "_4222_", "{define: A/C# base-fret 2 frets x 4 2 2 2 x}");
-		Test("Em", "12-14-14-13-12-12", "{define: Em base-fret 12 frets 12 14 14 13 12 12}");
+		Test("Em", "12-14-14-13-12-12", "{define: Em base-fret 12 frets 1 3 3 2 1 1}");
+		Test("C7", "x32310", "{define: C7 base-fret 1 frets x 3 2 3 1 0}");
+		Test("D7", "x5453x", "{define: D7 base-fret 3 frets x 3 2 3 1 x}");
 
 		static void Test(string name, string defintion, string expected)
 		{
-			ChordDefinition chordDefinition = ChordDefinition.TryParse(name, defintion).ShouldNotBeNull();
+			ChordDefinition chordDefinition = ChordDefinition.TryParse(name, defintion).ShouldNotBeNull(expected);
 			ChordProDirectiveLine define = ChordProDirectiveLine.Convert(chordDefinition, inline: false);
 			define.ToString().ShouldBe(expected);
 			ChordProDirectiveLine chord = ChordProDirectiveLine.Convert(chordDefinition, inline: true);
