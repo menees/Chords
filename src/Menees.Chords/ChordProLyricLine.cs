@@ -243,7 +243,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		// ChordProTransformer.AddAnnotations formats each annotation like [*Xxx]
 		// for ChordProLyricLine, so we'll restore each original prefix and suffix.
 		IEnumerable<Entry>? annotations = this.Annotations.Select(entry
-			=> entry is Comment comment && (comment.Prefix?.StartsWith("[*") ?? false) && (comment.Suffix?.EndsWith("]") ?? false)
+			=> entry is Comment comment && (comment.Prefix?.StartsWith("[*") ?? false) && (comment.Suffix?.EndsWith(']') ?? false)
 				? new Comment(comment.Text, comment.Prefix[2..], comment.Suffix[..^1], comment.Annotations)
 				: entry);
 		ChordLine? chords = null;
