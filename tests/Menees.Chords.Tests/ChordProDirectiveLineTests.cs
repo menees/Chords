@@ -185,7 +185,7 @@ public class ChordProDirectiveLineTests
 			(ChordProDirectiveLine start, ChordProDirectiveLine end) = ChordProDirectiveLine.Convert(header, preferLongNames);
 			start.ToString().ShouldBe(expectedStart);
 
-			string suffix = start.LongName.Substring("start_of_".Length);
+			string suffix = start.LongName.Substring(ChordProEnvironment.StartPrefix.Length);
 			string expectedEnd = preferLongNames ?? true ? $"{{end_of_{suffix}}}" : $"{{eo{suffix[0]}}}";
 			end.ToString().ShouldBe(expectedEnd);
 		}

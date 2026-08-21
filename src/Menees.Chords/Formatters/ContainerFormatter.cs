@@ -53,6 +53,22 @@ public abstract class ContainerFormatter
 	protected abstract void Format(Entry entry, IReadOnlyCollection<IEntryContainer> hierarchy);
 
 	/// <summary>
+	/// Gets whether the entries in <paramref name="container"/> should be formatted recursively.
+	/// </summary>
+	/// <param name="container">The container whose children may be formatted.</param>
+	/// <param name="hierarchy">The hierarchy of containers above <paramref name="container"/>.</param>
+	/// <returns>True to recurse into the container's entries. False to format the container as a single entry.</returns>
+	/// <remarks>
+	/// Returning false is only supported when <paramref name="container"/> is also an <see cref="Entry"/>.
+	/// </remarks>
+	protected virtual bool ShouldFormatChildren(IEntryContainer container, IReadOnlyCollection<IEntryContainer> hierarchy)
+	{
+		Conditions.RequireNonNull(container);
+		Conditions.RequireNonNull(hierarchy);
+		return true;
+	}
+
+	/// <summary>
 	/// Called when a <paramref name="container"/> is about to be pushed onto the <paramref name="hierarchy"/> stack.
 	/// </summary>
 	/// <param name="container">The container being started.</param>
@@ -81,26 +97,34 @@ public abstract class ContainerFormatter
 	private void Format(IEntryContainer container, Stack<IEntryContainer> stack)
 	{
 		Conditions.RequireState(!stack.Contains(container), "A container should not recursively contain itself.");
-		this.BeginContainer(container, stack);
-		stack.Push(container);
-		try
+		Entry? containerEntry = container as Entry;
+		if (containerEntry is not null && !this.ShouldFormatChildren(container, stack))
 		{
-			foreach (Entry entry in container.Entries)
+			this.Format(containerEntry, stack);
+		}
+		else
+		{
+			this.BeginContainer(container, stack);
+			stack.Push(container);
+			try
 			{
-				if (entry is IEntryContainer childContainer)
+				foreach (Entry childEntry in container.Entries)
 				{
-					this.Format(childContainer, stack);
-				}
-				else
-				{
-					this.Format(entry, stack);
+					if (childEntry is IEntryContainer childContainer)
+					{
+						this.Format(childContainer, stack);
+					}
+					else
+					{
+						this.Format(childEntry, stack);
+					}
 				}
 			}
-		}
-		finally
-		{
-			stack.Pop();
-			this.EndContainer(container, stack);
+			finally
+			{
+				stack.Pop();
+				this.EndContainer(container, stack);
+			}
 		}
 	}
 

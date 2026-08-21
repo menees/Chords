@@ -274,6 +274,16 @@ public sealed partial class Index : IDisposable
 		await this.JavaScript.InvokeVoidAsync("BlazorDownloadFile", this.GetFileName(), "text/plain", fileBytes);
 	}
 
+	private async Task ViewHtmlAsync()
+	{
+		DocumentParser parser = new(this.toType == Transformer.ChordOverLyric
+			? DocumentParser.DefaultLineParsers
+			: DocumentParser.ChordProLineParsers);
+		Document document = Document.Parse(this.output, parser);
+		string html = new HtmlFormatter(document).ToString();
+		await this.JavaScript.InvokeVoidAsync("ViewHtml", html);
+	}
+
 	private string GetFileName()
 	{
 		StringBuilder sb = new();

@@ -22,7 +22,7 @@ public sealed class ChordProDirectiveArgs
 {
 	#region Private Data Members
 
-	private const string KeyValuePattern = """(?in)^\s*(((?<key>\w+?)\s*=\s*(("(?<value>[^"]*?)")|('(?<value>[^']*?)')))\s*)+$""";
+	private const string KeyValuePattern = """(?in)^\s*(((?<key>\w+?)\s*=\s*(("(?<value>[^"]*?)")|('(?<value>[^']*?)')|(?<value>[^\s]+)))\s*)+$""";
 
 	private static readonly Regex KeyValueRegex = new(KeyValuePattern, RegexOptions.Compiled);
 	private static readonly StringComparer Comparer = ChordParser.Comparer;

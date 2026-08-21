@@ -14,6 +14,7 @@ public class ChordProDirectiveArgsTests
 		Test("The Beatles");
 		Test("src='myfile.jpg' width=\"30\"", "src", "myfile.jpg", "width", "30");
 		Test("width=\"30\" src='myfile.jpg'", "width", "30", "src", "myfile.jpg");
+		Test("align=right flush=left", "align", "right", "flush", "left");
 		Test(@"label='Line 1\nLine2'", "label", "Line 1\nLine2");
 
 		static void Test(string? text, params string[] expectedAttributes)

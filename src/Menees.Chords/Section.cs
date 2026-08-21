@@ -25,6 +25,7 @@ public sealed class Section : Entry, IEntryContainer
 	{
 		Conditions.RequireNonEmpty(entries);
 		this.Entries = [.. entries];
+		this.Environment = ChordProEnvironment.TryCreate(this.Entries);
 	}
 
 	#endregion
@@ -35,6 +36,15 @@ public sealed class Section : Entry, IEntryContainer
 	/// Gets the ordered collection of entries within the current section.
 	/// </summary>
 	public IReadOnlyList<Entry> Entries { get; }
+
+	#endregion
+
+	#region Internal Properties
+
+	/// <summary>
+	/// Gets the ChordPro environment represented by this section, or null for non-environment sections.
+	/// </summary>
+	internal ChordProEnvironment? Environment { get; }
 
 	#endregion
 

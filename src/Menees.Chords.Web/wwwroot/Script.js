@@ -31,3 +31,14 @@ function CopyToClipboard(text, elementId) {
 		}
 	}
 }
+
+function ViewHtml(html) {
+	const preview = window.open("about:blank", "_blank");
+	if (!preview) {
+		throw new Error("The browser blocked the HTML preview tab.");
+	}
+
+	preview.document.open();
+	preview.document.write(html);
+	preview.document.close();
+}

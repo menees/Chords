@@ -76,8 +76,8 @@ public class ChordProTransformer : DocumentTransformer
 		Transform()
 	{
 		IReadOnlyList<Entry> input = this.GetGroupedEntries();
-		IReadOnlyList<Entry> tab = this.GroupByEnvironment<TablatureLine>(input, "tab");
-		IReadOnlyList<Entry> grid = this.GroupByEnvironment<ChordProGridLine>(tab, "grid");
+		IReadOnlyList<Entry> tab = this.GroupByEnvironment<TablatureLine>(input, ChordProEnvironment.TabName);
+		IReadOnlyList<Entry> grid = this.GroupByEnvironment<ChordProGridLine>(tab, ChordProEnvironment.GridName);
 		IReadOnlyList<Entry> result = this.TransformEntries(grid);
 		this.SetEntries(result);
 		return this;
@@ -242,7 +242,11 @@ public class ChordProTransformer : DocumentTransformer
 				case T target:
 					if (environment == Environment.None)
 					{
-						result.Add(ChordProDirectiveLine.Create($"start_of_{suffix}", null, this.preferLongNames, false));
+						result.Add(ChordProDirectiveLine.Create(
+							ChordProEnvironment.StartPrefix + suffix,
+							null,
+							this.preferLongNames,
+							false));
 						environment = Environment.Implicit;
 					}
 
@@ -250,14 +254,14 @@ public class ChordProTransformer : DocumentTransformer
 					break;
 
 				case ChordProDirectiveLine directive:
-					if (ChordParser.Comparer.Equals(directive.LongName, $"end_of_{suffix}"))
+					if (ChordParser.Comparer.Equals(directive.LongName, ChordProEnvironment.EndPrefix + suffix))
 					{
 						environment = Environment.None;
 					}
 					else
 					{
 						FinishEnvironment();
-						if (ChordParser.Comparer.Equals(directive.LongName, $"start_of_{suffix}"))
+						if (ChordParser.Comparer.Equals(directive.LongName, ChordProEnvironment.StartPrefix + suffix))
 						{
 							environment = Environment.Explicit;
 						}
@@ -289,7 +293,11 @@ public class ChordProTransformer : DocumentTransformer
 		{
 			if (environment == Environment.Implicit)
 			{
-				result.Add(ChordProDirectiveLine.Create($"end_of_{suffix}", null, this.preferLongNames, false));
+				result.Add(ChordProDirectiveLine.Create(
+					ChordProEnvironment.EndPrefix + suffix,
+					null,
+					this.preferLongNames,
+					false));
 				environment = Environment.None;
 			}
 		}

@@ -20,6 +20,7 @@ public sealed class ChordProDirectiveLine : Entry
 
 	internal const string GridStateKey = nameof(ChordProDirectiveLine) + "." + "Grid";
 	internal const string TabStateKey = nameof(ChordProDirectiveLine) + "." + "Tab";
+	internal const string DelegateStateKey = nameof(ChordProDirectiveLine) + "." + "Delegate";
 
 	#endregion
 
@@ -138,6 +139,16 @@ public sealed class ChordProDirectiveLine : Entry
 				{
 					context.State.Remove(TabStateKey);
 				}
+				else if (ChordProEnvironment.TryGetDelegatedName(result.LongName, out string? environmentName))
+				{
+					context.State[DelegateStateKey] = environmentName!;
+				}
+				else if (context.State.TryGetValue(DelegateStateKey, out object? delegateState)
+					&& delegateState is string activeEnvironment
+					&& result.LongName.Equals(ChordProEnvironment.EndPrefix + activeEnvironment, Comparison))
+				{
+					context.State.Remove(DelegateStateKey);
+				}
 			}
 		}
 
@@ -201,15 +212,15 @@ public sealed class ChordProDirectiveLine : Entry
 		bool StartsWith(string text)
 			=> header.Text.Equals(text, comparison) || header.Text.StartsWith(text + ' ', comparison);
 
-		string suffix = StartsWith("Chorus") ? "chorus"
-			: StartsWith("Verse") ? "verse"
-			: "bridge";
+		string suffix = StartsWith("Chorus") ? ChordProEnvironment.ChorusName
+			: StartsWith("Verse") ? ChordProEnvironment.VerseName
+			: ChordProEnvironment.BridgeName;
 
 		string? startArgument = header.Text.Equals(suffix, comparison) ? null : header.Text;
 
-		ChordProDirectiveLine start = Create($"start_of_{suffix}", startArgument, preferLongNames);
+		ChordProDirectiveLine start = Create(ChordProEnvironment.StartPrefix + suffix, startArgument, preferLongNames);
 		start.AddAnnotations(header.Annotations);
-		ChordProDirectiveLine end = Create($"end_of_{suffix}", null, preferLongNames, false);
+		ChordProDirectiveLine end = Create(ChordProEnvironment.EndPrefix + suffix, null, preferLongNames, false);
 		return (start, end);
 	}
 

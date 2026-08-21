@@ -10,5 +10,6 @@ public enum IconName
 	Open,
 	Save,
 	Success,
+	View,
 	Warning,
 }

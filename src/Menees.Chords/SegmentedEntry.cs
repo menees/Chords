@@ -77,21 +77,23 @@ public abstract class SegmentedEntry : Entry
 			{
 				result.Add(new WhiteSpaceSegment(lexer.Token.Text));
 			}
+			else if (requiredBracketedChords && chordTokenType == TokenType.Bracketed && lexer.Token.Text.StartsWith('*'))
+			{
+				// Handle ChordPro [*Xxx] annotations before punctuation-only tokens such as [*↓].
+				result.Add(new ChordAnnotationSegment($"[{lexer.Token.Text}]"));
+			}
 			else if (lexer.Token.Text.All(ch => !char.IsLetter(ch))
 				|| PseudoChords.Contains(lexer.Token.Text)
 				|| (lexer.Token.Text[0] == '(' && lexer.Token.Text[^1] == ')'))
 			{
 				// Allow tokens with no letter (e.g., ~↑↓*), pseudo-chords, or annotations in parentheses.
-				result.Add(new TextSegment(lexer.Token.ToString()));
+				result.Add(requiredBracketedChords && lexer.Token.Type == TokenType.Bracketed
+					? new ChordAnnotationSegment(lexer.Token.ToString())
+					: new TextSegment(lexer.Token.ToString()));
 			}
 			else if (lexer.Token.Type == chordTokenType && Chord.TryParse(lexer.Token.Text, out Chord? chord))
 			{
 				result.Add(new ChordSegment(chord, lexer.Token.ToString()));
-			}
-			else if (requiredBracketedChords && chordTokenType == TokenType.Bracketed && lexer.Token.Text.StartsWith('*'))
-			{
-				// Handle ChordPro [*Xxx] annotations.
-				result.Add(new TextSegment($"[{lexer.Token.Text}]"));
 			}
 			else
 			{

@@ -79,6 +79,9 @@
                     <button class="btn btn-primary text-nowrap" @onclick="SaveAsync" aria-label="Save">
                         <Icon Name="IconName.Save" /><span class="d-none d-xl-inline ps-1"> Save</span>
                     </button>
+                    <button class="btn btn-primary text-nowrap" @onclick="ViewHtmlAsync" disabled="@string.IsNullOrWhiteSpace(output)" aria-label="View as HTML">
+                        <Icon Name="IconName.View" /><span class="d-none d-xl-inline ps-1"> View</span>
+                    </button>
                 </div>
             </div>
             <div class="row flex-grow-1">

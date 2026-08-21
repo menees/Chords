@@ -93,7 +93,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 
 				segments.Add(chordSegment is not null
 					? new ChordSegment(chordSegment.Chord, bracketed)
-					: new TextSegment(bracketed));
+					: new ChordAnnotationSegment(bracketed));
 				AddLyrics(originalText.Length);
 			}
 		}
@@ -195,18 +195,14 @@ public sealed class ChordProLyricLine : SegmentedEntry
 					AppendChord(chord.Text, unbracketed => new ChordSegment(chord.Chord, unbracketed));
 					break;
 
+				case ChordAnnotationSegment annotation:
+					AppendChord(annotation.Text, unbracketed => new TextSegment(unbracketed));
+					break;
+
 				case WhiteSpaceSegment whitespace:
 				default:
-					if (IsBracketed(segment.Text))
-					{
-						// Put bracketed ChordPro annotations like [*↑] or [*D*] in the chord line.
-						AppendChord(segment.Text, unbracketed => new TextSegment(unbracketed));
-					}
-					else
-					{
-						indentChord += segment.Text.Length;
-						lyricLineText.Append(segment.Text);
-					}
+					indentChord += segment.Text.Length;
+					lyricLineText.Append(segment.Text);
 
 					break;
 			}

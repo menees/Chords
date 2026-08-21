@@ -72,6 +72,7 @@ public sealed class DocumentParser
 	/// </summary>
 	public static IEnumerable<Func<LineContext, Entry?>> ChordProLineParsers { get; }
 		= [
+			ChordProDelegateLine.TryParse,
 			ChordProRemarkLine.TryParse,
 			ChordProDirectiveLine.TryParse,
 			ChordProGridLine.TryParse,
@@ -91,6 +92,7 @@ public sealed class DocumentParser
 	public static Func<LineContext, Entry?>[] DefaultLineParsers { get; } =
 		[
 			/* Add line parsers in order from most specific syntax to least specific syntax. */
+			ChordProDelegateLine.TryParse,
 			UriLine.TryParse,
 			HeaderLine.TryParse,
 			ChordProRemarkLine.TryParse, // This will parse #-prefixed lines before Comment.TryParse gets them.
@@ -231,7 +233,11 @@ public sealed class DocumentParser
 
 			if (string.IsNullOrWhiteSpace(context.LineText))
 			{
-				result.Add(BlankLine.Instance);
+				Entry blank = context.State.TryGetValue(ChordProDirectiveLine.DelegateStateKey, out object? delegateState)
+					&& delegateState is string
+						? new ChordProDelegateLine(context.LineText)
+						: BlankLine.Instance;
+				result.Add(blank);
 			}
 			else
 			{

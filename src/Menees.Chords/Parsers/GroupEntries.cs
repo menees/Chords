@@ -72,18 +72,18 @@ public static class GroupEntries
 			}
 			else
 			{
-				const string StartOfPrefix = "start_of_";
-				const string EndOfPrefix = "end_of_";
 				const StringComparison Comparison = ChordParser.Comparison;
-				if (directive.LongName.StartsWith(StartOfPrefix, Comparison))
+				if (directive.LongName.StartsWith(ChordProEnvironment.StartPrefix, Comparison))
 				{
 					List<Entry> section = [directive];
 					sectionStack.Push(section);
 				}
-				else if (directive.LongName.StartsWith(EndOfPrefix, Comparison)
+				else if (directive.LongName.StartsWith(ChordProEnvironment.EndPrefix, Comparison)
 					&& sectionStack.Count > 0
 					&& sectionStack.Peek()[0] is ChordProDirectiveLine startDirective
-					&& startDirective.LongName.Equals($"{StartOfPrefix}{directive.LongName[EndOfPrefix.Length..]}", Comparison))
+					&& startDirective.LongName.Equals(
+						ChordProEnvironment.StartPrefix + directive.LongName[ChordProEnvironment.EndPrefix.Length..],
+						Comparison))
 				{
 					AddEntry(directive);
 					List<Entry> sectionEntries = sectionStack.Pop();

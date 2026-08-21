@@ -4,6 +4,7 @@
 
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Menees.Chords.Parsers;
 
 #endregion
@@ -14,6 +15,12 @@ using Menees.Chords.Parsers;
 /// </summary>
 public sealed class Document : IEntryContainer
 {
+	#region Private Data Members
+
+	private const int Latin1CodePage = 28591;
+
+	#endregion
+
 	#region Constructors
 
 	internal Document(IReadOnlyList<Entry> entries, string? fileName)
@@ -53,8 +60,20 @@ public sealed class Document : IEntryContainer
 	{
 		Conditions.RequireNonWhiteSpace(fileName);
 		parser ??= new();
-		using StreamReader reader = new(fileName);
-		IReadOnlyList<Entry> entries = parser.Parse(reader);
+		IReadOnlyList<Entry> entries;
+		try
+		{
+			// ChordPro permits UTF encodings and ISO-8859-1. Try strict UTF-8 first so
+			// invalid byte sequences can fall back to Latin-1 instead of becoming U+FFFD.
+			using StreamReader reader = new(fileName, new UTF8Encoding(false, true), true);
+			entries = parser.Parse(reader);
+		}
+		catch (DecoderFallbackException)
+		{
+			using StreamReader reader = new(fileName, Encoding.GetEncoding(Latin1CodePage), false);
+			entries = parser.Parse(reader);
+		}
+
 		Document result = new(entries, fileName);
 		return result;
 	}

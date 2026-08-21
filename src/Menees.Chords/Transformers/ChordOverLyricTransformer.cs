@@ -109,14 +109,12 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 
 	private static void TryConvertDirective(List<Entry> output, ChordProDirectiveLine directive)
 	{
-		const string StartOf = "start_of_";
-
 		const string CommentPrefix = "** ";
 		const string CommentSuffix = " **";
 		string longName = directive.LongName;
-		if (longName.StartsWith("end_of_", Comparison)
-			|| longName.Equals("start_of_grid", Comparison)
-			|| longName.Equals("start_of_tab", Comparison))
+		if (longName.StartsWith(ChordProEnvironment.EndPrefix, Comparison)
+			|| longName.Equals(ChordProEnvironment.StartPrefix + ChordProEnvironment.GridName, Comparison)
+			|| longName.Equals(ChordProEnvironment.StartPrefix + ChordProEnvironment.TabName, Comparison))
 		{
 			// We don't generate any output for these directives.
 		}
@@ -124,9 +122,10 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 		{
 			output.Add(new Comment(directive.Argument ?? string.Empty, CommentPrefix, CommentSuffix, directive.Annotations));
 		}
-		else if (longName.StartsWith(StartOf, Comparison) && longName.Length > StartOf.Length)
+		else if (longName.StartsWith(ChordProEnvironment.StartPrefix, Comparison)
+			&& longName.Length > ChordProEnvironment.StartPrefix.Length)
 		{
-			string header = directive.Argument ?? TitleLine.ToTitleCase(longName[StartOf.Length..]);
+			string header = directive.Argument ?? TitleLine.ToTitleCase(longName[ChordProEnvironment.StartPrefix.Length..]);
 			output.Add(new HeaderLine(header, directive.Annotations));
 		}
 		else if (string.IsNullOrWhiteSpace(directive.Argument))

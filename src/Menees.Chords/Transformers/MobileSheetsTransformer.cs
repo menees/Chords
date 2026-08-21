@@ -58,7 +58,10 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			{
 				// MobileSheets doesn't support start/end_of_bridge directives as of v3.8.12 (2023-08-15).
 				// MobileSheets won't show a header at all for {sov}, so we'll make it {sov: Bridge}.
-				ChordProDirectiveLine transformed = ReplaceWithVerseDirective(directive, "bridge", "Bridge");
+				ChordProDirectiveLine transformed = ReplaceWithVerseDirective(
+					directive,
+					ChordProEnvironment.BridgeName,
+					"Bridge");
 				result.Add(transformed);
 			}
 			else if (directive.ShortName.Equals("sov", Comparison) && string.IsNullOrEmpty(directive.Argument))
@@ -71,7 +74,7 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 			{
 				// MobileSheets v3.9.0 added support for chord grids, but they auto-size to the page width,
 				// so it'll only show one column per page. Yuck! https://zubersoft.com/mobilesheets/forum/thread-12271.html
-				ChordProDirectiveLine transformed = ReplaceWithVerseDirective(directive, "grid");
+				ChordProDirectiveLine transformed = ReplaceWithVerseDirective(directive, ChordProEnvironment.GridName);
 				result.Add(transformed);
 			}
 			else
@@ -90,7 +93,8 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 	private static ChordProDirectiveLine ReplaceWithVerseDirective(ChordProDirectiveLine directive, string longSuffix, string? defaultArgument = null)
 	{
 		int suffixLength = directive.Name.EndsWith(longSuffix, Comparison) ? longSuffix.Length : 1;
-		ChordProDirectiveName newName = directive.QualifiedName.Rename(directive.Name[0..^suffixLength] + (suffixLength == 1 ? "v" : "verse"));
+		ChordProDirectiveName newName = directive.QualifiedName.Rename(
+			directive.Name[0..^suffixLength] + (suffixLength == 1 ? "v" : ChordProEnvironment.VerseName));
 
 		string? argument = directive.Name.StartsWith("s", Comparison) && string.IsNullOrEmpty(directive.Argument)
 			? defaultArgument : directive.Argument;

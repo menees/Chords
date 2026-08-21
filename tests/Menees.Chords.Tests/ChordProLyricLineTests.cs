@@ -26,6 +26,8 @@ public class ChordProLyricLineTests
 		Test("[E]Dreaming, [A/C#]Dreaming, [B]Just go on", "E", "A/C#", "B");
 		Test("[Em]  [C]   [C/B]    [Am]", "Em", "C", "C/B", "Am");
 		Test("  [C]   [C*] [G*]", "C", "C*", "G*");
+		ChordAnnotationSegment annotation = Test("[G]  [*4x]", "G").Segments.OfType<ChordAnnotationSegment>().Single();
+		annotation.Annotation.ShouldBe("4x");
 
 		static ChordProLyricLine Test(string text, params string[] expectedChordNames)
 		{
