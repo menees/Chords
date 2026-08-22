@@ -241,6 +241,19 @@ public sealed class TitleLine : TextEntry
 
 	internal static string ToTitleCase(string word) => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(word);
 
+	internal TitleLine ChangeMetadata(Func<MetadataEntry, MetadataEntry> change)
+	{
+		IReadOnlyList<MetadataEntry> metadata = [.. this.Metadata.Select(change)];
+		TitleLine result = this;
+		if (!metadata.SequenceEqual(this.Metadata))
+		{
+			TitleLine updated = new(this.Text, metadata);
+			result = new(updated.ToMetadataString(), metadata);
+		}
+
+		return result;
+	}
+
 	#endregion
 
 	#region Private Methods

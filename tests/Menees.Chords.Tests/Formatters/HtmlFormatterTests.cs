@@ -311,6 +311,7 @@ public class HtmlFormatterTests
 		defaultStyles.ShouldContain("--chord-color: #3045c7");
 		defaultStyles.ShouldContain("--section-header-size: 1.1em");
 		defaultStyles.ShouldContain("--music-line-gap: 0.2em");
+		defaultStyles.ShouldContain("--chorus-border-width: 2px");
 		defaultStyles.ShouldContain(":is(.chord-line, .chord-only-line, .lyric-line)");
 		defaultStyles.ShouldContain(".title {");
 		defaultStyles.ShouldContain("font-weight: normal");
@@ -420,6 +421,29 @@ public class HtmlFormatterTests
 		XDocument second = formatter.ToXDocument();
 		second.Root!.Element("head")!.Elements("style").Count().ShouldBe(1);
 		firstHead.Elements("style").Count().ShouldBe(2);
+	}
+
+	[TestMethod]
+	public void ScopedTransposeTest()
+	{
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers);
+		Document document = Document.Parse(
+			"""
+			[C]Base
+			{transpose: 14}
+			[C]Sharp
+			{transpose: 1f}
+			[C]Flat
+			{transpose}
+			[C]Sharp again
+			{transpose}
+			[C]Base again
+			""",
+			parser);
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+		GetClassElements(html, "chord").Select(element => element.Value)
+			.ShouldBe(["C", "D", "Db", "D", "C"]);
+		GetClassElements(html, "directive").ShouldBeEmpty();
 	}
 
 	#endregion

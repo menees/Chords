@@ -4,6 +4,7 @@
 
 using System;
 using System.CommandLine;
+using System.CommandLine.Parsing;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -19,6 +20,7 @@ internal sealed class ConvertCommand : BaseCommand
 	#region Private Data Members
 
 	private const string ReadStdIn = "-";
+	private const string DefaultEncoding = "UTF-8";
 
 	private readonly Parsers parsers;
 	private readonly Transformer transformer;
@@ -30,6 +32,10 @@ internal sealed class ConvertCommand : BaseCommand
 	private readonly Formats format;
 	private readonly bool clean;
 	private readonly bool? preferLongNames;
+	private readonly Notation? notation;
+	private readonly TransposeOptionValue? transpose;
+	private readonly Key? key;
+	private readonly DetectKey? detectKey;
 
 	#endregion
 
@@ -45,7 +51,11 @@ internal sealed class ConvertCommand : BaseCommand
 		bool overwrite,
 		Formats format,
 		bool clean,
-		bool? preferLongNames)
+		bool? preferLongNames,
+		Notation? notation,
+		TransposeOptionValue? transpose,
+		Key? key,
+		DetectKey? detectKey)
 		: base(parseResult)
 	{
 		this.input = input;
@@ -58,6 +68,10 @@ internal sealed class ConvertCommand : BaseCommand
 		this.format = format;
 		this.clean = clean;
 		this.preferLongNames = preferLongNames;
+		this.notation = notation;
+		this.transpose = transpose;
+		this.key = key;
+		this.detectKey = detectKey;
 	}
 
 	#endregion
@@ -122,8 +136,11 @@ internal sealed class ConvertCommand : BaseCommand
 		{
 			DefaultValueFactory = _ => Formats.Text,
 			Description = "How the output should be formatted.",
+			CustomParser = CommandLineParsers.ParseEnum<Formats>,
 		};
 		result.Add(formatOption);
+
+		MusicOptions musicOptions = new(result);
 
 		Option<FileInfo> outputOption = new("--output", "-o") { Description = "The output file name. Omit to write to stdout." };
 		result.Add(outputOption);
@@ -131,22 +148,7 @@ internal sealed class ConvertCommand : BaseCommand
 		Option<bool> overwriteOption = new("--overwrite", "-y") { Description = "Overwrite the output file if it already exists." };
 		result.Add(overwriteOption);
 
-		const string DefaultEncoding = "UTF-8";
-		Option<string[]?> encodingOption = new("--encoding", "-e")
-		{
-			DefaultValueFactory = _ => [DefaultEncoding],
-			Description = "How the input and output text are encoded. Takes 1 or 2 encoding names.",
-			AllowMultipleArgumentsPerToken = true,
-		};
-		encodingOption.Validators.Add(result =>
-		{
-			if (result.GetValue(encodingOption) is string[] array && array.Length > 2)
-			{
-				result.AddError("No more than two encodings can be specified.");
-			}
-		});
-
-		result.Add(encodingOption);
+		Option<string[]?> encodingOption = CreateEncodingOption(result);
 
 		result.SetAction((parseResult, cancellationToken) =>
 		{
@@ -159,8 +161,26 @@ internal sealed class ConvertCommand : BaseCommand
 			Formats format = GetOptionValue(parseResult, formatOption);
 			bool clean = GetOptionValue(parseResult, cleanOption);
 			bool? preferLongNames = GetOptionValue(parseResult, longOption).ToStandardType();
+			Notation? notation = GetOptionValue(parseResult, musicOptions.Notation);
+			TransposeOptionValue? transpose = GetOptionValue(parseResult, musicOptions.Transpose);
+			Key? key = GetOptionValue(parseResult, musicOptions.Key);
+			DetectKey? detectKey = GetOptionValue(parseResult, musicOptions.DetectKey);
 
-			ConvertCommand command = new(parseResult, input, parsers, transformers, encodings, output, overwrite, format, clean, preferLongNames);
+			ConvertCommand command = new(
+				parseResult,
+				input,
+				parsers,
+				transformers,
+				encodings,
+				output,
+				overwrite,
+				format,
+				clean,
+				preferLongNames,
+				notation,
+				transpose,
+				key,
+				detectKey);
 			return command.ExecuteAsync(cancellationToken);
 		});
 
@@ -183,6 +203,25 @@ internal sealed class ConvertCommand : BaseCommand
 	#endregion
 
 	#region Private Methods
+
+	private static Option<string[]?> CreateEncodingOption(Command command)
+	{
+		Option<string[]?> result = new("--encoding", "-e")
+		{
+			DefaultValueFactory = _ => [DefaultEncoding],
+			Description = "How the input and output text are encoded. Takes 1 or 2 encoding names.",
+			AllowMultipleArgumentsPerToken = true,
+		};
+		result.Validators.Add(optionResult =>
+		{
+			if (optionResult.GetValue(result) is string[] array && array.Length > 2)
+			{
+				optionResult.AddError("No more than two encodings can be specified.");
+			}
+		});
+		command.Add(result);
+		return result;
+	}
 
 	private Document ParseInput()
 	{
@@ -225,15 +264,35 @@ internal sealed class ConvertCommand : BaseCommand
 			Transformer.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
 			_ => new ChordProTransformer(inputDocument, this.preferLongNames),
 		};
-		Document outputDocument = transformer.Transform().Document;
-		return outputDocument;
+		Document result = transformer.Transform().Document;
+		if (this.transpose is not null)
+		{
+			TransposeTransformer transposeTransformer = this.key is not null
+				? new(result, this.transpose.HalfSteps, this.key, this.transpose.AccidentalPreference)
+				: new(
+					result,
+					this.transpose.HalfSteps,
+					this.transpose.AccidentalPreference,
+					this.detectKey ?? DetectKey.MetadataOnly);
+			result = transposeTransformer.Transform().Document;
+		}
+
+		if (this.notation is not null)
+		{
+			result = new NotationTransformer(result, this.notation.Value).Transform().Document;
+		}
+
+		return result;
 	}
 
 	private string FormatOutputText(Document outputDocument)
 	{
-		ContainerFormatter formatter = this.format == Formats.Xml
-			? new XmlFormatter(outputDocument)
-			: new TextFormatter(outputDocument);
+		ContainerFormatter formatter = this.format switch
+		{
+			Formats.Xml => new XmlFormatter(outputDocument),
+			Formats.Html => new HtmlFormatter(outputDocument),
+			_ => new TextFormatter(outputDocument),
+		};
 		string outputText = formatter.ToString();
 		return outputText;
 	}
@@ -252,6 +311,71 @@ internal sealed class ConvertCommand : BaseCommand
 		{
 			this.WriteErrorLine("The specified output file already exists, and the --overwrite option was not used.");
 			this.ExitCode = 1;
+		}
+	}
+
+	#endregion
+
+	#region Private Types
+
+	private sealed class MusicOptions
+	{
+		public MusicOptions(Command command)
+		{
+			this.Notation = new("--notation")
+			{
+				Description = "Change all chords to the specified notation.",
+				CustomParser = CommandLineParsers.ParseNullableEnum<Notation>,
+			};
+			command.Add(this.Notation);
+
+			this.Transpose = new("--transpose")
+			{
+				Description = "Transpose by a signed byte with an optional Default, Sharps, or Flats preference.",
+				CustomParser = CommandLineParsers.ParseTranspose,
+				Arity = new ArgumentArity(1, 2),
+				AllowMultipleArgumentsPerToken = true,
+			};
+			command.Add(this.Transpose);
+
+			this.Key = new("--key")
+			{
+				Description = "Use an explicit song key when transposing.",
+				CustomParser = CommandLineParsers.ParseKey,
+			};
+			command.Add(this.Key);
+
+			this.DetectKey = new("--detectKey")
+			{
+				Description = "Detect the song key from metadata, the first chord, or the last chord when transposing.",
+				CustomParser = CommandLineParsers.ParseNullableEnum<DetectKey>,
+			};
+			command.Add(this.DetectKey);
+			command.Validators.Add(this.Validate);
+		}
+
+		public Option<DetectKey?> DetectKey { get; }
+
+		public Option<Key?> Key { get; }
+
+		public Option<Notation?> Notation { get; }
+
+		public Option<TransposeOptionValue?> Transpose { get; }
+
+		private void Validate(CommandResult commandResult)
+		{
+			TransposeOptionValue? transpose = commandResult.GetValue(this.Transpose);
+			Key? key = commandResult.GetValue(this.Key);
+			DetectKey? detectKey = commandResult.GetValue(this.DetectKey);
+			if (key is not null && detectKey is not null)
+			{
+				commandResult.AddError("--key and --detectKey cannot be used together.");
+			}
+
+			if (transpose is null && (key is not null || detectKey is not null))
+			{
+				commandResult.AddError("--key and --detectKey can only be used with --transpose.");
+			}
 		}
 	}
 

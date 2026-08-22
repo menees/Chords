@@ -12,7 +12,6 @@
 	let scheduled = false;
 	let previousWidth = 0;
 	let previousHeight = 0;
-
 	function collectBlocks(container, sectionPath) {
 		for (const child of Array.from(container.children)) {
 			if (child.matches("section.section")) {
@@ -214,15 +213,23 @@
 		const viewport = window.visualViewport;
 		const width = document.documentElement.clientWidth;
 		const height = Math.round(viewport ? viewport.height : window.innerHeight);
+		if (width <= 0 || height <= 0) {
+			return;
+		}
+
 		if (!force && width === previousWidth && height === previousHeight) {
+			return;
+		}
+
+		sheet.classList.add("is-paginated");
+		const metrics = getPageMetrics();
+		if (metrics.width <= 0 || metrics.height <= 0) {
 			return;
 		}
 
 		previousWidth = width;
 		previousHeight = height;
-		sheet.classList.add("is-paginated");
 		sheet.replaceChildren();
-		const metrics = getPageMetrics();
 		const columns = measureColumns(metrics.height);
 		renderPages(columns, metrics);
 	}

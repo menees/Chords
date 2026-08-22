@@ -18,7 +18,6 @@ internal static class Program
 			RootCommand root = new("Commands for working with chord sheet files.");
 
 			// LONG-TERM-TODO: Other possible commands (or convert options):
-			// transpose - +N use sharps. -N use flats. Requires song to have a key. Like https://www.chordpro.org/chordpro/using-chordpro/#transpose
 			// normalize - Call Chord.Normalize() for every parsed Chord in a document.
 			// compact - Replace identical start/end_of_chorus sections with {chorus} directive. Use short directives, e.g. {sov}.
 			// format - sub-command instead of as an option on the convert command. See Formats enum.

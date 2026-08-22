@@ -129,6 +129,13 @@ public sealed class ChordDefinition
 	internal static ChordDefinition? TryCreate(string name, IReadOnlyList<byte?>? frets, IReadOnlyList<byte?>? fingers)
 		=> Chord.TryParse(name, out Chord? chord) ? TryCreate(chord, frets, fingers) : null;
 
+	internal ChordDefinition ChangeChord(Func<Chord, Chord> change)
+	{
+		Chord chord = change(this.Chord);
+		ChordDefinition result = ReferenceEquals(chord, this.Chord) ? this : new(chord, this.Definition, this.Fingering);
+		return result;
+	}
+
 	#endregion
 
 	#region Private Methods

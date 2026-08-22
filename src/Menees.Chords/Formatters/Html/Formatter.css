@@ -16,7 +16,7 @@
 	--section-indent: 0;
 	--chorus-indent: 0.4em;
 	--chorus-padding: 0.65em;
-	--chorus-border-width: 1px;
+	--chorus-border-width: 2px;
 	--chorus-border-color: #777;
 	--chord-color: #3045c7;
 	--comment-color: #555;
@@ -348,6 +348,10 @@ body {
 @media print {
 	body {
 		margin: 0;
+	}
+
+	.chord-sheet {
+		padding: 0;
 	}
 
 	.chord-sheet.is-paginated,

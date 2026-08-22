@@ -37,6 +37,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 	private readonly Dictionary<string, ChordDiagram> chordDiagrams = new(ChordParser.Comparer);
 	private readonly HtmlFormatterOptions? options;
+	private readonly Stack<TransposeSetting> transposeSettings = new();
 	private XDocument? document;
 	private XElement? currentContainer;
 	private XElement? lastChorus;
@@ -140,12 +141,12 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 			case ChordLyricPair pair:
 				ChordProLyricLine converted = ChordProLyricLine.Convert(pair);
-				element = FormatChordProLyricLine(converted, normalizeTrailingChords: true);
+				element = FormatChordProLyricLine(converted, normalizeTrailingChords: true, this.Transpose);
 				annotations = converted.Annotations;
 				break;
 
 			case ChordProLyricLine chordProLyrics:
-				element = FormatChordProLyricLine(chordProLyrics, normalizeTrailingChords: false);
+				element = FormatChordProLyricLine(chordProLyrics, normalizeTrailingChords: false, this.Transpose);
 				break;
 
 			case TitleLine title:
@@ -181,11 +182,11 @@ public sealed class HtmlFormatter : ContainerFormatter
 				break;
 
 			case ChordProGridLine grid:
-				element = FormatSegments(grid.Segments, "div", "grid-line", "grid-chord");
+				element = FormatSegments(grid.Segments, "div", "grid-line", "grid-chord", this.Transpose);
 				break;
 
 			case ChordLine chords:
-				element = FormatSegments(chords.Segments, "div", "chord-only-line", "chord-only");
+				element = FormatSegments(chords.Segments, "div", "chord-only-line", "chord-only", this.Transpose);
 				break;
 
 			case LyricLine lyrics:
@@ -465,7 +466,10 @@ public sealed class HtmlFormatter : ContainerFormatter
 		}
 	}
 
-	private static XElement FormatChordProLyricLine(ChordProLyricLine line, bool normalizeTrailingChords)
+	private static XElement FormatChordProLyricLine(
+		ChordProLyricLine line,
+		bool normalizeTrailingChords,
+		Func<Chord, Chord> transpose)
 	{
 		XElement result = new("div", new XAttribute("class", "chord-line"));
 		List<RenderToken> tokens = [];
@@ -473,7 +477,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 		{
 			if (segment is ChordSegment chord)
 			{
-				tokens.Add(new(chord));
+				tokens.Add(new(transpose(chord.Chord)));
 			}
 			else if (segment is ChordAnnotationSegment annotation)
 			{
@@ -673,6 +677,11 @@ public sealed class HtmlFormatter : ContainerFormatter
 		{
 			result = Element("div", "column-break", "\u00A0");
 			result.SetAttributeValue("aria-hidden", "true");
+		}
+		else if (name.Equals("transpose", Comparison))
+		{
+			this.UpdateTranspose(argument);
+			result = null;
 		}
 		else if (MetadataEntry.TryParse(directive) is MetadataEntry metadata)
 		{
@@ -989,14 +998,15 @@ public sealed class HtmlFormatter : ContainerFormatter
 		IReadOnlyList<TextSegment> segments,
 		string elementName,
 		string className,
-		string chordClassName)
+		string chordClassName,
+		Func<Chord, Chord> transpose)
 	{
 		XElement result = new(elementName, new XAttribute("class", className));
 		foreach (TextSegment segment in segments)
 		{
 			if (segment is ChordSegment chord)
 			{
-				result.Add(Element("span", chordClassName, chord.Chord.Name));
+				result.Add(Element("span", chordClassName, transpose(chord.Chord).Name));
 			}
 			else
 			{
@@ -1108,6 +1118,41 @@ public sealed class HtmlFormatter : ContainerFormatter
 		return reader.ReadToEnd();
 	}
 
+	private Chord Transpose(Chord chord)
+	{
+		Chord result = this.transposeSettings.Count == 0 ? chord : chord.Transpose(
+			this.transposeSettings.Peek().HalfSteps,
+			this.transposeSettings.Peek().AccidentalPreference);
+		return result;
+	}
+
+	private void UpdateTranspose(string? argument)
+	{
+		if (string.IsNullOrWhiteSpace(argument))
+		{
+			if (this.transposeSettings.Count > 0)
+			{
+				this.transposeSettings.Pop();
+			}
+		}
+		else
+		{
+			string value = argument!.Trim();
+			AccidentalPreference preference = AccidentalPreference.Default;
+			char suffix = char.ToLowerInvariant(value[^1]);
+			if (suffix is 's' or 'f')
+			{
+				preference = suffix == 's' ? AccidentalPreference.Sharps : AccidentalPreference.Flats;
+				value = value.Substring(0, value.Length - 1);
+			}
+
+			if (sbyte.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out sbyte halfSteps))
+			{
+				this.transposeSettings.Push(new(halfSteps, preference));
+			}
+		}
+	}
+
 	private void InitializeDocument(IEntryContainer container)
 	{
 		string title = GetDocumentTitle(container);
@@ -1207,10 +1252,10 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 	private sealed class RenderToken
 	{
-		public RenderToken(ChordSegment chord)
+		public RenderToken(Chord chord)
 		{
-			this.Chord = chord.Chord;
-			this.Text = chord.Chord.Name;
+			this.Chord = chord;
+			this.Text = chord.Name;
 		}
 
 		public RenderToken(ChordAnnotationSegment annotation)
@@ -1234,6 +1279,19 @@ public sealed class HtmlFormatter : ContainerFormatter
 		public bool IsWhiteSpace { get; }
 
 		public string Text { get; }
+	}
+
+	private sealed class TransposeSetting
+	{
+		public TransposeSetting(sbyte halfSteps, AccidentalPreference accidentalPreference)
+		{
+			this.HalfSteps = halfSteps;
+			this.AccidentalPreference = accidentalPreference;
+		}
+
+		public AccidentalPreference AccidentalPreference { get; }
+
+		public sbyte HalfSteps { get; }
 	}
 
 	private sealed class WordRun

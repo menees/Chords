@@ -120,6 +120,74 @@ public sealed class Chord
 	public override string ToString() => this.Name;
 
 	/// <summary>
+	/// Changes this chord to the specified notation relative to <paramref name="key"/>.
+	/// </summary>
+	/// <param name="notation">The notation to use.</param>
+	/// <param name="key">The key used to interpret key-relative notation.</param>
+	/// <returns>A new chord instance if its notation changed, or the same instance otherwise.</returns>
+	public Chord ChangeNotation(Notation notation, Key key)
+	{
+		if (!Enum.IsDefined(typeof(Notation), notation))
+		{
+			throw new ArgumentOutOfRangeException(nameof(notation));
+		}
+
+		Chord result = this;
+		if (notation != this.Notation)
+		{
+			Conditions.RequireNonNull(key);
+			string root = MusicTheory.ChangeNoteNotation(this.Root, this.Notation, notation, key);
+			string? bass = this.Bass is null ? null : MusicTheory.ChangeNoteNotation(this.Bass, this.Notation, notation, key);
+			IReadOnlyList<string> modifiers = this.Modifiers;
+			int romanRootIndex = this.Root[0] is '#' or 'b' ? 1 : 0;
+			bool sourceRomanMinor = this.Notation == Notation.Roman && char.IsLower(this.Root[romanRootIndex]);
+			if (notation == Notation.Roman && MusicTheory.IsMinor(modifiers))
+			{
+				root = root.ToLowerInvariant();
+				modifiers = [.. modifiers.Skip(1)];
+			}
+			else if (sourceRomanMinor && !MusicTheory.IsMinor(modifiers))
+			{
+				modifiers = ["m", .. modifiers];
+			}
+
+			result = this.WithNotes(root, modifiers, bass, notation);
+		}
+
+		return result;
+	}
+
+	/// <summary>
+	/// Transposes this chord by the specified number of half steps.
+	/// </summary>
+	/// <param name="halfSteps">The signed number of half steps. Values outside one octave wrap around.</param>
+	/// <param name="accidentalPreference">Which accidental names should be used.</param>
+	/// <returns>A new chord instance if its named notes change, or the same instance otherwise.</returns>
+	/// <remarks>
+	/// Nashville and Roman chords are key-relative, so they are returned unchanged.
+	/// With <see cref="AccidentalPreference.Default"/>, positive values use sharps and negative values use flats.
+	/// The other preferences explicitly select sharps or flats.
+	/// </remarks>
+	public Chord Transpose(sbyte halfSteps, AccidentalPreference accidentalPreference = AccidentalPreference.Default)
+	{
+		if (!Enum.IsDefined(typeof(AccidentalPreference), accidentalPreference))
+		{
+			throw new ArgumentOutOfRangeException(nameof(accidentalPreference));
+		}
+
+		halfSteps = MusicTheory.NormalizeTranspose(halfSteps);
+		Chord result = this;
+		if (halfSteps != 0 && this.Notation == Notation.Name)
+		{
+			string root = MusicTheory.TransposeNamedNote(this.Root, halfSteps, accidentalPreference);
+			string? bass = this.Bass is null ? null : MusicTheory.TransposeNamedNote(this.Bass, halfSteps, accidentalPreference);
+			result = this.WithNotes(root, this.Modifiers, bass, this.Notation);
+		}
+
+		return result;
+	}
+
+	/// <summary>
 	/// Normalizes notes B#, E#, Cb and Fb to C, F, B and E, respectively if <see cref="Notation"/> is <see cref="Notation.Name"/>.
 	/// </summary>
 	/// <returns>A new chord instance if a change was needed, or the same chord instance otherwise.</returns>
@@ -133,20 +201,7 @@ public sealed class Chord
 			string? normalizedBass = this.Bass != null ? NormalizeNote(this.Bass) : null;
 			if (normalizedRoot != this.Root || normalizedBass != this.Bass)
 			{
-				StringBuilder sb = new(this.Name.Length);
-				sb.Append(normalizedRoot);
-				foreach (string modifier in this.Modifiers)
-				{
-					sb.Append(modifier);
-				}
-
-				if (normalizedBass is not null)
-				{
-					sb.Append('/');
-					sb.Append(normalizedBass);
-				}
-
-				result = new(sb.ToString(), normalizedRoot, this.Modifiers, normalizedBass, this.Annotation, this.Notation);
+				result = this.WithNotes(normalizedRoot, this.Modifiers, normalizedBass, this.Notation);
 			}
 		}
 
@@ -173,6 +228,25 @@ public sealed class Chord
 		};
 
 		return result;
+	}
+
+	private Chord WithNotes(string root, IReadOnlyList<string> modifiers, string? bass, Notation notation)
+	{
+		StringBuilder sb = new(this.Name.Length);
+		sb.Append(root);
+		foreach (string modifier in modifiers)
+		{
+			sb.Append(modifier);
+		}
+
+		if (bass is not null)
+		{
+			sb.Append('/');
+			sb.Append(bass);
+		}
+
+		sb.Append(this.Annotation);
+		return new(sb.ToString(), root, modifiers, bass, this.Annotation, notation);
 	}
 
 	#endregion

@@ -123,3 +123,20 @@ textarea {
 select.min-width {
 	min-width: 120px !important;
 }
+
+.converter-editor[hidden],
+.top-row[hidden] {
+	display: none !important;
+}
+
+@media print {
+	body.html-view-open .top-row,
+	body.html-view-open .converter-editor {
+		display: none;
+	}
+
+	body.html-view-open .content {
+		display: block;
+		padding: 0 !important;
+	}
+}

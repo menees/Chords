@@ -19,7 +19,7 @@ public sealed class ChordProGridLine : SegmentedEntry
 {
 	#region Constructors
 
-	private ChordProGridLine(IReadOnlyList<TextSegment> segments)
+	internal ChordProGridLine(IReadOnlyList<TextSegment> segments)
 		: base(segments)
 	{
 	}

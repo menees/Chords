@@ -30,4 +30,23 @@ public sealed class ChordSegment : TextSegment
 	public Chord Chord { get; }
 
 	#endregion
+
+	#region Internal Methods
+
+	internal ChordSegment ChangeChord(Func<Chord, Chord> change)
+	{
+		Chord chord = change(this.Chord);
+		ChordSegment result = this;
+		if (!ReferenceEquals(chord, this.Chord))
+		{
+			int index = this.Text.IndexOf(this.Chord.Name, StringComparison.Ordinal);
+			string text = index < 0 ? chord.Name
+				: this.Text.Remove(index, this.Chord.Name.Length).Insert(index, chord.Name);
+			result = new(chord, text);
+		}
+
+		return result;
+	}
+
+	#endregion
 }

@@ -2,7 +2,7 @@
 
 <PageTitle>Menees Chord Sheet Converter</PageTitle>
 
-<div class="container-fluid d-flex flex-grow-1">
+<div class="converter-editor container-fluid d-flex flex-grow-1" hidden="@this.showHtmlPreview">
     <div class="row flex-grow-1">
         <div class="col d-flex flex-column">
             <div class="row">
@@ -94,5 +94,54 @@
     </div>
 </div>
 
+@if (this.showHtmlPreview)
+{
+    <div class="html-preview" role="dialog" aria-modal="true" aria-labelledby="htmlPreviewTitle"
+         tabindex="-1" @ref="htmlView" @onkeydown="HandleHtmlViewKeyDownAsync">
+        <div class="html-preview-toolbar">
+            <strong id="htmlPreviewTitle" class="text-nowrap">HTML View</strong>
 
+            @if (this.previewKey is not null)
+            {
+                <div class="html-preview-setting">
+                    <label for="previewNotation">Notation:</label>
+                    <select id="previewNotation" class="form-select form-select-sm" @bind="PreviewNotation">
+                        @foreach (Notation notation in Enum.GetValues<Notation>())
+                        {
+                            <option value="@notation">@notation</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="html-preview-key text-nowrap">
+                    <span>Detected key:</span>
+                    <strong>@this.previewKey.Name</strong>
+                </div>
+
+                @if (this.previewNotation == Notation.Name)
+                {
+                    <div class="html-preview-setting transpose-setting">
+                        <label for="previewTranspose">Transpose:</label>
+                        <select id="previewTranspose" class="form-select form-select-sm" @bind="PreviewTranspose">
+                            @for (int offset = -MaximumPreviewTranspose; offset <= MaximumPreviewTranspose; offset++)
+                            {
+                                <option value="@offset">@this.GetTransposeLabel(offset)</option>
+                            }
+                        </select>
+                    </div>
+                }
+            }
+
+            <button type="button" class="html-view-close btn btn-sm btn-secondary ms-auto" @onclick="CloseHtmlPreviewAsync">Close</button>
+        </div>
+
+        @if (this.previewMessage is not null)
+        {
+            <div class="alert alert-warning rounded-0 py-2 mb-0" role="status">@this.previewMessage</div>
+        }
+
+        <iframe class="html-preview-frame" title="Rendered chord sheet" sandbox="allow-scripts" srcdoc="@this.previewHtml"></iframe>
+        <div class="html-print-content" aria-hidden="true">@((MarkupString)this.previewPrintHtml)</div>
+    </div>
+}
 

@@ -32,13 +32,22 @@ function CopyToClipboard(text, elementId) {
 	}
 }
 
-function ViewHtml(html) {
-	const preview = window.open("about:blank", "_blank");
-	if (!preview) {
-		throw new Error("The browser blocked the HTML preview tab.");
+function SetHtmlViewOpen(open) {
+	document.body.classList.toggle("html-view-open", open);
+	const header = document.querySelector(".top-row");
+	if (header) {
+		header.hidden = open;
+	}
+}
+
+window.addEventListener("message", event => {
+	const frame = Array.from(document.querySelectorAll("iframe.html-preview-frame"))
+		.find(candidate => candidate.contentWindow === event.source);
+	if (!frame || !event.data) {
+		return;
 	}
 
-	preview.document.open();
-	preview.document.write(html);
-	preview.document.close();
-}
+	if (event.data.type === "menees-chords-close-html-view") {
+		document.querySelector(".html-view-close")?.click();
+	}
+});

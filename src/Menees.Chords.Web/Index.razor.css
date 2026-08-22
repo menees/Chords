@@ -1,0 +1,79 @@
+.html-preview {
+	background: white;
+	display: flex;
+	flex-direction: column;
+	inset: 0;
+	position: fixed;
+	z-index: 1050;
+}
+
+.html-preview-toolbar {
+	align-items: center;
+	background: #f7f7f7;
+	border-bottom: 1px solid #d6d5d5;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1rem;
+	padding: 0.5rem 0.75rem;
+}
+
+.html-preview-setting,
+.html-preview-key {
+	align-items: center;
+	display: flex;
+	gap: 0.4rem;
+}
+
+.html-preview-setting select {
+	inline-size: 7.5rem;
+}
+
+.transpose-setting select {
+	font-variant-numeric: tabular-nums;
+}
+
+.html-preview-frame {
+	border: 0;
+	flex: 1 1 auto;
+	min-height: 0;
+	width: 100%;
+}
+
+.html-print-content {
+	display: none;
+}
+
+@media (max-width: 575.98px) {
+	.html-preview-toolbar {
+		align-items: stretch;
+	}
+
+	.html-preview-setting {
+		flex: 1 1 auto;
+	}
+
+	.html-preview-setting select {
+		flex: 1 1 auto;
+	}
+}
+
+@media print {
+	.converter-editor,
+	.html-preview-toolbar,
+	.alert {
+		display: none;
+	}
+
+	.html-preview {
+		display: block;
+		position: static;
+	}
+
+	.html-preview-frame {
+		display: none;
+	}
+
+	.html-print-content {
+		display: block;
+	}
+}

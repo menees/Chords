@@ -16,7 +16,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 {
 	#region Constructors
 
-	private ChordProLyricLine(IReadOnlyList<TextSegment> segments)
+	internal ChordProLyricLine(IReadOnlyList<TextSegment> segments)
 		: base(segments)
 	{
 	}

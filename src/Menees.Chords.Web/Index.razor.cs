@@ -4,12 +4,14 @@ namespace Menees.Chords.Web;
 
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 using Blazored.LocalStorage;
 using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
 using Menees.Chords.Transformers;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 #endregion
@@ -19,6 +21,8 @@ public sealed partial class Index : IDisposable
 	#region Private Data Members
 
 	private const string MetaFileName = "filename";
+	private const int MaximumPreviewTranspose = 11;
+	private const int MinimumDoubleDigitOffset = 10;
 
 	private static readonly Encoding UTF8 = Encoding.UTF8;
 
@@ -32,7 +36,17 @@ public sealed partial class Index : IDisposable
 	private bool longNames = true;
 	private CopyState copyState = new("Copy", IconName.Copy, "btn-secondary");
 	private ElementReference? inputElement;
+	private ElementReference htmlView;
 	private Document? outputDocument;
+	private Document? previewDocument;
+	private Key? previewKey;
+	private Notation previewNotation = Notation.Name;
+	private int previewTranspose;
+	private string previewHtml = string.Empty;
+	private string previewPrintHtml = string.Empty;
+	private string? previewMessage;
+	private bool showHtmlPreview;
+	private bool focusHtmlView;
 
 	#endregion
 
@@ -145,6 +159,34 @@ public sealed partial class Index : IDisposable
 		}
 	}
 
+	private Notation PreviewNotation
+	{
+		get => this.previewNotation;
+		set
+		{
+			if (this.previewNotation != value)
+			{
+				this.previewNotation = value;
+				this.Storage.SetItem(nameof(this.previewNotation), value);
+				this.RefreshHtmlPreview();
+			}
+		}
+	}
+
+	private int PreviewTranspose
+	{
+		get => this.previewTranspose;
+		set
+		{
+			if (this.previewTranspose != value)
+			{
+				this.previewTranspose = value;
+				this.Storage.SetItem(nameof(this.previewTranspose), value);
+				this.RefreshHtmlPreview();
+			}
+		}
+	}
+
 	// IntelliSense kept showing an error if this was inlined in the @bind:event syntax.
 	private string InputChangeEvent => this.whenTyping ? "oninput" : "onchange";
 
@@ -164,22 +206,17 @@ public sealed partial class Index : IDisposable
 
 	protected override async Task OnInitializedAsync()
 	{
-		if (this.Storage.ContainKey(nameof(this.fromType)))
-		{
-			// Old versions stored fromType as a string; new versions use an int (for the enum).
-			// GetItem<Parser> throws a JsonException if it finds a string, so we'll use
-			// Enum.TryParse, which can handle either format.
-			string? fromType = this.Storage.GetItem<string>(nameof(this.fromType));
-			this.fromType = Enum.TryParse(fromType, out Parser parsed) ? parsed : this.fromType;
-		}
+		this.fromType = this.GetStoredEnum(nameof(this.fromType), this.fromType);
+		this.toType = this.GetStoredEnum(nameof(this.toType), this.toType);
+		this.previewNotation = this.GetStoredEnum(nameof(this.previewNotation), this.previewNotation);
 
-		if (this.Storage.ContainKey(nameof(this.toType)))
+		if (this.Storage.ContainKey(nameof(this.previewTranspose)))
 		{
-			// Old versions stored toType as a string; new versions use an int (for the enum).
-			// GetItem<Transformer> throws a JsonException if it finds a string, so we'll use
-			// Enum.TryParse, which can handle either format.
-			string? toType = this.Storage.GetItem<string>(nameof(this.toType));
-			this.toType = Enum.TryParse(toType, out Transformer parsed) ? parsed : this.toType;
+			int storedTranspose = this.Storage.GetItem<int>(nameof(this.previewTranspose));
+			this.previewTranspose = Math.Clamp(
+				storedTranspose,
+				-MaximumPreviewTranspose,
+				MaximumPreviewTranspose);
 		}
 
 		if (this.Storage.ContainKey(nameof(this.longNames)))
@@ -204,9 +241,37 @@ public sealed partial class Index : IDisposable
 		this.ConvertInput();
 	}
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		await base.OnAfterRenderAsync(firstRender);
+		if (this.focusHtmlView)
+		{
+			this.focusHtmlView = false;
+			await this.htmlView.FocusAsync();
+		}
+	}
+
 	#endregion
 
 	#region Private Methods
+
+	private static string CreatePrintHtml(XDocument html)
+	{
+		StringBuilder result = new();
+		foreach (XElement style in html.Root!.Element("head")!.Elements("style"))
+		{
+			XElement printStyle = new(style);
+			printStyle.SetAttributeValue("media", "print");
+			result.Append(printStyle.ToString(SaveOptions.DisableFormatting));
+		}
+
+		foreach (XElement element in html.Root.Element("body")!.Elements().Where(element => element.Name != "script"))
+		{
+			result.Append(element.ToString(SaveOptions.DisableFormatting));
+		}
+
+		return result.ToString();
+	}
 
 	private void ConvertInput()
 	{
@@ -279,9 +344,93 @@ public sealed partial class Index : IDisposable
 		DocumentParser parser = new(this.toType == Transformer.ChordOverLyric
 			? DocumentParser.DefaultLineParsers
 			: DocumentParser.ChordProLineParsers);
-		Document document = Document.Parse(this.output, parser);
-		string html = new HtmlFormatter(document).ToString();
-		await this.JavaScript.InvokeVoidAsync("ViewHtml", html);
+		this.previewDocument = Document.Parse(this.output, parser);
+		this.previewKey = Key.Find(this.previewDocument, DetectKey.FirstChord);
+		this.showHtmlPreview = true;
+		this.focusHtmlView = true;
+		this.RefreshHtmlPreview();
+		await this.JavaScript.InvokeVoidAsync("SetHtmlViewOpen", true);
+	}
+
+	private async Task CloseHtmlPreviewAsync()
+	{
+		this.showHtmlPreview = false;
+		await this.JavaScript.InvokeVoidAsync("SetHtmlViewOpen", false);
+	}
+
+	private void RefreshHtmlPreview()
+	{
+		if (this.previewDocument is not null)
+		{
+			Document document = this.previewDocument;
+			this.previewMessage = null;
+			if (this.previewKey is null)
+			{
+				this.previewMessage = "A key could not be detected, so notation and transposition are unavailable.";
+			}
+			else
+			{
+				if (this.previewNotation == Notation.Name && this.previewTranspose != 0)
+				{
+					document = new TransposeTransformer(document, (sbyte)this.previewTranspose, this.previewKey).Transform().Document;
+				}
+
+				document = new NotationTransformer(document, this.previewNotation, DetectKey.FirstChord).Transform().Document;
+			}
+
+			HtmlFormatter formatter = new(document);
+			XDocument html = formatter.ToXDocument();
+			html.Root!.Element("body")!.Add(new XElement("script", new XAttribute("src", "HtmlView.js"), string.Empty));
+			this.previewHtml = HtmlFormatter.Serialize(html);
+			this.previewPrintHtml = CreatePrintHtml(html);
+		}
+	}
+
+	private async Task HandleHtmlViewKeyDownAsync(KeyboardEventArgs e)
+	{
+		if (e.Key == "Escape")
+		{
+			await this.CloseHtmlPreviewAsync();
+		}
+	}
+
+	private string GetTransposeLabel(int offset)
+	{
+		string offsetText = offset switch
+		{
+			<= -MinimumDoubleDigitOffset => $"−{-offset}",
+			< 0 => $" −{-offset}",
+			>= MinimumDoubleDigitOffset => $"+{offset}",
+			> 0 => $" +{offset}",
+			_ => "  0",
+		};
+
+		string targetKey = string.Empty;
+		if (this.previewKey is not null)
+		{
+			Chord keyChord = Chord.Parse(this.previewKey.Name);
+			targetKey = $" → {keyChord.Transpose((sbyte)offset).Name}";
+		}
+
+		return offsetText + targetKey;
+	}
+
+	private TEnum GetStoredEnum<TEnum>(string name, TEnum defaultValue)
+		where TEnum : struct, Enum
+	{
+		TEnum result = defaultValue;
+		if (this.Storage.ContainKey(name))
+		{
+			// Old versions stored enums as strings; new versions use integers. Reading the JSON value
+			// as text and parsing it supports both representations.
+			string? value = this.Storage.GetItem<string>(name);
+			if (Enum.TryParse(value, out TEnum parsed) && Enum.IsDefined(parsed))
+			{
+				result = parsed;
+			}
+		}
+
+		return result;
 	}
 
 	private string GetFileName()
