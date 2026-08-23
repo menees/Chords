@@ -1,7 +1,7 @@
 namespace Menees.Chords.Transformers;
 
 /// <summary>
-/// Transposes every named chord and key declaration in a document.
+/// Transposes chord usages, bracketed chord-diagram lookups, and key declarations in a document.
 /// </summary>
 public sealed class TransposeTransformer : DocumentTransformer
 {
@@ -63,7 +63,8 @@ public sealed class TransposeTransformer : DocumentTransformer
 	#region Public Methods
 
 	/// <summary>
-	/// Transposes all named chords and key declarations in <see cref="DocumentTransformer.Document"/>.
+	/// Transposes chord usages, bracketed chord-diagram lookups, and key declarations
+	/// in <see cref="DocumentTransformer.Document"/>.
 	/// </summary>
 	/// <returns>The current transformer.</returns>
 	public override

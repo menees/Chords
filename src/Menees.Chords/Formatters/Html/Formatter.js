@@ -75,7 +75,8 @@
 		for (let index = 0; index < blocks.length; index++) {
 			const block = blocks[index];
 			const unit = [block];
-			if (block.node.classList.contains("section-header") && index + 1 < blocks.length) {
+			if ((block.node.classList.contains("section-header") || block.node.classList.contains("section-header-row"))
+				&& index + 1 < blocks.length) {
 				const next = blocks[index + 1];
 				const currentSection = block.sectionPath[block.sectionPath.length - 1]?.key;
 				const nextSection = next.sectionPath[next.sectionPath.length - 1]?.key;

@@ -4,18 +4,13 @@ internal static class MusicTheory
 {
 	#region Private Data Members
 
-	private const int PitchCount = 12;
-	private const int TritonePitch = 6;
+	// GetDegree treats a raised fourth differently from other chromatic intervals.
 	private const int FourthDegreeIndex = 3;
-	private const int EPitch = 4;
-	private const int FPitch = 5;
-	private const int GPitch = 7;
-	private const int APitch = 9;
-	private const int BPitch = 11;
 
+	// DegreeOffsets describes the seven unaltered major-scale degrees as semitone offsets from the key.
+	private static readonly int[] DegreeOffsets = [Pitch.C, Pitch.D, Pitch.E, Pitch.F, Pitch.G, Pitch.A, Pitch.B];
 	private static readonly string[] SharpNotes = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 	private static readonly string[] FlatNotes = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
-	private static readonly int[] DegreeOffsets = [0, 2, 4, 5, 7, 9, 11];
 	private static readonly string[] RomanDegrees = ["I", "II", "III", "IV", "V", "VI", "VII"];
 
 	#endregion
@@ -67,8 +62,30 @@ internal static class MusicTheory
 			|| modifiers[0].Equals("min", StringComparison.OrdinalIgnoreCase)
 			|| modifiers[0].Equals("-", StringComparison.Ordinal));
 
+	internal static int GetNamedPitch(string note)
+	{
+		int natural = char.ToUpperInvariant(note[0]) switch
+		{
+			'C' => Pitch.C,
+			'D' => Pitch.D,
+			'E' => Pitch.E,
+			'F' => Pitch.F,
+			'G' => Pitch.G,
+			'A' => Pitch.A,
+			'B' or 'H' => Pitch.B,
+			_ => throw new ArgumentException("The note is invalid.", nameof(note)),
+		};
+		int accidental = note.Length > 1 ? note[1] == '#' ? 1 : -1 : 0;
+		return Mod(natural + accidental);
+	}
+
+	internal static string GetNamedNote(int pitch, string keyRoot)
+		=> (PrefersSharps(keyRoot, keyRoot) ? SharpNotes : FlatNotes)[Mod(pitch)];
+
 	internal static sbyte NormalizeTranspose(sbyte halfSteps)
-		=> (sbyte)(halfSteps % PitchCount);
+		=> (sbyte)(halfSteps % Pitch.Count);
+
+	internal static int NormalizePitch(int pitch) => Mod(pitch);
 
 	#endregion
 
@@ -90,30 +107,15 @@ internal static class MusicTheory
 
 		if (!found)
 		{
-			// Prefer the conventional flat degrees, except for the raised fourth.
-			result = pitch == TritonePitch
+			// When enharmonic intent is unavailable, use flat spellings for chromatic degrees,
+			// except canonicalize the tritone as #4 like most music theorists. Typically, only
+			// blues and jazz players prefer b5.
+			result = pitch == Pitch.Tritone
 				? (FourthDegreeIndex, 1)
 				: (Array.IndexOf(DegreeOffsets, Mod(pitch + 1)), -1);
 		}
 
 		return result;
-	}
-
-	private static int GetNamedPitch(string note)
-	{
-		int natural = char.ToUpperInvariant(note[0]) switch
-		{
-			'C' => 0,
-			'D' => 2,
-			'E' => EPitch,
-			'F' => FPitch,
-			'G' => GPitch,
-			'A' => APitch,
-			'B' or 'H' => BPitch,
-			_ => throw new ArgumentException("The note is invalid.", nameof(note)),
-		};
-		int accidental = note.Length > 1 ? note[1] == '#' ? 1 : -1 : 0;
-		return Mod(natural + accidental);
 	}
 
 	private static int GetRelativePitch(string note)
@@ -135,7 +137,7 @@ internal static class MusicTheory
 	private static string MatchCase(string source, string result)
 		=> char.IsLower(source[0]) ? result.ToLowerInvariant() : result;
 
-	private static int Mod(int value) => ((value % PitchCount) + PitchCount) % PitchCount;
+	private static int Mod(int value) => ((value % Pitch.Count) + Pitch.Count) % Pitch.Count;
 
 	private static bool PrefersSharps(string keyRoot, string sourceNote)
 	{
@@ -154,6 +156,23 @@ internal static class MusicTheory
 		}
 
 		return result;
+	}
+
+	#endregion
+
+	#region Private Types
+
+	private static class Pitch
+	{
+		public const int Count = 12;
+		public const int Tritone = 6;
+		public const int C = 0;
+		public const int D = 2;
+		public const int E = 4;
+		public const int F = 5;
+		public const int G = 7;
+		public const int A = 9;
+		public const int B = 11;
 	}
 
 	#endregion

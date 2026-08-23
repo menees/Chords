@@ -55,6 +55,12 @@ public sealed class HtmlFormatterOptions
 	/// <summary>Gets the chord diagram caption overrides.</summary>
 	public TextStyle DiagramCaptionStyle { get; } = new();
 
+	/// <summary>Gets or sets how fret-based chord diagrams are rendered.</summary>
+	public ChordDiagramMode FretDiagramMode { get; set; } = ChordDiagramMode.Image;
+
+	/// <summary>Gets or sets how keyboard chord diagrams are rendered.</summary>
+	public ChordDiagramMode KeyboardDiagramMode { get; set; } = ChordDiagramMode.Image;
+
 	/// <summary>
 	/// Gets environment-specific layout and text overrides keyed by the name after <c>start_of_</c>.
 	/// </summary>
@@ -90,8 +96,16 @@ public sealed class HtmlFormatterOptions
 	/// <summary>Gets or sets the chord diagram line color.</summary>
 	public CssColor? DiagramLineColor { get; set; }
 
+	/// <summary>
+	/// Gets or sets the fret line color. Null derives a theme-relative faded color from <see cref="DiagramLineColor"/>.
+	/// </summary>
+	public CssColor? DiagramFretColor { get; set; }
+
 	/// <summary>Gets or sets the chord diagram dot color.</summary>
 	public CssColor? DiagramDotColor { get; set; }
+
+	/// <summary>Gets or sets the color used to highlight selected keys in keyboard chord diagrams.</summary>
+	public CssColor? DiagramKeyColor { get; set; }
 
 	/// <summary>Gets or sets the block size of each responsive page.</summary>
 	public CssSize? PageBlockSize { get; set; }
@@ -122,7 +136,9 @@ public sealed class HtmlFormatterOptions
 		Append(variables, "consecutive-chord-gap", this.ConsecutiveChordGap);
 		Append(variables, "diagram-size", this.DiagramSize);
 		Append(variables, "diagram-line-color", this.DiagramLineColor);
+		Append(variables, "diagram-fret-color", this.DiagramFretColor);
 		Append(variables, "diagram-dot-color", this.DiagramDotColor);
+		Append(variables, "diagram-key-color", this.DiagramKeyColor);
 		Append(variables, "page-block-size", this.PageBlockSize);
 		Append(variables, "page-padding", this.PagePadding);
 		Append(variables, "column-gap", this.ColumnGap);
@@ -142,11 +158,11 @@ public sealed class HtmlFormatterOptions
 		this.MetadataStyle.AppendCss(result, ".metadata-entry");
 		this.LyricStyle.AppendCss(result, ".lyric, .lyric-line");
 		this.ChordStyle.AppendCss(result, ".chord, .chord-only-line");
-		this.CommentStyle.AppendCss(result, ".comment, .annotation");
+		this.CommentStyle.AppendCss(result, ".comment");
 		this.SectionHeaderStyle.AppendCss(result, ".section-header");
 		this.TablatureStyle.AppendCss(result, ".tablature-line");
 		this.GridStyle.AppendCss(result, ".grid-line");
-		this.DiagramCaptionStyle.AppendCss(result, ".chord-diagram-name");
+		this.DiagramCaptionStyle.AppendCss(result, ".chord-diagram-name, .compact-chord-diagram");
 		foreach (KeyValuePair<string, EnvironmentStyle> pair in this.environmentStyles)
 		{
 			pair.Value.AppendCss(result, pair.Key);

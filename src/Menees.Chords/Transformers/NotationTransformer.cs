@@ -1,7 +1,7 @@
 namespace Menees.Chords.Transformers;
 
 /// <summary>
-/// Changes every chord in a document to a specified notation.
+/// Changes chord usages and bracketed chord-diagram lookups in a document to a specified notation.
 /// </summary>
 public sealed class NotationTransformer : DocumentTransformer
 {
@@ -37,7 +37,8 @@ public sealed class NotationTransformer : DocumentTransformer
 	#region Public Methods
 
 	/// <summary>
-	/// Changes all chords in <see cref="DocumentTransformer.Document"/> to the requested notation.
+	/// Changes chord usages and bracketed chord-diagram lookups in <see cref="DocumentTransformer.Document"/>
+	/// to the requested notation.
 	/// </summary>
 	/// <returns>The current transformer.</returns>
 	public override

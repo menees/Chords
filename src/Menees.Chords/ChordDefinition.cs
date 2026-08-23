@@ -81,24 +81,37 @@ public sealed class ChordDefinition
 	/// Gets a formatted chord definition.
 	/// </summary>
 	public override string ToString()
+		=> Format(
+			this.Chord.Name,
+			[.. this.Definition.Select(position => (int?)position)],
+			this.Fingering is null ? null : [.. this.Fingering.Select(position => (int?)position)]);
+
+	#endregion
+
+	#region Internal Methods
+
+	internal static string Format(
+		string chordName,
+		IReadOnlyList<int?> definition,
+		IReadOnlyList<int?>? fingering)
 	{
-		StringBuilder sb = new(this.Chord.Name);
-		AppendPositions(sb, this.Definition);
-		if (this.Fingering is not null && this.Fingering.Count > 0)
+		StringBuilder sb = new(chordName);
+		AppendPositions(sb, definition);
+		if (fingering is not null && fingering.Count > 0)
 		{
-			AppendPositions(sb, this.Fingering);
+			AppendPositions(sb, fingering);
 		}
 
 		string result = sb.ToString();
 		return result;
 
-		static void AppendPositions(StringBuilder sb, IReadOnlyList<byte?> positions)
+		static void AppendPositions(StringBuilder sb, IReadOnlyList<int?> positions)
 		{
 			sb.Append(' ');
 
 			const int DoubleDigitFret = 10;
 			bool useSeparator = positions.Any(fret => fret is not null && fret >= DoubleDigitFret);
-			foreach (byte? fret in positions)
+			foreach (int? fret in positions)
 			{
 				sb.Append(fret is null ? "x" : fret.ToString());
 				if (useSeparator)
@@ -113,10 +126,6 @@ public sealed class ChordDefinition
 			}
 		}
 	}
-
-	#endregion
-
-	#region Internal Methods
 
 	internal static bool IsUnplayedString(string part)
 	{

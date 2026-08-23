@@ -71,7 +71,6 @@ internal sealed class ChordDocumentTransformer
 				ChordProLyricLine line => this.Transform(line),
 				ChordProGridLine line => this.Transform(line),
 				ChordLyricPair pair => this.Transform(pair),
-				ChordDefinitions definitions => this.Transform(definitions),
 				Section section => this.Transform(section),
 				TitleLine title => this.Transform(title),
 				_ => entry,
@@ -79,19 +78,13 @@ internal sealed class ChordDocumentTransformer
 		}
 
 		IReadOnlyList<Entry> annotations = this.Transform(entry.Annotations);
-		if (!ReferenceEquals(annotations, entry.Annotations))
+		if (!ReferenceEquals(annotations, entry.Annotations)
+			|| (!ReferenceEquals(result, entry) && annotations.Count > 0))
 		{
 			result = result.Clone(annotations);
 		}
 
 		return result;
-	}
-
-	private ChordDefinitions Transform(ChordDefinitions definitions)
-	{
-		IReadOnlyList<ChordDefinition> changed = [.. definitions.Definitions.Select(
-			definition => definition.ChangeChord(chord => this.changeChord(chord, this.currentKey)))];
-		return changed.SequenceEqual(definitions.Definitions) ? definitions : new ChordDefinitions(changed);
 	}
 
 	private Entry Transform(ChordLine line)
@@ -178,15 +171,15 @@ internal sealed class ChordDocumentTransformer
 		if ((longName.Equals("chord", ChordParser.Comparison) || longName.Equals("define", ChordParser.Comparison))
 			&& !string.IsNullOrEmpty(directive.Argument))
 		{
-			string argument = directive.Argument!;
-			int separator = argument.IndexOfAny([' ', '\t']);
-			string chordText = separator < 0 ? argument : argument.Substring(0, separator);
-			if (Chord.TryParse(chordText, out Chord? chord))
+			string argument = directive.Argument!.Trim();
+			if (argument.Length > 2
+				&& argument[0] == '['
+				&& argument[^1] == ']'
+				&& Chord.TryParse(argument.Substring(1, argument.Length - 2), out Chord? chord))
 			{
 				Chord changed = this.changeChord(chord, this.currentKey);
-				string changedArgument = changed.Name + (separator < 0 ? string.Empty : argument.Substring(separator));
 				result = ReferenceEquals(changed, chord) ? directive
-					: ChordProDirectiveLine.Create(directive.QualifiedName, changedArgument);
+					: ChordProDirectiveLine.Create(directive.QualifiedName, $"[{changed.Name}]");
 			}
 		}
 

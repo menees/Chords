@@ -1,4 +1,5 @@
 :root {
+	color-scheme: light dark;
 	--font-family: Arial, sans-serif;
 	--monospace-font-family: Consolas, "Courier New", monospace;
 	--title-size: 1.8em;
@@ -17,17 +18,21 @@
 	--chorus-indent: 0.4em;
 	--chorus-padding: 0.65em;
 	--chorus-border-width: 2px;
-	--chorus-border-color: #777;
-	--chord-color: #3045c7;
-	--comment-color: #555;
-	--section-header-color: #444;
+	--chorus-border-color: light-dark(#777, #999);
+	--chord-color: light-dark(#3045c7, #91a2ff);
+	--comment-color: light-dark(#555, #aaa);
+	--section-header-color: light-dark(#444, #bbb);
 	--grid-color: currentColor;
 	--grid-line-thickness: 0.04em;
 	--lyric-extension-thickness: 0.04em;
 	--consecutive-chord-gap: 0.2em;
-	--diagram-size: 6.4em;
+	--diagram-size: 4em;
 	--diagram-line-color: currentColor;
+	--diagram-fret-color: light-dark(
+		color-mix(in srgb, var(--diagram-line-color) 25%, Canvas),
+		color-mix(in srgb, var(--diagram-line-color) 50%, Canvas));
 	--diagram-dot-color: currentColor;
+	--diagram-key-color: #d9d9d9;
 	--page-block-size: 100vh;
 	--page-block-size: 100dvh;
 	--page-padding: 1.5em;
@@ -36,6 +41,8 @@
 }
 
 body {
+	background-color: Canvas;
+	color: CanvasText;
 	margin: 0;
 }
 
@@ -148,8 +155,25 @@ body {
 }
 
 :is(.chord-line, .chord-only-line, .lyric-line) +
-:is(.chord-line, .chord-only-line, .lyric-line) {
+:is(.chord-line, .chord-only-line, .lyric-line),
+:is(.chord-line, .chord-only-line, .lyric-line) +
+.entry-with-annotations.music-line,
+.entry-with-annotations.music-line +
+:is(.chord-line, .chord-only-line, .lyric-line),
+.entry-with-annotations.music-line +
+.entry-with-annotations.music-line {
 	margin-block-start: var(--music-line-gap);
+}
+
+.entry-with-annotations {
+	display: flex;
+	align-items: baseline;
+	white-space: nowrap;
+}
+
+.entry-annotation {
+	flex: none;
+	margin-inline-start: 0.5em;
 }
 
 .word {
@@ -191,15 +215,10 @@ body {
 	font-weight: normal;
 }
 
-.comment,
-.annotation {
+.comment {
 	color: var(--comment-color);
 	font-size: var(--comment-size);
 	font-style: italic;
-}
-
-.annotation {
-	margin-inline-start: 0.5em;
 }
 
 .tablature-line,
@@ -226,8 +245,17 @@ body {
 .chord-diagrams {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0.4em;
+	gap: 0.1em;
 	margin-block: 0.25em;
+}
+
+.compact-chord-diagram {
+	white-space: nowrap;
+}
+
+.entry-annotation.chord-diagrams {
+	align-self: flex-start;
+	margin-block: 0;
 }
 
 .chord-diagram {
@@ -236,7 +264,12 @@ body {
 	text-align: center;
 }
 
+.fret-diagram {
+	inline-size: calc(var(--diagram-size) * 1.25);
+}
+
 .chord-diagram-name {
+	font-size: 0.8em;
 	font-weight: normal;
 	line-height: 1;
 	margin-block-end: -0.1em;
@@ -247,6 +280,15 @@ body {
 	inline-size: 100%;
 	block-size: auto;
 	color: var(--diagram-line-color);
+}
+
+.chord-diagram.keyboard-diagram {
+	inline-size: max-content;
+}
+
+.keyboard-diagram svg {
+	inline-size: auto;
+	block-size: calc(var(--diagram-size) * 0.9);
 }
 
 .delegated-environment {
@@ -277,50 +319,67 @@ body {
 
 .diagram-line {
 	stroke: currentColor;
-	stroke-width: 1.3;
+	stroke-width: 1;
 }
 
-.diagram-nut {
-	stroke-width: 3;
+.fret-diagram .diagram-line {
+	shape-rendering: crispEdges;
+	stroke-linecap: butt;
+}
+
+.diagram-fret {
+	stroke: var(--diagram-fret-color);
+}
+
+.diagram-string {
+	stroke: var(--diagram-line-color);
+}
+
+.diagram-edge {
+	fill: var(--diagram-line-color);
+	stroke: none;
 }
 
 .diagram-dot {
 	fill: var(--diagram-dot-color);
 }
 
-.diagram-finger {
-	fill: white;
-	font: bold 8px var(--font-family);
-	text-anchor: middle;
+.diagram-barre {
+	fill: var(--diagram-dot-color);
+	shape-rendering: crispEdges;
 }
 
 .diagram-key {
-	fill: white;
-	stroke: currentColor;
+	fill: #fff;
+	stroke: #222;
 	stroke-width: 1;
 }
 
 .diagram-key.black {
-	fill: currentColor;
+	fill: #111;
 }
 
 .diagram-key.selected {
-	fill: var(--diagram-dot-color);
-}
-
-.diagram-key.black.selected {
-	fill: white;
-	stroke-width: 3;
+	fill: var(--diagram-key-color);
 }
 
 .diagram-text {
 	fill: currentColor;
-	font: 12px var(--font-family);
+	font: 8px var(--font-family);
 	text-anchor: middle;
 }
 
 .diagram-string-state {
-	font-size: 14px;
+	font-size: 10px;
+}
+
+.diagram-fret-label {
+	font-size: 9.5px;
+	text-anchor: start;
+}
+
+.diagram-finger-position {
+	font-size: 9.5px;
 }
 
 .blank-line {
@@ -346,7 +405,13 @@ body {
 }
 
 @media print {
+	:root {
+		color-scheme: light;
+	}
+
 	body {
+		background-color: white;
+		color: black;
 		margin: 0;
 	}
 

@@ -125,91 +125,10 @@ public sealed class HtmlFormatter : ContainerFormatter
 		}
 
 		Conditions.RequireNonNull(this.currentContainer);
-
-		XElement? element = null;
-		IReadOnlyList<Entry> annotations = entry.Annotations;
-		switch (entry)
-		{
-			case Section { Environment.IsDelegated: true } section:
-				element = FormatDelegatedEnvironment(section);
-				break;
-
-			case BlankLine:
-				element = Element("div", "blank-line", "\u00A0");
-				element.SetAttributeValue("aria-hidden", "true");
-				break;
-
-			case ChordLyricPair pair:
-				ChordProLyricLine converted = ChordProLyricLine.Convert(pair);
-				element = FormatChordProLyricLine(converted, normalizeTrailingChords: true, this.Transpose);
-				annotations = converted.Annotations;
-				break;
-
-			case ChordProLyricLine chordProLyrics:
-				element = FormatChordProLyricLine(chordProLyrics, normalizeTrailingChords: false, this.Transpose);
-				break;
-
-			case TitleLine title:
-				element = FormatTitle(title);
-				break;
-
-			case MetadataEntry metadata:
-				element = FormatMetadata(metadata.Name, metadata.Argument);
-				break;
-
-			case HeaderLine header:
-				element = Element("h2", "section-header", header.Text);
-				break;
-
-			case Comment comment:
-				if (comment.Prefix?.TrimStart().StartsWith('#') != true)
-				{
-					element = Element("aside", "comment", comment.Text);
-					element.SetAttributeValue("role", "note");
-				}
-
-				break;
-
-			case ChordProRemarkLine:
-				break;
-
-			case ChordProDirectiveLine directive:
-				element = this.FormatDirective(directive);
-				break;
-
-			case ChordDefinitions definitions:
-				element = this.FormatChordDefinitions(definitions.Definitions);
-				break;
-
-			case ChordProGridLine grid:
-				element = FormatSegments(grid.Segments, "div", "grid-line", "grid-chord", this.Transpose);
-				break;
-
-			case ChordLine chords:
-				element = FormatSegments(chords.Segments, "div", "chord-only-line", "chord-only", this.Transpose);
-				break;
-
-			case LyricLine lyrics:
-				element = Element("div", "lyric-line", lyrics.Text);
-				break;
-
-			case TablatureLine tablature:
-				element = Element("pre", "tablature-line", tablature.Text);
-				break;
-
-			case UriLine uri:
-				element = FormatUri(uri);
-				break;
-
-			default:
-				element = Element("div", $"entry {GetEntryClass(entry)}", entry.ToString(includeAnnotations: false));
-				break;
-		}
-
+		XElement? element = this.FormatEntry(entry, isAnnotation: false);
 		if (element is not null)
 		{
-			AddAnnotations(element, annotations);
-			this.currentContainer.Add(element);
+			this.AddElement(element);
 		}
 	}
 
@@ -246,14 +165,19 @@ public sealed class HtmlFormatter : ContainerFormatter
 		base.EndContainer(container, hierarchy);
 		Conditions.RequireNonNull(this.currentContainer);
 
-		if (container is Entry entry)
-		{
-			AddAnnotations(this.currentContainer, entry.Annotations);
-		}
-
 		if (hierarchy.Count > 0)
 		{
 			XElement completed = this.currentContainer;
+			if (container is Entry entry)
+			{
+				XElement annotated = this.FormatAnnotations(completed, entry.Annotations);
+				if (!ReferenceEquals(annotated, completed))
+				{
+					completed.ReplaceWith(annotated);
+					completed = annotated;
+				}
+			}
+
 			if (container is Section section && IsChorus(section))
 			{
 				this.lastChorus = new(completed);
@@ -320,16 +244,6 @@ public sealed class HtmlFormatter : ContainerFormatter
 			default:
 				builder.Append(node.ToString(SaveOptions.DisableFormatting));
 				break;
-		}
-	}
-
-	private static void AddAnnotations(XElement element, IReadOnlyList<Entry> annotations)
-	{
-		foreach (Entry annotation in annotations)
-		{
-			XElement annotationElement = Element("span", "annotation", annotation.ToString(includeAnnotations: false));
-			annotationElement.SetAttributeValue("role", "note");
-			element.Add(annotationElement);
 		}
 	}
 
@@ -614,6 +528,139 @@ public sealed class HtmlFormatter : ContainerFormatter
 		}
 	}
 
+	private void AddElement(XElement element)
+	{
+		Conditions.RequireNonNull(this.currentContainer);
+		XElement? previous = this.currentContainer.Elements().LastOrDefault();
+		if (HasClass(element, "chord-diagrams") && previous is not null && HasClass(previous, "chord-diagrams"))
+		{
+			previous.Add(element.Nodes().ToArray());
+		}
+		else
+		{
+			this.currentContainer.Add(element);
+		}
+	}
+
+	private XElement? FormatEntry(Entry entry, bool isAnnotation)
+	{
+		XElement? element = null;
+		IReadOnlyList<Entry> annotations = entry.Annotations;
+		switch (entry)
+		{
+			case Section { Environment.IsDelegated: true } section:
+				element = FormatDelegatedEnvironment(section);
+				break;
+
+			case BlankLine:
+				element = Element("div", "blank-line", "\u00A0");
+				element.SetAttributeValue("aria-hidden", "true");
+				break;
+
+			case ChordLyricPair pair:
+				ChordProLyricLine converted = ChordProLyricLine.Convert(pair);
+				element = FormatChordProLyricLine(converted, normalizeTrailingChords: true, this.Transpose);
+				annotations = converted.Annotations;
+				break;
+
+			case ChordProLyricLine chordProLyrics:
+				element = FormatChordProLyricLine(chordProLyrics, normalizeTrailingChords: false, this.Transpose);
+				break;
+
+			case TitleLine title:
+				element = FormatTitle(title);
+				break;
+
+			case MetadataEntry metadata:
+				element = FormatMetadata(metadata.Name, metadata.Argument);
+				break;
+
+			case HeaderLine header:
+				element = Element("h2", "section-header", header.Text);
+				break;
+
+			case Comment comment:
+				if (comment.Prefix?.TrimStart().StartsWith('#') != true)
+				{
+					string text = isAnnotation ? comment.ToString(includeAnnotations: false) : comment.Text;
+					element = Element("aside", "comment", text);
+					element.SetAttributeValue("role", "note");
+				}
+
+				break;
+
+			case ChordProRemarkLine:
+				break;
+
+			case ChordProDirectiveLine directive:
+				element = this.FormatDirective(directive);
+				break;
+
+			case ChordDefinitions definitions:
+				element = this.FormatChordDefinitions(definitions.Definitions);
+				break;
+
+			case ChordProGridLine grid:
+				element = FormatSegments(grid.Segments, "div", "grid-line", "grid-chord", this.Transpose);
+				break;
+
+			case ChordLine chords:
+				element = FormatSegments(chords.Segments, "div", "chord-only-line", "chord-only", this.Transpose);
+				break;
+
+			case LyricLine lyrics:
+				element = Element("div", "lyric-line", lyrics.Text);
+				break;
+
+			case TablatureLine tablature:
+				element = Element("pre", "tablature-line", tablature.Text);
+				break;
+
+			case UriLine uri:
+				element = FormatUri(uri);
+				break;
+
+			default:
+				element = Element("div", $"entry {GetEntryClass(entry)}", entry.ToString(includeAnnotations: false));
+				break;
+		}
+
+		return element is null ? null : this.FormatAnnotations(element, annotations);
+	}
+
+	private XElement FormatAnnotations(XElement owner, IReadOnlyList<Entry> annotations)
+	{
+		List<XElement> elements = [];
+		foreach (Entry annotation in annotations)
+		{
+			XElement? element = this.FormatEntry(annotation, isAnnotation: true);
+			if (element is not null)
+			{
+				AddClass(element, "entry-annotation");
+				elements.Add(element);
+			}
+		}
+
+		XElement result = owner;
+		if (elements.Count > 0)
+		{
+			string className = "entry-with-annotations";
+			if (HasClass(owner, "section-header"))
+			{
+				className += " section-header-row";
+			}
+
+			if (HasClass(owner, "chord-line") || HasClass(owner, "chord-only-line") || HasClass(owner, "lyric-line"))
+			{
+				className += " music-line";
+			}
+
+			result = new XElement("div", new XAttribute("class", className), owner, elements);
+		}
+
+		return result;
+	}
+
 	private XElement? FormatDirective(ChordProDirectiveLine directive)
 	{
 		const StringComparison Comparison = ChordParser.Comparison;
@@ -644,7 +691,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 		else if (name.Equals("define", Comparison) || name.Equals("chord", Comparison))
 		{
 			ChordDiagram? diagram = this.ParseChordDiagram(directive);
-			result = diagram?.Show == true ? FormatChordDiagrams([diagram]) : null;
+			result = diagram is null ? null : this.FormatChordDiagrams([diagram]);
 		}
 		else if (name.StartsWith(ChordProEnvironment.StartPrefix, Comparison))
 		{
@@ -701,6 +748,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 	private static XElement FormatChordDiagram(ChordDiagram diagram)
 	{
 		XNamespace svg = "http://www.w3.org/2000/svg";
+		string className = diagram.Keys is null ? "chord-diagram fret-diagram" : "chord-diagram keyboard-diagram";
 		XElement image = new(
 			svg + "svg",
 			new XAttribute("role", "img"),
@@ -709,7 +757,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 		if (diagram.Keys is not null)
 		{
 			image.SetAttributeValue("viewBox", "0 0 90 82");
-			FormatKeyboardDiagram(image, svg, diagram.Keys);
+			FormatKeyboardDiagram(image, svg, diagram.Keys, diagram.RootPitch);
 		}
 		else if (diagram.Frets is not null)
 		{
@@ -718,42 +766,127 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 		return new XElement(
 			"figure",
-			new XAttribute("class", "chord-diagram"),
+			new XAttribute("class", className),
 			Element("figcaption", "chord-diagram-name", diagram.DisplayName),
 			image);
 	}
 
-	private static XElement FormatChordDiagrams(IEnumerable<ChordDiagram> diagrams)
-		=> new("div", new XAttribute("class", "chord-diagrams"), diagrams.Select(FormatChordDiagram));
+	private XElement? FormatChordDiagrams(IEnumerable<ChordDiagram> diagrams)
+	{
+		List<XElement> elements = [];
+		foreach (ChordDiagram diagram in diagrams.Where(diagram => diagram.Show))
+		{
+			ChordDiagramMode optionMode = diagram.Keys is null
+				? this.options?.FretDiagramMode ?? ChordDiagramMode.Image
+				: this.options?.KeyboardDiagramMode ?? ChordDiagramMode.Image;
+			ChordDiagramMode mode = optionMode == ChordDiagramMode.None
+				? ChordDiagramMode.None
+				: diagram.ModeOverride ?? optionMode;
+			XElement? element = mode switch
+			{
+				ChordDiagramMode.None => null,
+				ChordDiagramMode.Image => FormatChordDiagram(diagram),
+				ChordDiagramMode.CompactText => Element("div", "compact-chord-diagram", diagram.GetCompactText()),
+				_ => throw new ArgumentOutOfRangeException(nameof(mode)),
+			};
+			if (element is not null)
+			{
+				elements.Add(element);
+			}
+		}
+
+		return elements.Count > 0
+			? new XElement("div", new XAttribute("class", "chord-diagrams"), elements)
+			: null;
+	}
 
 	private static void FormatFretDiagram(XElement image, XNamespace svg, ChordDiagram diagram)
 	{
 		IReadOnlyList<int?> frets = diagram.Frets!;
-		int fretCount = Math.Max(1, frets.Where(fret => fret > 0).DefaultIfEmpty(0).Max() ?? 0);
-		const double Left = 16;
-		const double Right = 84;
-		const double Top = 18;
-		const double FretHeight = 14;
-		double bottom = Top + (fretCount * FretHeight);
-		image.SetAttributeValue("viewBox", $"0 0 90 {bottom + 4}");
+		const int FretCount = 5;
+		const double Left = 10;
+		const double StringSpacing = 8;
+		const double Top = 12;
+		const double FretHeight = 9;
+		const double SidePadding = 20;
+		const double FingerY = 67;
+		double right = Left + ((frets.Count - 1) * StringSpacing);
+		double bottom = Top + (FretCount * FretHeight);
+		double viewBoxLeft = Left - SidePadding;
+		double viewBoxWidth = (right - Left) + (2 * SidePadding);
+		image.SetAttributeValue("viewBox", $"{viewBoxLeft} 0 {viewBoxWidth} 72");
 
-		for (int fret = 0; fret <= fretCount; fret++)
+		for (int fret = 0; fret <= FretCount; fret++)
 		{
 			double y = Top + (fret * FretHeight);
-			string className = fret == 0 && diagram.BaseFret == 1 ? "diagram-line diagram-nut" : "diagram-line";
-			image.Add(SvgLine(svg, Left, y, Right, y, className));
+			bool isEdge = fret == 0 || fret == FretCount;
+			if (isEdge)
+			{
+				bool isNut = fret == 0 && diagram.BaseFret == 1;
+				double thickness = isNut ? 3 : 1;
+				string className = isNut
+					? "diagram-line diagram-fret diagram-edge diagram-nut"
+					: "diagram-line diagram-fret diagram-edge";
+				image.Add(new XElement(
+					svg + "rect",
+					new XAttribute("class", className),
+					new XAttribute("x", Left - 0.5),
+					new XAttribute("y", y - (thickness / 2)),
+					new XAttribute("width", (right - Left) + 1),
+					new XAttribute("height", thickness)));
+			}
+			else
+			{
+				image.Add(SvgLine(svg, Left, y, right, y, "diagram-line diagram-fret"));
+			}
 		}
 
 		for (int index = 0; index < frets.Count; index++)
 		{
-			double x = frets.Count == 1 ? 50 : Left + ((Right - Left) * index / (frets.Count - 1));
-			image.Add(SvgLine(svg, x, Top, x, bottom, "diagram-line"));
-			int? position = frets[index];
-			if (position is null || position == 0)
+			double x = Left + (index * StringSpacing);
+			image.Add(SvgLine(svg, x, Top, x, bottom, "diagram-line diagram-string"));
+		}
+
+		IReadOnlyList<IGrouping<int, int>> barres = [];
+		if (diagram.Fingers is not null)
+		{
+			barres = [.. Enumerable.Range(
+				0,
+				Math.Min(frets.Count, diagram.Fingers.Count))
+				.Where(index => diagram.Fingers[index] == 1
+					&& frets[index] is int position
+					&& position <= FretCount
+					&& (position > 0 || diagram.BaseFret > 1))
+				.GroupBy(index => frets[index]!.Value)
+				.Where(group => group.Count() > 1)];
+			foreach (IGrouping<int, int> barre in barres)
 			{
-				image.Add(SvgText(svg, x, Top - 4, position is null ? "×" : "○", "diagram-text diagram-string-state"));
+				double y = barre.Key == 0 ? Top : Top + ((barre.Key - 0.5) * FretHeight);
+				double first = Left + (barre.Min() * StringSpacing);
+				double last = Left + (barre.Max() * StringSpacing);
+				image.Add(new XElement(
+					svg + "rect",
+					new XAttribute("class", "diagram-barre"),
+					new XAttribute("x", first - 2),
+					new XAttribute("y", y - 2),
+					new XAttribute("width", (last - first) + 4),
+					new XAttribute("height", 4)));
 			}
-			else
+		}
+
+		HashSet<int> barredStrings = [.. barres.SelectMany(group => group)];
+		for (int index = 0; index < frets.Count; index++)
+		{
+			double x = Left + (index * StringSpacing);
+			int? position = frets[index];
+			if (position is null)
+			{
+				if (!barredStrings.Contains(index))
+				{
+					image.Add(SvgText(svg, x, Top - 3, "×", "diagram-text diagram-string-state"));
+				}
+			}
+			else if (position > 0 && position <= FretCount && !barredStrings.Contains(index))
 			{
 				double y = Top + ((position.Value - 0.5) * FretHeight);
 				image.Add(new XElement(
@@ -761,49 +894,85 @@ public sealed class HtmlFormatter : ContainerFormatter
 					new XAttribute("class", "diagram-dot"),
 					new XAttribute("cx", x),
 					new XAttribute("cy", y),
-					new XAttribute("r", 5)));
-				if (diagram.Fingers is not null && index < diagram.Fingers.Count && diagram.Fingers[index] is int finger)
+					new XAttribute("r", 3)));
+				if (diagram.Fingers is not null
+					&& index < diagram.Fingers.Count
+					&& diagram.Fingers[index] is int finger)
 				{
-					image.Add(SvgText(svg, x, y + 2.8, finger.ToString(), "diagram-finger"));
+					image.Add(SvgText(svg, x, FingerY, finger.ToString(), "diagram-text diagram-finger-position"));
 				}
 			}
 		}
 
-		if (diagram.BaseFret > 1)
+		IGrouping<int, int>? labeledBarre = barres.FirstOrDefault();
+		if (labeledBarre is not null)
 		{
-			image.Add(SvgText(svg, 7, Top + 10, diagram.BaseFret.ToString(), "diagram-text"));
+			int absoluteFret = diagram.BaseFret + Math.Max(0, labeledBarre.Key - 1);
+			if (absoluteFret > 1)
+			{
+				double y = labeledBarre.Key == 0 ? Top : Top + ((labeledBarre.Key - 0.5) * FretHeight);
+				image.Add(SvgText(svg, right + 5, y + 3, $"{absoluteFret}fr", "diagram-text diagram-fret-label"));
+			}
+		}
+		else if (diagram.BaseFret > 1)
+		{
+			double y = Top + (0.5 * FretHeight);
+			image.Add(SvgText(svg, right + 5, y + 3, $"{diagram.BaseFret}fr", "diagram-text diagram-fret-label"));
 		}
 	}
 
-	private static void FormatKeyboardDiagram(XElement image, XNamespace svg, IReadOnlyList<int> keys)
+	private static void FormatKeyboardDiagram(XElement image, XNamespace svg, IReadOnlyList<int> keys, int rootPitch)
 	{
 		int[] whiteNotes = [0, 2, 4, 5, 7, 9, 11];
-		HashSet<int> selected = [.. keys.Select(key => ((key % 12) + 12) % 12)];
+		HashSet<int> selected = [.. keys.Select(key => rootPitch + key)];
+		int firstPitch = selected.Count > 0 ? GetKeyboardBlockStart(selected.Min()) : 0;
+		int lastPitch = selected.Count > 0 ? GetKeyboardBlockEnd(selected.Max()) : 11;
+		int[] renderedWhiteNotes = [.. Enumerable.Range(firstPitch, (lastPitch - firstPitch) + 1)
+			.Where(pitch => whiteNotes.Contains(MusicTheory.NormalizePitch(pitch)))];
 		const double WhiteWidth = 11;
-		for (int index = 0; index < whiteNotes.Length; index++)
+		const double HorizontalPadding = 7;
+		double width = (2 * HorizontalPadding) + (renderedWhiteNotes.Length * WhiteWidth);
+		image.SetAttributeValue("viewBox", $"0 0 {width} 82");
+		for (int index = 0; index < renderedWhiteNotes.Length; index++)
 		{
-			string className = selected.Contains(whiteNotes[index]) ? "diagram-key selected" : "diagram-key";
+			int note = renderedWhiteNotes[index];
+			string className = selected.Contains(note) ? "diagram-key selected" : "diagram-key";
 			image.Add(new XElement(
 				svg + "rect",
 				new XAttribute("class", className),
-				new XAttribute("x", 7 + (index * WhiteWidth)),
+				new XAttribute("x", HorizontalPadding + (index * WhiteWidth)),
 				new XAttribute("y", 8),
 				new XAttribute("width", WhiteWidth),
 				new XAttribute("height", 68)));
 		}
 
-		(int Note, int WhiteIndex)[] blackNotes = [(1, 0), (3, 1), (6, 3), (8, 4), (10, 5)];
-		foreach ((int note, int whiteIndex) in blackNotes)
+		foreach (int pitch in Enumerable.Range(firstPitch, (lastPitch - firstPitch) + 1)
+			.Where(pitch => IsBlackKey(MusicTheory.NormalizePitch(pitch))))
 		{
-			string className = selected.Contains(note) ? "diagram-key black selected" : "diagram-key black";
+			int previousWhiteIndex = Array.IndexOf(renderedWhiteNotes, pitch - 1);
+			string className = selected.Contains(pitch) ? "diagram-key black selected" : "diagram-key black";
 			image.Add(new XElement(
 				svg + "rect",
 				new XAttribute("class", className),
-				new XAttribute("x", 7 + ((whiteIndex + 1) * WhiteWidth) - 3.5),
+				new XAttribute("x", HorizontalPadding + ((previousWhiteIndex + 1) * WhiteWidth) - 3.5),
 				new XAttribute("y", 8),
 				new XAttribute("width", 7),
 				new XAttribute("height", 40)));
 		}
+
+		static int GetKeyboardBlockStart(int pitch)
+		{
+			int pitchClass = MusicTheory.NormalizePitch(pitch);
+			return pitch - pitchClass + (pitchClass <= 4 ? 0 : 5);
+		}
+
+		static int GetKeyboardBlockEnd(int pitch)
+		{
+			int pitchClass = MusicTheory.NormalizePitch(pitch);
+			return pitch - pitchClass + (pitchClass <= 4 ? 4 : 11);
+		}
+
+		static bool IsBlackKey(int pitchClass) => pitchClass is 1 or 3 or 6 or 8 or 10;
 	}
 
 	private static XElement SvgLine(XNamespace svg, double x1, double y1, double x2, double y2, string className)
@@ -837,7 +1006,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 			diagrams.Add(diagram);
 		}
 
-		return diagrams.Count > 0 ? FormatChordDiagrams(diagrams) : null;
+		return diagrams.Count > 0 ? this.FormatChordDiagrams(diagrams) : null;
 	}
 
 	private XElement? FormatChorusRecall(ChordProDirectiveLine directive)
@@ -864,53 +1033,61 @@ public sealed class HtmlFormatter : ContainerFormatter
 		ChordDiagram? result = null;
 		if (tokens.Count > 0)
 		{
-			string name = tokens[0].Trim('[', ']');
-			ChordDiagram diagram = this.chordDiagrams.TryGetValue(name, out ChordDiagram? known) ? new(known) : new(name);
-			for (int index = 1; index < tokens.Count; index++)
+			string name = tokens[0];
+			bool isDatabaseLookup = name.Length > 1 && name[0] == '[' && name[^1] == ']';
+			if (!isDatabaseLookup)
 			{
-				string token = tokens[index];
-				if ((token.Equals("copy", ChordParser.Comparison) || token.Equals("copyall", ChordParser.Comparison))
-					&& (index + 1) < tokens.Count
-					&& this.chordDiagrams.TryGetValue(tokens[++index].Trim('[', ']'), out ChordDiagram? copied))
+				ChordDiagram diagram = this.chordDiagrams.TryGetValue(name, out ChordDiagram? known) ? new(known) : new(name);
+				for (int index = 1; index < tokens.Count; index++)
 				{
-					diagram.CopyFrom(copied);
+					string token = tokens[index];
+					if ((token.Equals("copy", ChordParser.Comparison) || token.Equals("copyall", ChordParser.Comparison))
+						&& (index + 1) < tokens.Count
+						&& this.chordDiagrams.TryGetValue(tokens[++index].Trim('[', ']'), out ChordDiagram? copied))
+					{
+						diagram.CopyFrom(copied);
+					}
+					else if ((token.Equals("base-fret", ChordParser.Comparison) || token.Equals("base_fret", ChordParser.Comparison))
+						&& (index + 1) < tokens.Count
+						&& int.TryParse(tokens[++index], out int baseFret))
+					{
+						diagram.BaseFret = Math.Max(1, baseFret);
+					}
+					else if (token.Equals("frets", ChordParser.Comparison))
+					{
+						diagram.Frets = ParsePositions(tokens, ref index);
+					}
+					else if (token.Equals("fingers", ChordParser.Comparison))
+					{
+						diagram.Fingers = ParsePositions(tokens, ref index);
+					}
+					else if (token.Equals("keys", ChordParser.Comparison))
+					{
+						diagram.Keys = [.. ParsePositions(tokens, ref index)
+							.Where(value => value is not null)
+							.Select(value => value!.Value)];
+					}
+					else if (token.Equals("diagram", ChordParser.Comparison) && (index + 1) < tokens.Count)
+					{
+						string value = tokens[++index];
+						diagram.Show = !value.Equals("off", ChordParser.Comparison);
+						diagram.ModeOverride = value.Equals("compact", ChordParser.Comparison)
+							? ChordDiagramMode.CompactText
+							: null;
+					}
+					else if (token.Equals("display", ChordParser.Comparison) && (index + 1) < tokens.Count)
+					{
+						diagram.DisplayName = tokens[++index];
+					}
 				}
-				else if ((token.Equals("base-fret", ChordParser.Comparison) || token.Equals("base_fret", ChordParser.Comparison))
-					&& (index + 1) < tokens.Count
-					&& int.TryParse(tokens[++index], out int baseFret))
-				{
-					diagram.BaseFret = Math.Max(1, baseFret);
-				}
-				else if (token.Equals("frets", ChordParser.Comparison))
-				{
-					diagram.Frets = ParsePositions(tokens, ref index);
-				}
-				else if (token.Equals("fingers", ChordParser.Comparison))
-				{
-					diagram.Fingers = ParsePositions(tokens, ref index);
-				}
-				else if (token.Equals("keys", ChordParser.Comparison))
-				{
-					diagram.Keys = [.. ParsePositions(tokens, ref index)
-						.Where(value => value is not null)
-						.Select(value => value!.Value)];
-				}
-				else if (token.Equals("diagram", ChordParser.Comparison) && (index + 1) < tokens.Count)
-				{
-					diagram.Show = !tokens[++index].Equals("off", ChordParser.Comparison);
-				}
-				else if (token.Equals("display", ChordParser.Comparison) && (index + 1) < tokens.Count)
-				{
-					diagram.DisplayName = tokens[++index];
-				}
-			}
 
-			if (directive.LongName.Equals("define", ChordParser.Comparison) || diagram.Frets is not null || diagram.Keys is not null)
-			{
-				this.chordDiagrams[name] = new(diagram);
-			}
+				if (directive.LongName.Equals("define", ChordParser.Comparison) || diagram.Frets is not null || diagram.Keys is not null)
+				{
+					this.chordDiagrams[name] = new(diagram);
+				}
 
-			result = diagram.Frets is not null || diagram.Keys is not null ? diagram : null;
+				result = diagram.Frets is not null || diagram.Keys is not null ? diagram : null;
+			}
 		}
 
 		return result;
@@ -1098,6 +1275,9 @@ public sealed class HtmlFormatter : ContainerFormatter
 	private static string GetEntryClass(Entry entry)
 		=> entry.GetType().Name.ToLowerInvariant();
 
+	private static void AddClass(XElement element, string className)
+		=> element.SetAttributeValue("class", ((string?)element.Attribute("class") + " " + className).Trim());
+
 	private static bool HasClass(XElement element, string className)
 		=> ((string?)element.Attribute("class"))?.Split(' ').Contains(className) == true;
 
@@ -1203,6 +1383,11 @@ public sealed class HtmlFormatter : ContainerFormatter
 		{
 			this.Name = name;
 			this.DisplayName = name;
+			int noteLength = ChordParser.GetNoteLength(name);
+			this.NamedRoot = noteLength > 0 ? name.Substring(0, noteLength) : null;
+			this.RootPitch = noteLength > 0
+				? MusicTheory.GetNamedPitch(this.NamedRoot!)
+				: 0;
 		}
 
 		public ChordDiagram(
@@ -1235,7 +1420,13 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 		public IReadOnlyList<int>? Keys { get; set; }
 
+		public ChordDiagramMode? ModeOverride { get; set; }
+
 		public string Name { get; }
+
+		public string? NamedRoot { get; }
+
+		public int RootPitch { get; }
 
 		public bool Show { get; set; } = true;
 
@@ -1246,7 +1437,27 @@ public sealed class HtmlFormatter : ContainerFormatter
 			this.Fingers = source.Fingers;
 			this.Frets = source.Frets;
 			this.Keys = source.Keys;
+			this.ModeOverride = source.ModeOverride;
 			this.Show = source.Show;
+		}
+
+		public string GetCompactText()
+		{
+			string result = this.DisplayName;
+			if (this.Keys is not null)
+			{
+				result += " " + string.Join(
+					"-",
+					this.Keys.Select(key => MusicTheory.GetNamedNote(this.RootPitch + key, this.NamedRoot ?? "C")));
+			}
+			else if (this.Frets is not null)
+			{
+				IReadOnlyList<int?> absoluteFrets = [.. this.Frets.Select(
+					fret => fret > 0 ? fret + (this.BaseFret - 1) : fret)];
+				result = ChordDefinition.Format(this.DisplayName, absoluteFrets, this.Fingers);
+			}
+
+			return result;
 		}
 	}
 

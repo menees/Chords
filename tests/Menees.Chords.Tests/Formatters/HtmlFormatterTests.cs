@@ -127,6 +127,35 @@ public class HtmlFormatterTests
 	}
 
 	[TestMethod]
+	public void HeaderAnnotationTest()
+	{
+		Document document = Document.Parse("[Chorus] (a cappella)");
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+		XElement row = GetClassElements(html, "entry-with-annotations").Single();
+		XElement header = GetClassElements(row, "section-header").Single();
+		XElement annotation = GetClassElements(row, "entry-annotation").Single();
+
+		header.Value.ShouldBe("Chorus");
+		annotation.Value.ShouldBe("(a cappella)");
+		annotation.Parent.ShouldBeSameAs(row);
+		((string?)annotation.Attribute("class") ?? string.Empty).ShouldContain("comment");
+		((string?)annotation.Attribute("role")).ShouldBe("note");
+	}
+
+	[TestMethod]
+	public void ChordDefinitionAnnotationTest()
+	{
+		Document document = Document.Parse("D       D* = x57775");
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+		XElement row = GetClassElements(html, "entry-with-annotations").Single();
+
+		GetClassElements(row, "chord-only-line").Single().Value.ShouldBe("D       ");
+		XElement diagrams = GetClassElements(row, "chord-diagrams").Single();
+		((string?)diagrams.Attribute("class") ?? string.Empty).ShouldContain("entry-annotation");
+		GetClassElements(diagrams, "chord-diagram-name").Single().Value.ShouldBe("D*");
+	}
+
+	[TestMethod]
 	public void CommentAndRemarkTest()
 	{
 		const string Text = """
@@ -163,20 +192,157 @@ public class HtmlFormatterTests
 			{define: C7 base-fret 1 frets x 3 2 3 1 0 fingers x 3 2 4 1 x}
 			{chord: C7}
 			{chord: D keys 0 4 7}
+			{chord: G keys 0 4 7}
+			{define: D² keys 7 12 16}
+			{chord: [C7]}
+			{define: [D]}
 			""";
 		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
 		XDocument html = new HtmlFormatter(Document.Parse(Text, parser)).ToXDocument();
 
-		GetClassElements(html, "chord-diagram").Count().ShouldBe(3);
+		GetClassElements(html, "chord-diagram").Count().ShouldBe(5);
+		GetClassElements(html, "chord-diagrams").Count().ShouldBe(1);
 		IEnumerable<XElement> images = html.Descendants().Where(element => element.Name.LocalName == "svg");
-		images.Count().ShouldBe(3);
+		images.Count().ShouldBe(5);
 		images
 			.Select(element => (string?)element.Attribute("aria-label"))
-			.ShouldBe(["C7 chord diagram", "C7 chord diagram", "D chord diagram"]);
-		images.First().Descendants()
-			.Count(element => element.Name.LocalName == "line"
-				&& (string?)element.Attribute("y1") == (string?)element.Attribute("y2"))
-			.ShouldBe(4);
+			.ShouldBe(["C7 chord diagram", "C7 chord diagram", "D chord diagram", "G chord diagram", "D² chord diagram"]);
+		GetClassElements(images.First(), "diagram-fret").Count().ShouldBe(6);
+		((string?)images.First().Attribute("viewBox")).ShouldBe("-10 0 80 72");
+		images.ElementAt(2).Descendants()
+			.Where(element => element.Name.LocalName == "rect" && HasClass(element, "selected"))
+			.Select(element => (string?)element.Attribute("x"))
+			.OrderBy(value => value)
+			.ShouldBe(["18", "47.5", "62"]);
+		((string?)images.ElementAt(2).Attribute("viewBox")).ShouldBe("0 0 91 82");
+		((string?)images.ElementAt(3).Attribute("viewBox")).ShouldBe("0 0 91 82");
+		images.ElementAt(3).Descendants()
+			.Where(element => element.Name.LocalName == "rect" && HasClass(element, "selected"))
+			.Select(element => (string?)element.Attribute("x"))
+			.OrderBy(value => value)
+			.ShouldBe(["18", "40", "62"]);
+		((string?)images.ElementAt(4).Attribute("viewBox")).ShouldBe("0 0 135 82");
+		images.ElementAt(4).Descendants()
+			.Where(element => element.Name.LocalName == "rect" && HasClass(element, "selected"))
+			.Select(element => (string?)element.Attribute("x"))
+			.OrderBy(value => value)
+			.ShouldBe(["29", "62", "91.5"]);
+		GetDefaultStyles(html).ShouldContain("--diagram-key-color: #d9d9d9");
+		GetDefaultStyles(html).ShouldNotContain(".diagram-key.black.selected");
+	}
+
+	[TestMethod]
+	public void FretDiagramLayoutTest()
+	{
+		const string Text = """
+			{chord: D/F# base-fret 2 frets 1 4 3 1 2 1 fingers 1 4 3 1 2 1}
+			{chord: F base-fret 1 frets 1 3 3 2 1 1 fingers 1 3 4 2 1 1}
+			{chord: D7 base-fret 3 frets x 3 2 3 1 x fingers x 4 2 3 1 x}
+			{chord: C base-fret 1 frets x 3 2 0 1 0 fingers x 3 2 x 1 x}
+			""";
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		IEnumerable<XElement> images = new HtmlFormatter(Document.Parse(Text, parser)).ToXDocument()
+			.Descendants()
+			.Where(element => element.Name.LocalName == "svg");
+
+		XElement shifted = images.First();
+		GetClassElements(shifted, "diagram-fret-label").Single().Value.ShouldBe("2fr");
+		GetClassElements(shifted, "diagram-finger-position").Select(element => element.Value)
+			.ShouldBe(["4", "3", "2"]);
+		GetClassElements(shifted, "diagram-barre").Count().ShouldBe(1);
+		GetClassElements(shifted, "diagram-dot").Count().ShouldBe(3);
+		GetClassElements(shifted, "diagram-string-state").ShouldBeEmpty();
+
+		XElement barre = GetClassElements(images.ElementAt(1), "diagram-barre").Single();
+		barre.Name.LocalName.ShouldBe("rect");
+		((string?)barre.Attribute("x")).ShouldBe("8");
+		((string?)barre.Attribute("width")).ShouldBe("44");
+		GetClassElements(images.Last(), "diagram-string-state").Select(element => element.Value)
+			.ShouldBe(["×"]);
+		GetClassElements(images.Last(), "diagram-dot").Count().ShouldBe(3);
+		GetClassElements(images.ElementAt(2), "diagram-fret-label").Single().Value.ShouldBe("3fr");
+		GetClassElements(images.ElementAt(2), "diagram-fret").Count().ShouldBe(6);
+		GetClassElements(images.ElementAt(2), "diagram-string").Count().ShouldBe(6);
+		IEnumerable<XElement> edges = GetClassElements(images.ElementAt(2), "diagram-edge");
+		edges.Count().ShouldBe(2);
+		edges.ShouldAllBe(element => element.Name.LocalName == "rect");
+		edges.Select(element => (string?)element.Attribute("x")).ShouldAllBe(value => value == "9.5");
+		edges.Select(element => (string?)element.Attribute("width")).ShouldAllBe(value => value == "41");
+		IEnumerable<XElement> gridLines = images.ElementAt(2).Elements().Where(element => HasClass(element, "diagram-line"));
+		gridLines.Take(6).ShouldAllBe(element => HasClass(element, "diagram-fret"));
+		gridLines.Skip(6).ShouldAllBe(element => HasClass(element, "diagram-string"));
+	}
+
+	[TestMethod]
+	public void DiagramDirectiveOptionsTest()
+	{
+		const string Text = """
+			{define: C base-fret 1 frets x 3 2 0 1 0 diagram off display Hidden}
+			{chord: C}
+			{chord: C diagram on display Shown}
+			{chord: C diagram compact display Compact}
+			""";
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		XDocument html = new HtmlFormatter(Document.Parse(Text, parser)).ToXDocument();
+
+		GetClassElements(html, "chord-diagram").Count().ShouldBe(1);
+		GetClassElements(html, "chord-diagram-name").Single().Value.ShouldBe("Shown");
+		GetClassElements(html, "compact-chord-diagram").Single().Value.ShouldBe("Compact x32010");
+		GetClassElements(html, "chord-diagrams").Count().ShouldBe(1);
+	}
+
+	[TestMethod]
+	public void DiagramRunsTest()
+	{
+		const string Text = """
+			{chord: C frets x 3 2 0 1 0}
+			{chord: D frets x x 0 2 3 2}
+
+			{chord: E frets 0 2 2 1 0 0}
+			Lyrics break the run
+			{chord: F frets 1 3 3 2 1 1}
+			""";
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		XDocument html = new HtmlFormatter(Document.Parse(Text, parser)).ToXDocument();
+		IEnumerable<XElement> runs = GetClassElements(html, "chord-diagrams");
+
+		runs.Count().ShouldBe(3);
+		runs.Select(run => GetClassElements(run, "chord-diagram").Count()).ShouldBe([2, 1, 1]);
+	}
+
+	[TestMethod]
+	public void DiagramModesTest()
+	{
+		const string Text = """
+			{chord: C base-fret 1 frets x 3 2 0 1 0 fingers x 3 2 x 1 x display Cshape}
+			{chord: G keys 0 4 7 display Gshape}
+			{define: D² keys 7 12 16}
+			""";
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		Document document = Document.Parse(Text, parser);
+
+		HtmlFormatterOptions options = new()
+		{
+			FretDiagramMode = ChordDiagramMode.CompactText,
+			KeyboardDiagramMode = ChordDiagramMode.None,
+		};
+		XDocument html = new HtmlFormatter(document, options).ToXDocument();
+		GetClassElements(html, "compact-chord-diagram").Select(element => element.Value)
+			.ShouldBe(["Cshape x32010 x32x1x"]);
+		GetClassElements(html, "chord-diagram").ShouldBeEmpty();
+
+		Document compactDirective = Document.Parse(
+			"{chord: C frets x 3 2 0 1 0 diagram compact}",
+			parser);
+		options.FretDiagramMode = ChordDiagramMode.None;
+		html = new HtmlFormatter(compactDirective, options).ToXDocument();
+		GetClassElements(html, "compact-chord-diagram").ShouldBeEmpty();
+
+		options.KeyboardDiagramMode = ChordDiagramMode.CompactText;
+		html = new HtmlFormatter(document, options).ToXDocument();
+		GetClassElements(html, "compact-chord-diagram").Select(element => element.Value)
+			.ShouldBe(["Gshape G-B-D", "D² A-D-F#"]);
+		GetClassElements(html, "chord-diagram").ShouldBeEmpty();
 	}
 
 	[TestMethod]
@@ -308,7 +474,12 @@ public class HtmlFormatterTests
 		defaultScript.ShouldContain("measureColumns(metrics.height)");
 		defaultStyles.ShouldContain("--column-min-width: 18em");
 		defaultStyles.ShouldContain("inline-size: max-content");
-		defaultStyles.ShouldContain("--chord-color: #3045c7");
+		defaultStyles.ShouldContain("color-scheme: light dark");
+		defaultStyles.ShouldContain("--chord-color: light-dark(#3045c7, #91a2ff)");
+		defaultStyles.ShouldContain("color-mix(in srgb, var(--diagram-line-color) 25%, Canvas)");
+		defaultStyles.ShouldContain("color-mix(in srgb, var(--diagram-line-color) 50%, Canvas)");
+		defaultStyles.ShouldContain("background-color: Canvas");
+		defaultStyles.ShouldContain("color-scheme: light");
 		defaultStyles.ShouldContain("--section-header-size: 1.1em");
 		defaultStyles.ShouldContain("--music-line-gap: 0.2em");
 		defaultStyles.ShouldContain("--chorus-border-width: 2px");
@@ -339,7 +510,9 @@ public class HtmlFormatterTests
 			ConsecutiveChordGap = CssSize.Em(0.25),
 			DiagramSize = CssSize.Em(7),
 			DiagramLineColor = CssColor.Parse("black"),
+			DiagramFretColor = CssColor.Parse("gray"),
 			DiagramDotColor = CssColor.Parse("navy"),
+			DiagramKeyColor = CssColor.Parse("silver"),
 			PageBlockSize = CssSize.Parse("100dvh"),
 			PagePadding = CssSize.Em(2),
 			ColumnGap = CssSize.Em(4),
@@ -378,7 +551,9 @@ public class HtmlFormatterTests
 			"--consecutive-chord-gap: 0.25em;",
 			"--diagram-size: 7em;",
 			"--diagram-line-color: black;",
+			"--diagram-fret-color: gray;",
 			"--diagram-dot-color: navy;",
+			"--diagram-key-color: silver;",
 			"--page-block-size: 100dvh;",
 			"--page-padding: 2em;",
 			"--column-gap: 4em;",
@@ -396,7 +571,7 @@ public class HtmlFormatterTests
 		css.ShouldContain("font-size: 24px;");
 		css.ShouldContain(".chord, .chord-only-line {");
 		css.ShouldContain("color: blue;");
-		css.ShouldContain(".comment, .annotation {");
+		css.ShouldContain(".comment {");
 		css.ShouldContain("font-style: normal;");
 		css.ShouldContain(".section-header {");
 		css.ShouldContain("font-weight: normal;");
@@ -459,8 +634,10 @@ public class HtmlFormatterTests
 			.Single(element => (string?)element.Attribute("id") == "menees-chords-defaults").Value;
 
 	private static IEnumerable<XElement> GetClassElements(XContainer container, string className)
-		=> container.Descendants().Where(element
-			=> ((string?)element.Attribute("class"))?.Split(' ').Contains(className) == true);
+		=> container.Descendants().Where(element => HasClass(element, className));
+
+	private static bool HasClass(XElement element, string className)
+		=> ((string?)element.Attribute("class"))?.Split(' ').Contains(className) == true;
 
 	#endregion
 }

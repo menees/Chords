@@ -11,14 +11,16 @@ public class NotationTransformerTests
 			{key: E}
 			[E]One [A]four [B/D#]five
 			{define: F#m frets x 0 4 2 2 2}
+			{define: [F#m]}
 			{key: D}
 			[D]One [G]four
 			""");
 		Document transformed = new NotationTransformer(document, Notation.Nashville).Transform().Document;
 		transformed.Entries[0].ToString().ShouldBe("{key: E}");
 		transformed.Entries[1].ToString().ShouldBe("[1]One [4]four [5/7]five");
-		transformed.Entries[2].ToString().ShouldBe("{define: 2m frets x 0 4 2 2 2}");
-		transformed.Entries[4].ToString().ShouldBe("[1]One [4]four");
+		transformed.Entries[2].ToString().ShouldBe("{define: F#m frets x 0 4 2 2 2}");
+		transformed.Entries[3].ToString().ShouldBe("{define: [2m]}");
+		transformed.Entries[5].ToString().ShouldBe("[1]One [4]four");
 	}
 
 	[TestMethod]
