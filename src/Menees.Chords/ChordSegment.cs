@@ -50,7 +50,8 @@ public sealed class ChordSegment : TextSegment
 			string inner = text.Substring(1, text.Length - 2);
 			if (!char.IsLetter(inner[0]) || char.IsUpper(inner[0]))
 			{
-				Chord.TryParse(inner, out result);
+				// explicit for CA1806
+				result = Chord.TryParse(inner, out Chord? parsed) ? parsed : null;
 			}
 		}
 

@@ -1303,7 +1303,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 		string extension,
 		[NotNullWhen(true)] out string? normalized)
 	{
-		bool hasUnderscores = identifier.IndexOf("__", StringComparison.Ordinal) >= 0 || extension.Length >= 2;
+		bool hasUnderscores = identifier.Contains("__", StringComparison.Ordinal) || extension.Length >= 2;
 		normalized = hasUnderscores ? identifier.Replace("_", string.Empty) : null;
 		bool isRepeat = normalized?.Length > 1
 			&& normalized[0] == 'X'

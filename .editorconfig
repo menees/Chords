@@ -28,10 +28,10 @@ csharp_style_expression_bodied_local_functions = false:silent
 dotnet_diagnostic.CC0057.severity = silent
 csharp_style_prefer_method_group_conversion = true:silent
 csharp_style_prefer_top_level_statements = true:silent
-csharp_style_throw_expression = true:suggestion
-csharp_style_prefer_null_check_over_type_check = true:suggestion
+csharp_style_throw_expression = true:error
+csharp_style_prefer_null_check_over_type_check = true:error
 dotnet_diagnostic.CC0022.severity = silent
-csharp_style_prefer_primary_constructors = false:suggestion
+csharp_style_prefer_primary_constructors = false:error
 
 # Code files
 [*.{cs,vb}]
@@ -52,6 +52,24 @@ dotnet_diagnostic.CC0105.severity = none
 dotnet_diagnostic.CC0106.severity = none
 dotnet_diagnostic.CC0120.severity = none
 dotnet_diagnostic.IDE0079.severity = none
+dotnet_diagnostic.IDE0016.severity = error
+dotnet_diagnostic.IDE0017.severity = error
+dotnet_diagnostic.IDE0028.severity = error
+dotnet_diagnostic.IDE0029.severity = error
+dotnet_diagnostic.IDE0030.severity = error
+dotnet_diagnostic.IDE0031.severity = error
+dotnet_diagnostic.IDE0033.severity = error
+dotnet_diagnostic.IDE0037.severity = error
+dotnet_diagnostic.IDE0041.severity = error
+dotnet_diagnostic.IDE0054.severity = error
+dotnet_diagnostic.IDE0071.severity = error
+dotnet_diagnostic.IDE0074.severity = error
+dotnet_diagnostic.IDE0075.severity = error
+dotnet_diagnostic.IDE0130.severity = error
+dotnet_diagnostic.IDE0150.severity = error
+dotnet_diagnostic.IDE0270.severity = error
+dotnet_diagnostic.IDE0290.severity = error
+dotnet_diagnostic.IDE1006.severity = error
 dotnet_diagnostic.MEN001.severity = warning
 dotnet_diagnostic.MEN006.severity = warning
 dotnet_diagnostic.MEN007.severity = warning
@@ -104,9 +122,9 @@ dotnet_style_operator_placement_when_wrapping = beginning_of_line
 tab_width = 4
 indent_size = 4
 end_of_line = crlf
-dotnet_style_coalesce_expression = true:suggestion
-dotnet_style_null_propagation = true:suggestion
-dotnet_style_prefer_is_null_check_over_reference_equality_method = true:suggestion
+dotnet_style_coalesce_expression = true:error
+dotnet_style_null_propagation = true:error
+dotnet_style_prefer_is_null_check_over_reference_equality_method = true:error
 dotnet_style_prefer_auto_properties = true:silent
 dotnet_remove_unnecessary_suppression_exclusions = CA1031,CC0061
 
@@ -115,15 +133,15 @@ dotnet_remove_unnecessary_suppression_exclusions = CA1031,CC0061
 
 # Naming rules
 
-dotnet_naming_rule.interface_should_be_begins_with_i.severity = suggestion
+dotnet_naming_rule.interface_should_be_begins_with_i.severity = error
 dotnet_naming_rule.interface_should_be_begins_with_i.symbols = interface
 dotnet_naming_rule.interface_should_be_begins_with_i.style = begins_with_i
 
-dotnet_naming_rule.types_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.types_should_be_pascal_case.severity = error
 dotnet_naming_rule.types_should_be_pascal_case.symbols = types
 dotnet_naming_rule.types_should_be_pascal_case.style = pascal_case
 
-dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = suggestion
+dotnet_naming_rule.non_field_members_should_be_pascal_case.severity = error
 dotnet_naming_rule.non_field_members_should_be_pascal_case.symbols = non_field_members
 dotnet_naming_rule.non_field_members_should_be_pascal_case.style = pascal_case
 
@@ -157,17 +175,17 @@ dotnet_naming_style.pascal_case.required_prefix =
 dotnet_naming_style.pascal_case.required_suffix =
 dotnet_naming_style.pascal_case.word_separator =
 dotnet_naming_style.pascal_case.capitalization = pascal_case
-dotnet_style_object_initializer = true:suggestion
-dotnet_style_collection_initializer = true:suggestion
-dotnet_style_prefer_simplified_boolean_expressions = true:suggestion
+dotnet_style_object_initializer = true:error
+dotnet_style_collection_initializer = true:error
+dotnet_style_prefer_simplified_boolean_expressions = true:error
 dotnet_style_prefer_conditional_expression_over_assignment = true:silent
 dotnet_style_prefer_conditional_expression_over_return = true:silent
-dotnet_style_explicit_tuple_names = true:suggestion
-dotnet_style_prefer_inferred_tuple_names = true:suggestion
-dotnet_style_prefer_inferred_anonymous_type_member_names = true:suggestion
-dotnet_style_prefer_compound_assignment = true:suggestion
-dotnet_style_prefer_simplified_interpolation = true:suggestion
-dotnet_style_namespace_match_folder = true:suggestion
+dotnet_style_explicit_tuple_names = true:error
+dotnet_style_prefer_inferred_tuple_names = true:error
+dotnet_style_prefer_inferred_anonymous_type_member_names = true:error
+dotnet_style_prefer_compound_assignment = true:error
+dotnet_style_prefer_simplified_interpolation = true:error
+dotnet_style_namespace_match_folder = true:error
 dotnet_style_predefined_type_for_member_access = true:silent
 dotnet_style_require_accessibility_modifiers = for_non_interface_members:silent
 dotnet_style_qualification_for_field = true:silent
