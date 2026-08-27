@@ -33,6 +33,7 @@ public class LyricLineTests
 		Test("Test ** with comment **", "Test ", "** with comment **");
 		Test("Test ** with comment ** G 320033", "Test ", "** with comment **", "G 320033");
 		Test("I love you (love you) (love you)  Cmaj7 = x32000", "I love you (love you) (love you) ", "Cmaj7 x32000");
+		Test("  x2");
 
 		static void Test(string text, string? expectedText = null, params string[] expectedAnnotations)
 		{

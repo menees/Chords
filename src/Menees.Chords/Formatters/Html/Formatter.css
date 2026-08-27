@@ -95,13 +95,16 @@ body {
 	break-inside: avoid;
 }
 
-.song-column .chord-line,
-.song-column .chord-only-line,
-.song-column .lyric-line,
 .song-column .section-header,
 .song-column .comment,
 .song-column .metadata-entry {
 	white-space: nowrap;
+}
+
+.song-column .chord-line,
+.song-column .chord-only-line,
+.song-column .lyric-line {
+	white-space: pre;
 }
 
 .song-header {
@@ -146,12 +149,9 @@ body {
 }
 
 .chord-only-line,
-.lyric-line {
-	white-space: pre-wrap;
-}
-
+.lyric-line,
 .chord-line {
-	white-space: normal;
+	white-space: pre-wrap;
 }
 
 :is(.chord-line, .chord-only-line, .lyric-line) +
@@ -200,6 +200,10 @@ body {
 .lyric {
 	display: flex;
 	align-items: baseline;
+}
+
+.lyric-text {
+	white-space: pre;
 }
 
 .word > .chord-lyric:not(:last-child) .lyric::after {

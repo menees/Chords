@@ -31,6 +31,7 @@ public sealed partial class Index : IDisposable
 	private Parser fromType = Parser.General;
 	private Transformer toType = Transformer.ChordPro;
 	private string input = string.Empty;
+	private string? inputFileName;
 	private string output = string.Empty;
 	private bool whenTyping = true;
 	private bool longNames = true;
@@ -78,18 +79,7 @@ public sealed partial class Index : IDisposable
 	public string Input
 	{
 		get => this.input;
-		set
-		{
-			if (this.input != value)
-			{
-				this.input = value;
-				this.Storage.SetItem(nameof(this.input), this.input);
-				if (this.whenTyping)
-				{
-					this.ConvertInput();
-				}
-			}
-		}
+		set => this.SetInput(value, preserveFileName: false);
 	}
 
 	public bool LongNames
@@ -232,6 +222,10 @@ public sealed partial class Index : IDisposable
 		if (this.Storage.ContainKey(nameof(this.input)))
 		{
 			this.input = this.Storage.GetItem<string>(nameof(this.input)) ?? this.input;
+			if (this.Storage.ContainKey(nameof(this.inputFileName)))
+			{
+				this.inputFileName = this.Storage.GetItem<string?>(nameof(this.inputFileName));
+			}
 		}
 		else
 		{
@@ -292,6 +286,7 @@ public sealed partial class Index : IDisposable
 				Transformer.ChordOverLyric => new ChordOverLyricTransformer(inputDocument),
 				_ => new ChordProTransformer(inputDocument, this.longNames),
 			};
+			transformer.SetFileName(this.inputFileName);
 			this.outputDocument = transformer.Transform().Document;
 			TextFormatter formatter = new(this.outputDocument);
 			this.output = formatter.ToString();
@@ -438,15 +433,24 @@ public sealed partial class Index : IDisposable
 		StringBuilder sb = new();
 		if (this.outputDocument != null)
 		{
+			if (!string.IsNullOrWhiteSpace(this.outputDocument.FileName)
+				&& Path.GetFileNameWithoutExtension(this.outputDocument.FileName) is string documentName)
+			{
+				sb.Append(documentName);
+			}
+
 			IReadOnlyList<Entry> flattenedOutputEntries = DocumentTransformer.Flatten(this.outputDocument.Entries);
 			List<ChordProDirectiveLine> directives = [.. flattenedOutputEntries.OfType<ChordProDirectiveLine>()];
 			const StringComparison Comparison = ChordParser.Comparison;
 
-			string? inputFileName = directives.Select(d => MetadataEntry.TryParse(d) is MetadataEntry meta
-					&& meta.Name.Equals(MetaFileName, Comparison) ? meta.Argument : null).FirstOrDefault();
-			if (!string.IsNullOrEmpty(inputFileName) && Path.GetFileNameWithoutExtension(inputFileName) is string nameOnly)
+			if (sb.Length == 0)
 			{
-				sb.Append(nameOnly);
+				string? inputFileName = directives.Select(d => MetadataEntry.TryParse(d) is MetadataEntry meta
+						&& meta.Name.Equals(MetaFileName, Comparison) ? meta.Argument : null).FirstOrDefault();
+				if (!string.IsNullOrEmpty(inputFileName) && Path.GetFileNameWithoutExtension(inputFileName) is string nameOnly)
+				{
+					sb.Append(nameOnly);
+				}
 			}
 
 			if (sb.Length == 0)
@@ -497,7 +501,7 @@ public sealed partial class Index : IDisposable
 	private async Task CleanInputAsync()
 	{
 		Cleaner cleaner = new(this.Input);
-		this.Input = cleaner.CleanText;
+		this.SetInput(cleaner.CleanText, preserveFileName: true);
 		if (this.inputElement != null)
 		{
 			await this.inputElement.Value.FocusAsync();
@@ -517,16 +521,51 @@ public sealed partial class Index : IDisposable
 			using var stream = file.OpenReadStream(MaxFileBytes);
 			using var reader = new StreamReader(stream, UTF8, detectEncodingFromByteOrderMarks: true);
 			string text = await reader.ReadToEndAsync();
-			this.Input = string.IsNullOrWhiteSpace(fileName)
-				? text
-				: $"{{meta: {MetaFileName} {fileName}}}{newLine}{text}";
+			bool inputChanged = this.input != text;
+			this.SetInputFileName(fileName);
+			this.SetInput(text, preserveFileName: true);
+			if (!this.whenTyping || !inputChanged)
+			{
+				this.ConvertInput();
+			}
 		}
 		catch (IOException ex)
 		{
-			this.Input = $"Error uploading {fileName}:{newLine}{ex.Message}{newLine}({ex.GetType().Name})";
+			string error = $"Error uploading {fileName}:{newLine}{ex.Message}{newLine}({ex.GetType().Name})";
+			bool inputChanged = this.input != error;
+			this.SetInputFileName(null);
+			this.SetInput(error, preserveFileName: true);
+			if (!this.whenTyping || !inputChanged)
+			{
+				this.ConvertInput();
+			}
 		}
 
 		this.StateHasChanged();
+	}
+
+	private void SetInput(string value, bool preserveFileName)
+	{
+		if (this.input != value)
+		{
+			this.input = value;
+			this.Storage.SetItem(nameof(this.input), this.input);
+			if (!preserveFileName)
+			{
+				this.SetInputFileName(null);
+			}
+
+			if (this.whenTyping)
+			{
+				this.ConvertInput();
+			}
+		}
+	}
+
+	private void SetInputFileName(string? value)
+	{
+		this.inputFileName = string.IsNullOrWhiteSpace(value) ? null : value;
+		this.Storage.SetItem(nameof(this.inputFileName), this.inputFileName);
 	}
 
 	#endregion

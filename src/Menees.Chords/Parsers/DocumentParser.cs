@@ -8,6 +8,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Xml.Linq;
 
 #endregion
 
@@ -29,6 +30,7 @@ public sealed class DocumentParser
 
 	private readonly Func<LineContext, Entry?>[] lineParsers;
 	private readonly Func<GroupContext, IReadOnlyList<Entry>>[] groupers;
+	private readonly Func<StructuredContext, IReadOnlyList<Entry>?>[] structuredParsers;
 
 	#endregion
 
@@ -50,13 +52,18 @@ public sealed class DocumentParser
 	/// If this is null, then a default set of groupers is used.</param>
 	/// <param name="tabWidth">An optional tab width to use if tabs need to be converted to spaces. Pass null to
 	/// skip converting tabs to spaces.</param>
+	/// <param name="structuredParsers">An ordered collection of parsers for structured document representations.
+	/// If this is null, then <see cref="DefaultStructuredParsers"/> is used. Pass an empty collection to disable
+	/// structured document parsing.</param>
 	public DocumentParser(
 		IEnumerable<Func<LineContext, Entry?>>? lineParsers = null,
 		IEnumerable<Func<GroupContext, IReadOnlyList<Entry>>>? groupers = null,
-		int? tabWidth = DefaultTabWidth)
+		int? tabWidth = DefaultTabWidth,
+		IEnumerable<Func<StructuredContext, IReadOnlyList<Entry>?>>? structuredParsers = null)
 	{
 		this.lineParsers = lineParsers != null ? [.. lineParsers] : DefaultLineParsers;
 		this.groupers = groupers != null ? [.. groupers] : DefaultGroupers;
+		this.structuredParsers = structuredParsers != null ? [.. structuredParsers] : DefaultStructuredParsers;
 		this.TabWidth = tabWidth;
 
 		this.TryChordDefinitions = this.lineParsers.Contains(ChordDefinitions.TryParse);
@@ -132,6 +139,18 @@ public sealed class DocumentParser
 	public static IEnumerable<Func<GroupContext, IReadOnlyList<Entry>>> Ungrouped { get; }
 		= [];
 
+	/// <summary>
+	/// Gets the default collection of parsers for structured document representations.
+	/// </summary>
+	public static Func<StructuredContext, IReadOnlyList<Entry>?>[] DefaultStructuredParsers { get; }
+		= [OpenSongParser.TryParse];
+
+	/// <summary>
+	/// Gets an empty collection that disables parsing structured document representations.
+	/// </summary>
+	public static IEnumerable<Func<StructuredContext, IReadOnlyList<Entry>?>> Unstructured { get; }
+		= [];
+
 	#endregion
 
 	#region Internal Properties
@@ -141,6 +160,8 @@ public sealed class DocumentParser
 	internal bool TryChordDefinitions { get; }
 
 	internal bool TryParseComment { get; }
+
+	internal bool HasStructuredParsers => this.structuredParsers.Length > 0;
 
 	#endregion
 
@@ -199,6 +220,22 @@ public sealed class DocumentParser
 	{
 		IReadOnlyList<Entry> lineEntries = this.ParseLines(reader);
 		IReadOnlyList<Entry> result = this.GroupEntries(lineEntries);
+		return result;
+	}
+
+	internal IReadOnlyList<Entry>? Parse(XDocument document)
+	{
+		StructuredContext<XDocument> context = new(this, document);
+		IReadOnlyList<Entry>? result = null;
+		foreach (Func<StructuredContext, IReadOnlyList<Entry>?> tryParse in this.structuredParsers)
+		{
+			result = tryParse(context);
+			if (result != null)
+			{
+				break;
+			}
+		}
+
 		return result;
 	}
 

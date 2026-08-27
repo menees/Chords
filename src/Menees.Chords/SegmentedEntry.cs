@@ -82,18 +82,21 @@ public abstract class SegmentedEntry : Entry
 				// Handle ChordPro [*Xxx] annotations before punctuation-only tokens such as [*↓].
 				result.Add(new ChordAnnotationSegment($"[{lexer.Token.Text}]"));
 			}
-			else if (lexer.Token.Text.All(ch => !char.IsLetter(ch))
+			else if (lexer.Token.Type == chordTokenType
+				&& (Chord.TryParse(lexer.Token.Text, out Chord? chord)
+					|| (!requiredBracketedChords && (chord = ChordSegment.TryParseParenthesized(lexer.Token.Text)) is not null)))
+			{
+				result.Add(new ChordSegment(chord, lexer.Token.ToString()));
+			}
+			else if (lexer.Token.Text.Length > 0
+				&& (lexer.Token.Text.All(ch => !char.IsLetter(ch))
 				|| PseudoChords.Contains(lexer.Token.Text)
-				|| (lexer.Token.Text[0] == '(' && lexer.Token.Text[^1] == ')'))
+				|| (lexer.Token.Text[0] == '(' && lexer.Token.Text[^1] == ')')))
 			{
 				// Allow tokens with no letter (e.g., ~↑↓*), pseudo-chords, or annotations in parentheses.
 				result.Add(requiredBracketedChords && lexer.Token.Type == TokenType.Bracketed
 					? new ChordAnnotationSegment(lexer.Token.ToString())
 					: new TextSegment(lexer.Token.ToString()));
-			}
-			else if (lexer.Token.Type == chordTokenType && Chord.TryParse(lexer.Token.Text, out Chord? chord))
-			{
-				result.Add(new ChordSegment(chord, lexer.Token.ToString()));
 			}
 			else
 			{

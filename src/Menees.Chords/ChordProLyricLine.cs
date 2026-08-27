@@ -41,9 +41,7 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		{
 			if (segment is ChordSegment chord && !IsBracketed(chord.Text))
 			{
-				// Use original chord.Text in case it ends with an asterisk. We need
-				// all of the original text in brackets, not just the chord name.
-				segments.Add(new ChordSegment(chord.Chord, $"[{chord.Text}]"));
+				AddBracketedChord(segments, chord);
 			}
 			else
 			{
@@ -85,6 +83,12 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			{
 				string originalText = inputSegment.Text;
 				ChordSegment? chordSegment = inputSegment as ChordSegment;
+				if (chordSegment?.IsParenthesized == true)
+				{
+					AddBracketedChord(segments, chordSegment);
+					AddLyrics(originalText.Length);
+					continue;
+				}
 
 				// Format non-chord text from the chord line as a ChordPro [*text] annotation.
 				// https://www.chordpro.org/chordpro/chordpro-introduction/
@@ -187,10 +191,21 @@ public sealed class ChordProLyricLine : SegmentedEntry
 		int indentChord = 0;
 		List<TextSegment> chordLineSegments = [];
 		StringBuilder lyricLineText = new();
-		foreach (TextSegment segment in this.Segments)
+		for (int index = 0; index < this.Segments.Count; index++)
 		{
+			TextSegment segment = this.Segments[index];
 			switch (segment)
 			{
+				case ChordAnnotationSegment { Annotation: "(" }
+					when (index + 2) < this.Segments.Count
+						&& this.Segments[index + 1] is ChordSegment parenthesizedChord
+						&& this.Segments[index + 2] is ChordAnnotationSegment { Annotation: ")" }:
+					AppendChord(
+						parenthesizedChord.Text,
+						unbracketed => new ChordSegment(parenthesizedChord.Chord, $"({unbracketed})"));
+					index += 2;
+					break;
+
 				case ChordSegment chord:
 					AppendChord(chord.Text, unbracketed => new ChordSegment(chord.Chord, unbracketed));
 					break;
@@ -266,6 +281,22 @@ public sealed class ChordProLyricLine : SegmentedEntry
 	#endregion
 
 	#region Private Methods
+
+	private static void AddBracketedChord(List<TextSegment> segments, ChordSegment chord)
+	{
+		if (chord.IsParenthesized)
+		{
+			segments.Add(new ChordAnnotationSegment("[*(]"));
+			segments.Add(new ChordSegment(chord.Chord, $"[{chord.Chord.Name}]"));
+			segments.Add(new ChordAnnotationSegment("[*)]"));
+		}
+		else
+		{
+			// Use original chord.Text in case it ends with an asterisk. We need
+			// all of the original text in brackets, not just the chord name.
+			segments.Add(new ChordSegment(chord.Chord, $"[{chord.Text}]"));
+		}
+	}
 
 	private static bool IsBracketed(string text) => text.StartsWith('[') && text.EndsWith(']');
 

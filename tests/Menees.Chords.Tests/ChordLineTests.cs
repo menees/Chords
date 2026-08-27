@@ -19,6 +19,7 @@ public class ChordLineTests
 		Test("         Am               B", "Am", "B");
 		Test(" D7        G  ", "D7", "G");
 		Test("C       C*   G*", "C", "C*", "G*");
+		Test("C (Db) (F#m)", "C", "Db", "F#m");
 
 		// https://tabs.ultimate-guitar.com/tab/hinder/lips-of-an-angel-chords-455832
 		Test("Bm7     Asus4     Gsus2~~~", "Bm7", "Asus4", "Gsus2~~~");

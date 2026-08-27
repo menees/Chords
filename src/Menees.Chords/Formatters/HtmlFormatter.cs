@@ -6,6 +6,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Menees.Chords.Formatters.Html;
 using Menees.Chords.Parsers;
@@ -24,6 +25,16 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 	private static readonly Lazy<string> DefaultScript = new(() => LoadEmbeddedResource(DefaultScriptResourceName));
 	private static readonly Lazy<string> DefaultStyles = new(() => LoadEmbeddedResource(DefaultStylesResourceName));
+	private static readonly Regex ParenthesizedIdentifier = new(
+		@"^(?<leading>\s*)\((?<identifier>[A-Z][A-Z0-9_]*)\)(?<extension>__+)?(?<trailing>\s*)$",
+		RegexOptions.CultureInvariant);
+
+	private static readonly Regex LeadingParenthesizedItem = new(@"_{2,}(?=\()", RegexOptions.CultureInvariant);
+
+	private static readonly HashSet<string> RehearsalIdentifiers = new(StringComparer.OrdinalIgnoreCase)
+	{
+		"INTRO", "OUTRO", "TURN", "TUSSENSPEL",
+	};
 
 	private static readonly HashSet<string> VoidElementNames = new(StringComparer.OrdinalIgnoreCase)
 	{
@@ -416,6 +427,9 @@ public sealed class HtmlFormatter : ContainerFormatter
 			}
 		}
 
+		CombineAdjacentWhitespace(tokens);
+		CombineParenthesizedChords(tokens);
+
 		if (normalizeTrailingChords)
 		{
 			NormalizeTrailingChords(tokens);
@@ -479,7 +493,8 @@ public sealed class HtmlFormatter : ContainerFormatter
 							token.Text);
 						chordElement.SetAttributeValue("aria-hidden", token.IsAnnotation ? null : "true");
 						chordElement.SetAttributeValue("role", token.IsAnnotation ? "note" : null);
-						XElement lyricElement = Element("span", "lyric", lyric.Length == 0 ? "\u00A0" : lyric);
+						XElement lyricTextElement = Element("span", "lyric-text", lyric.Length == 0 ? "\u00A0" : lyric);
+						XElement lyricElement = Element("span", "lyric", lyricTextElement);
 						wordElement.Add(Element("span", "chord-lyric", new object[] { chordElement, lyricElement }));
 					}
 				}
@@ -494,6 +509,41 @@ public sealed class HtmlFormatter : ContainerFormatter
 		}
 
 		return result;
+	}
+
+	private static void CombineAdjacentWhitespace(List<RenderToken> tokens)
+	{
+		for (int index = 1; index < tokens.Count;)
+		{
+			RenderToken previous = tokens[index - 1];
+			RenderToken current = tokens[index];
+			if (previous.IsWhiteSpace && current.IsWhiteSpace)
+			{
+				tokens[index - 1] = new(previous.Text + current.Text, isWhiteSpace: true);
+				tokens.RemoveAt(index);
+			}
+			else
+			{
+				index++;
+			}
+		}
+	}
+
+	private static void CombineParenthesizedChords(List<RenderToken> tokens)
+	{
+		for (int index = 0; (index + 2) < tokens.Count; index++)
+		{
+			RenderToken open = tokens[index];
+			RenderToken chord = tokens[index + 1];
+			RenderToken close = tokens[index + 2];
+			if (open.IsAnnotation && open.Text == "("
+				&& chord.Chord is not null
+				&& close.IsAnnotation && close.Text == ")")
+			{
+				tokens[index] = new(chord.Chord, $"({chord.Text})");
+				tokens.RemoveRange(index + 1, 2);
+			}
+		}
 	}
 
 	private static void MergeFollowingUnchordedWords(List<WordRun> words)
@@ -534,7 +584,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 		XElement? previous = this.currentContainer.Elements().LastOrDefault();
 		if (HasClass(element, "chord-diagrams") && previous is not null && HasClass(previous, "chord-diagrams"))
 		{
-			previous.Add(element.Nodes().ToArray());
+			previous.Add([.. element.Nodes()]);
 		}
 		else
 		{
@@ -558,7 +608,8 @@ public sealed class HtmlFormatter : ContainerFormatter
 				break;
 
 			case ChordLyricPair pair:
-				ChordProLyricLine converted = ChordProLyricLine.Convert(pair);
+				LyricLine displayLyrics = new(NormalizeLyricText(pair.Lyrics.Text), pair.Lyrics.Annotations);
+				ChordProLyricLine converted = ChordProLyricLine.Convert(new ChordLyricPair(pair.Chords, displayLyrics));
 				element = FormatChordProLyricLine(converted, normalizeTrailingChords: true, this.Transpose);
 				annotations = converted.Annotations;
 				break;
@@ -582,7 +633,9 @@ public sealed class HtmlFormatter : ContainerFormatter
 			case Comment comment:
 				if (comment.Prefix?.TrimStart().StartsWith('#') != true)
 				{
-					string text = isAnnotation ? comment.ToString(includeAnnotations: false) : comment.Text;
+					string text = isAnnotation
+						? comment.ToString(includeAnnotations: false)
+						: NormalizeParenthesizedComment(comment);
 					element = Element("aside", "comment", text);
 					element.SetAttributeValue("role", "note");
 				}
@@ -609,7 +662,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 				break;
 
 			case LyricLine lyrics:
-				element = Element("div", "lyric-line", lyrics.Text);
+				element = Element("div", "lyric-line", NormalizeLyricText(lyrics.Text));
 				break;
 
 			case TablatureLine tablature:
@@ -681,7 +734,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 			|| name.Equals("comment_box", Comparison))
 		{
 			string className = name.Equals("comment", Comparison) ? "comment" : $"comment {name.Replace('_', '-')}";
-			result = Element("aside", className, argument ?? string.Empty);
+			result = Element("aside", className, NormalizeCommentDirectiveArgument(argument));
 			result.SetAttributeValue("role", "note");
 		}
 		else if (name.Equals(ChordProEnvironment.ChorusName, Comparison))
@@ -787,7 +840,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 				ChordDiagramMode.None => null,
 				ChordDiagramMode.Image => FormatChordDiagram(diagram),
 				ChordDiagramMode.CompactText => Element("div", "compact-chord-diagram", diagram.GetCompactText()),
-				_ => throw new ArgumentOutOfRangeException(nameof(mode)),
+				_ => throw new InvalidOperationException($"Unsupported chord diagram mode: {mode}."),
 			};
 			if (element is not null)
 			{
@@ -904,7 +957,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 			}
 		}
 
-		IGrouping<int, int>? labeledBarre = barres.FirstOrDefault();
+		IGrouping<int, int>? labeledBarre = barres.Count > 0 ? barres[0] : null;
 		if (labeledBarre is not null)
 		{
 			int absoluteFret = diagram.BaseFret + Math.Max(0, labeledBarre.Key - 1);
@@ -1183,12 +1236,82 @@ public sealed class HtmlFormatter : ContainerFormatter
 		{
 			if (segment is ChordSegment chord)
 			{
-				result.Add(Element("span", chordClassName, transpose(chord.Chord).Name));
+				string chordText = transpose(chord.Chord).Name;
+				if (chord.IsParenthesized)
+				{
+					chordText = $"({chordText})";
+				}
+
+				result.Add(Element("span", chordClassName, chordText));
 			}
 			else
 			{
 				result.Add(new XText(segment.Text));
 			}
+		}
+
+		return result;
+	}
+
+	private static string NormalizeParenthesizedComment(Comment comment)
+	{
+		string result = comment.Text;
+		if (comment.Prefix?.TrimEnd().EndsWith('(') == true
+			&& comment.Suffix?.TrimStart().StartsWith(')') == true
+			&& TryNormalizeRehearsalIdentifier(comment.Text, string.Empty, out string? normalized))
+		{
+			result = normalized;
+		}
+
+		return result;
+	}
+
+	private static string NormalizeLyricText(string text)
+		=> NormalizeParenthesizedIdentifier(LeadingParenthesizedItem.Replace(text, string.Empty));
+
+	private static string NormalizeCommentDirectiveArgument(string? argument)
+	{
+		string result = argument is null ? string.Empty : NormalizeLyricText(argument);
+		if (TryNormalizeRehearsalIdentifier(result, string.Empty, out string? normalized))
+		{
+			result = normalized;
+		}
+
+		return result;
+	}
+
+	private static string NormalizeParenthesizedIdentifier(string text)
+	{
+		string result = text;
+		Match match = ParenthesizedIdentifier.Match(text);
+		if (match.Success
+			&& TryNormalizeRehearsalIdentifier(
+				match.Groups["identifier"].Value,
+				match.Groups["extension"].Value,
+				out string? normalized))
+		{
+			result = match.Groups["leading"].Value
+				+ '(' + normalized + ')'
+				+ match.Groups["trailing"].Value;
+		}
+
+		return result;
+	}
+
+	private static bool TryNormalizeRehearsalIdentifier(
+		string identifier,
+		string extension,
+		[NotNullWhen(true)] out string? normalized)
+	{
+		bool hasUnderscores = identifier.IndexOf("__", StringComparison.Ordinal) >= 0 || extension.Length >= 2;
+		normalized = hasUnderscores ? identifier.Replace("_", string.Empty) : null;
+		bool isRepeat = normalized?.Length > 1
+			&& normalized[0] == 'X'
+			&& normalized.Substring(1).All(char.IsDigit);
+		bool result = normalized is not null && (RehearsalIdentifiers.Contains(normalized) || isRepeat);
+		if (!result)
+		{
+			normalized = null;
 		}
 
 		return result;
@@ -1463,10 +1586,10 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 	private sealed class RenderToken
 	{
-		public RenderToken(Chord chord)
+		public RenderToken(Chord chord, string? text = null)
 		{
 			this.Chord = chord;
-			this.Text = chord.Name;
+			this.Text = text ?? chord.Name;
 		}
 
 		public RenderToken(ChordAnnotationSegment annotation)
@@ -1515,7 +1638,7 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 		public void Append(WordRun next)
 		{
-			this.Tokens.Add(new(" ", isWhiteSpace: false));
+			this.Tokens.Add(new(this.SeparatorAfter, isWhiteSpace: false));
 			this.Tokens.AddRange(next.Tokens);
 			this.SeparatorAfter = next.SeparatorAfter;
 		}

@@ -70,8 +70,10 @@ The `Entry`-derived class hierarchy is:
 		* [LyricLine](src/Menees.Chords/LyricLine.cs) - A line of lyrics (or anything that the parser couldn't match to another entry type).
 		* [TablatureLine](src/Menees.Chords/TablatureLine.cs) - A tablature line, typically inside a [ChordPro tab environment](https://www.chordpro.org/chordpro/directives-env_tab/).
 
-Chord sheets are parsed line-by-line. Parsing can be customized using the `DocumentParser` class with an
-ordered collection of specialized line parsers and groupers.
+Chord sheets are normally parsed line-by-line. Parsing can be customized using the `DocumentParser` class with
+ordered collections of specialized line parsers, groupers, and structured document parsers. The default structured
+parsers support [OpenSong XML song files](https://opensong.org/development/file-formats/) and delegate the song's
+lyrics to the configured line parsers and groupers.
 
 ### Transforming
 `Document`s (and `Entry`s) are immutable after construction. The `DocumentTransformer` class provides a way

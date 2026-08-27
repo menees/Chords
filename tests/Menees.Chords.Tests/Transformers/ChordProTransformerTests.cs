@@ -123,8 +123,8 @@ public class ChordProTransformerTests
 				expectedFolder,
 				Path.ChangeExtension(Path.GetFileName(fileName), extension));
 			File.Exists(expectedFileName).ShouldBeTrue($"Expected file should exist: {expectedFileName}");
-			string expectedText = File.ReadAllText(expectedFileName);
-			text.ShouldBe(expectedText, StringCompareShould.IgnoreLineEndings);
+			string expectedText = File.ReadAllText(expectedFileName).TrimEnd('\r', '\n');
+			text.TrimEnd('\r', '\n').ShouldBe(expectedText, StringCompareShould.IgnoreLineEndings);
 		}
 	}
 

@@ -7,6 +7,7 @@ using System.Text;
 using System.Xml.Linq;
 using Menees.Chords.Formatters.Html;
 using Menees.Chords.Parsers;
+using Menees.Chords.Transformers;
 
 #endregion
 
@@ -58,6 +59,20 @@ public class HtmlFormatterTests
 	}
 
 	[TestMethod]
+	public void ChordProTimingSpacesTest()
+	{
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		const string Text = "[G]  I know I could have saved a love that night If I'd [Cadd9]known what to say";
+		XDocument html = new HtmlFormatter(Document.Parse(Text, parser)).ToXDocument();
+
+		GetClassElements(html, "lyric").Select(element => element.Value)
+			.ShouldBe(["  I know I could have saved a love that night If I'd", "known what to say"]);
+		GetClassElements(html, "lyric-text").Select(element => element.Value)
+			.ShouldBe(["  I know I could have saved a love that night If I'd", "known what to say"]);
+		GetDefaultStyles(html).ShouldContain(".lyric-text {\n\twhite-space: pre;");
+	}
+
+	[TestMethod]
 	public void ChordProChordAnnotationTest()
 	{
 		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
@@ -73,6 +88,77 @@ public class HtmlFormatterTests
 	}
 
 	[TestMethod]
+	public void ParenthesizedChordTest()
+	{
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		Document document = Document.Parse("[*(][Db][*)]", parser);
+		Document transposed = new TransposeTransformer(document, 2, Key.Parse("Db"), AccidentalPreference.Flats).Transform().Document;
+		XDocument html = new HtmlFormatter(transposed).ToXDocument();
+
+		transposed.Entries.Single().ToString().ShouldBe("[*(][Eb][*)]");
+		GetClassElements(html, "chord").Single().Value.ShouldBe("(Eb)");
+		GetClassElements(html, "chord-annotation").ShouldBeEmpty();
+		GetClassElements(html, "chord-lyric").Count().ShouldBe(1);
+	}
+
+	[TestMethod]
+	public void MusicLineIndentationTest()
+	{
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		XDocument html = new HtmlFormatter(Document.Parse("  [G]Indented\n  Plain", parser)).ToXDocument();
+
+		GetClassElements(html, "chord-line").Single().Nodes().OfType<XText>().First().Value.ShouldBe("  ");
+		GetClassElements(html, "lyric-line").Single().Value.ShouldBe("  Plain");
+		string styles = GetDefaultStyles(html);
+		styles.ShouldContain(".song-column .lyric-line {\n\twhite-space: pre;");
+		styles.ShouldContain(".lyric-line,\n.chord-line {\n\twhite-space: pre-wrap;");
+	}
+
+	[TestMethod]
+	public void RehearsalIdentifierTest()
+	{
+		const string Text = """
+			(IN__TRO)
+			(TUR__N)
+			  (OU__TRO)__
+			(TUSSENSPEL)__
+			(X1)___
+			(X12)____
+			(X)___
+			(VERSE__ONE)
+			____(Backing lyrics)
+			Before ____(alternate lyrics) after
+			C
+			Paired __(harmony)
+			""";
+		Document document = Document.Parse(Text);
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+
+		GetClassElements(html, "comment").Select(element => element.Value)
+			.ShouldBe(["INTRO", "TURN", "VERSE__ONE"]);
+		GetClassElements(html, "lyric-line").Select(element => element.Value)
+			.ShouldBe(["  (OUTRO)", "(TUSSENSPEL)", "(X1)", "(X12)", "(X)___", "(Backing lyrics)", "Before (alternate lyrics) after"]);
+		GetClassElements(html, "chord-line").Single().Value.ShouldContain("Paired (harmony)");
+
+		DocumentTransformer.Flatten(document.Entries).Select(entry => entry.ToString())
+			.ShouldContain("Paired __(harmony)");
+	}
+
+	[TestMethod]
+	public void TransformedOpenSongRehearsalIdentifierTest()
+	{
+		const string Xml = "<song><title>Test</title><lyrics>[P1]\n.C / G\n (IN__TRO)\n[P2]\n.C / G\n (OU__TRO)</lyrics></song>";
+		Document transformed = new ChordProTransformer(Document.Parse(Xml)).Transform().Document;
+		IReadOnlyList<ChordProDirectiveLine> comments = [.. DocumentTransformer.Flatten(transformed.Entries)
+			.OfType<ChordProDirectiveLine>()
+			.Where(directive => directive.LongName == "comment")];
+		XDocument html = new HtmlFormatter(transformed).ToXDocument();
+
+		comments.Select(comment => comment.Argument).ShouldBe(["IN__TRO", "OU__TRO"]);
+		GetClassElements(html, "comment").Select(element => element.Value).ShouldBe(["INTRO", "OUTRO"]);
+	}
+
+	[TestMethod]
 	public void ChordOverLyricFlowTest()
 	{
 		Document document = Document.Parse("    Cadd9\nIf I     could have let you know");
@@ -80,8 +166,23 @@ public class HtmlFormatterTests
 		XDocument html = formatter.ToXDocument();
 
 		GetClassElements(html, "chord").Single().Value.ShouldBe("Cadd9");
-		GetClassElements(html, "lyric").Single().Value.ShouldBe("I could have let you know");
-		GetClassElements(html, "chord-line").Single().Value.ShouldContain("I could have let you know");
+		GetClassElements(html, "lyric").Single().Value.ShouldBe("I     could have let you know");
+		GetClassElements(html, "chord-line").Single().Value.ShouldContain("I     could have let you know");
+	}
+
+	[TestMethod]
+	public void ChordOverLyricTimingSpacesTest()
+	{
+		const string Text = """
+			G                                                    Cadd9
+			  I know I could have saved a love that night If I'd known what to say
+			""";
+		Document document = Document.Parse(Text);
+		XElement line = GetClassElements(new HtmlFormatter(document).ToXDocument(), "chord-line").Single();
+
+		line.FirstNode.ShouldBeOfType<XElement>();
+		GetClassElements(line, "lyric-text").Select(element => element.Value)
+			.ShouldBe(["  I know I could have saved a love that night If I'd", "known what to say"]);
 	}
 
 	[TestMethod]
@@ -449,7 +550,7 @@ public class HtmlFormatterTests
 		text.ShouldContain(".word > .chord-lyric:not(:last-child) .chord");
 		text.ShouldContain(".word > .chord-lyric:not(:last-child) .lyric::after");
 		text.ShouldNotContain("\n\t\t.lyric::after");
-		text.ShouldContain("white-space: normal");
+		text.ShouldNotContain("white-space: normal");
 		text.ShouldNotContain("<section class=\"section\" data-container=\"Section\" />");
 	}
 

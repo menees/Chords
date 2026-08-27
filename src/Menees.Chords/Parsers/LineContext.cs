@@ -164,6 +164,12 @@ public sealed class LineContext
 			Group group;
 			if (tryComment && (group = match.Groups["parencomment"]).Success)
 			{
+				if (ChordSegment.TryParseParenthesized(group.Value) is not null)
+				{
+					// A parenthesized chord is musical content rather than an end-of-line comment.
+					break;
+				}
+
 				result.Add(CreateComment(group.Value, "(", ")"));
 				annotationStartIndex = group.Index;
 			}

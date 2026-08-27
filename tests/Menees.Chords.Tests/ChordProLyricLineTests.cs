@@ -48,6 +48,7 @@ public class ChordProLyricLineTests
 		Test("B# N.C.");
 		Test("Am Q7");
 		Test("  [A12]  ");
+		Test("[]formst mich");
 
 		// Ignore conditional chords that require preprocessor replacement.
 		// https://www.chordpro.org/chordpro/support-hints-and-tips/
@@ -67,6 +68,7 @@ public class ChordProLyricLineTests
 		Test(" D7        G  ", " [D7]        [G]  ");
 		Test("C       C*   G*", "[C]       [C*]   [G*]");
 		Test("A Bb B   (Half steps)", "[A] [Bb] [B]   (Half steps)");
+		Test("C (Db)", "[C] [*(][Db][*)]");
 
 		static void Test(string text, string expectedText)
 		{

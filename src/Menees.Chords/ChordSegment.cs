@@ -31,7 +31,31 @@ public sealed class ChordSegment : TextSegment
 
 	#endregion
 
+	#region Internal Properties
+
+	/// <summary>
+	/// Gets whether the chord's original text is enclosed in parentheses.
+	/// </summary>
+	internal bool IsParenthesized => TryParseParenthesized(this.Text) is not null;
+
+	#endregion
+
 	#region Internal Methods
+
+	internal static Chord? TryParseParenthesized(string text)
+	{
+		Chord? result = null;
+		if (text?.Length > 2 && text[0] == '(' && text[^1] == ')')
+		{
+			string inner = text.Substring(1, text.Length - 2);
+			if (!char.IsLetter(inner[0]) || char.IsUpper(inner[0]))
+			{
+				Chord.TryParse(inner, out result);
+			}
+		}
+
+		return result;
+	}
 
 	internal ChordSegment ChangeChord(Func<Chord, Chord> change)
 	{

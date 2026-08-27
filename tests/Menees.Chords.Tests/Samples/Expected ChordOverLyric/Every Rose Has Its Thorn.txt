@@ -70,8 +70,7 @@ Cadd9                        G
 
 
 [Solo]
-    Cadd9 G Cadd9
-(G)
+(G) Cadd9 G Cadd9
 Em D Cadd9 G Em D Cadd9
 
 

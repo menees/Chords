@@ -76,6 +76,14 @@ public sealed class LyricLine : TextEntry
 			annotations = [.. annotations.Skip(index)];
 		}
 
+		if (string.IsNullOrWhiteSpace(line) && annotations.Count > 0)
+		{
+			// If the whole line looks like an end-of-line annotation (e.g., "  x2"),
+			// then preserve it as lyrics instead of creating an empty lyric line.
+			line = context.LineText;
+			annotations = [];
+		}
+
 		LyricLine result = new(line);
 		result.AddAnnotations(annotations);
 		return result;

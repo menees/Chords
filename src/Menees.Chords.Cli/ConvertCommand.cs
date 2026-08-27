@@ -226,34 +226,41 @@ internal sealed class ConvertCommand : BaseCommand
 	private Document ParseInput()
 	{
 		bool readStdIn = this.input is null;
-		TextReader reader = readStdIn ? Console.In : new StreamReader(this.input!.FullName, this.inputEncoding, true);
-		try
-		{
-			DocumentParser parser = new(
-				this.parsers == Parsers.ChordPro
-					? DocumentParser.ChordProLineParsers
-					: DocumentParser.DefaultLineParsers);
+		DocumentParser parser = new(
+			this.parsers == Parsers.ChordPro
+				? DocumentParser.ChordProLineParsers
+				: DocumentParser.DefaultLineParsers);
 
-			Document inputDocument;
-			if (this.clean)
-			{
-				Cleaner cleaner = new(reader.ReadToEnd());
-				inputDocument = Document.Parse(cleaner.CleanText, parser);
-			}
-			else
-			{
-				inputDocument = Document.Load(reader, parser);
-			}
-
-			return inputDocument;
-		}
-		finally
+		Document result;
+		if (!readStdIn && !this.clean && this.inputEncoding.CodePage == Encoding.UTF8.CodePage)
 		{
-			if (!readStdIn)
+			result = Document.Load(this.input!.FullName, parser);
+		}
+		else
+		{
+			TextReader reader = readStdIn ? Console.In : new StreamReader(this.input!.FullName, this.inputEncoding, true);
+			try
 			{
-				reader.Dispose();
+				if (this.clean)
+				{
+					Cleaner cleaner = new(reader.ReadToEnd());
+					result = Document.Parse(cleaner.CleanText, parser);
+				}
+				else
+				{
+					result = Document.Load(reader, parser);
+				}
+			}
+			finally
+			{
+				if (!readStdIn)
+				{
+					reader.Dispose();
+				}
 			}
 		}
+
+		return result;
 	}
 
 	private Document TransformInMemory(Document inputDocument)
