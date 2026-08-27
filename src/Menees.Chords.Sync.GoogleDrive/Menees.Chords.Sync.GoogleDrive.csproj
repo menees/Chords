@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Description>Google Drive provider seam for ChordBook synchronization.</Description>
+		<NoWarn>$(NoWarn);1591</NoWarn>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Menees.Chords.Sync\Menees.Chords.Sync.csproj" />
+	</ItemGroup>
+</Project>

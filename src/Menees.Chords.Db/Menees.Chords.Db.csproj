@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Description>Portable database and storage contracts for Menees ChordBook.</Description>
+	</PropertyGroup>
+</Project>

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<RootNamespace>Menees.Chords.Sync.Tests</RootNamespace>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Menees.Chords.Sync\Menees.Chords.Sync.csproj" />
+		<ProjectReference Include="..\..\src\Menees.Chords.Sync.OneDrive\Menees.Chords.Sync.OneDrive.csproj" />
+		<ProjectReference Include="..\..\src\Menees.Chords.Sync.GoogleDrive\Menees.Chords.Sync.GoogleDrive.csproj" />
+	</ItemGroup>
+</Project>

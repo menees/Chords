@@ -19,6 +19,10 @@
   </Folder>
   <Folder Name="/Src/">
     <Project Path="src/Menees.Chords.Cli/Menees.Chords.Cli.csproj" />
+    <Project Path="src/Menees.Chords.Db/Menees.Chords.Db.csproj" />
+    <Project Path="src/Menees.Chords.Sync.GoogleDrive/Menees.Chords.Sync.GoogleDrive.csproj" />
+    <Project Path="src/Menees.Chords.Sync.OneDrive/Menees.Chords.Sync.OneDrive.csproj" />
+    <Project Path="src/Menees.Chords.Sync/Menees.Chords.Sync.csproj" />
     <Project Path="src/Menees.Chords.Web/Menees.Chords.Web.csproj" />
     <Project Path="src/Menees.Chords/Menees.Chords.csproj" />
   </Folder>
@@ -27,5 +31,7 @@
     <File Path="tests/AssemblyInfo.cs" />
     <File Path="tests/Directory.Build.props" />
     <Project Path="tests/Menees.Chords.Tests/Menees.Chords.Tests.csproj" />
+    <Project Path="tests/Menees.Chords.Db.Tests/Menees.Chords.Db.Tests.csproj" />
+    <Project Path="tests/Menees.Chords.Sync.Tests/Menees.Chords.Sync.Tests.csproj" />
   </Folder>
 </Solution>

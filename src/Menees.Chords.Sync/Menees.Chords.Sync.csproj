@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<Description>Provider-neutral synchronization contracts and planning for ChordBook.</Description>
+		<NoWarn>$(NoWarn);1591</NoWarn>
+	</PropertyGroup>
+</Project>
