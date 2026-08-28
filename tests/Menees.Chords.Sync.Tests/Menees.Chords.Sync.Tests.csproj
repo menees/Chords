@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<TargetFramework>$(MeneesTargetNetCore)</TargetFramework>
 		<RootNamespace>Menees.Chords.Sync.Tests</RootNamespace>
 		<IsPackable>false</IsPackable>
 		<IsTestProject>true</IsTestProject>

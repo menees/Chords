@@ -4,9 +4,8 @@ public readonly struct ProviderItemId : IEquatable<ProviderItemId>
 {
 	public ProviderItemId(string value)
 	{
-		this.Value = !string.IsNullOrWhiteSpace(value)
-			? value
-			: throw new ArgumentException("An item ID is required.", nameof(value));
+		ArgumentException.ThrowIfNullOrWhiteSpace(value);
+		this.Value = value;
 	}
 
 	public string Value { get; }

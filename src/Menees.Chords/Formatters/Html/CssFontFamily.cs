@@ -7,11 +7,7 @@ using System.Text;
 #endregion
 
 /// <summary>Represents a CSS font-family list or variable expression.</summary>
-#if NET8_0_OR_GREATER
 public sealed class CssFontFamily : IEquatable<CssFontFamily>, IParsable<CssFontFamily>, ISpanParsable<CssFontFamily>, IUtf8SpanParsable<CssFontFamily>
-#else
-public sealed class CssFontFamily : IEquatable<CssFontFamily>
-#endif
 {
 	#region Private Data Members
 
@@ -79,7 +75,6 @@ public sealed class CssFontFamily : IEquatable<CssFontFamily>
 			? result!
 			: throw new FormatException($"'{value}' is not a supported CSS font-family value.");
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static CssFontFamily Parse(string value, IFormatProvider? provider) => Parse(value);
 
@@ -91,7 +86,6 @@ public sealed class CssFontFamily : IEquatable<CssFontFamily>
 		=> CssValueValidator.TryDecodeUtf8(utf8Text, out string? value) && TryParse(value, out CssFontFamily? result)
 			? result!
 			: throw new FormatException("The UTF-8 value is not a supported CSS font-family value.");
-#endif
 
 	/// <summary>Attempts to parse a CSS font-family list or variable expression.</summary>
 	/// <param name="value">The CSS value.</param>
@@ -109,7 +103,6 @@ public sealed class CssFontFamily : IEquatable<CssFontFamily>
 		return supported;
 	}
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static bool TryParse(
 		string? value,
@@ -137,7 +130,6 @@ public sealed class CssFontFamily : IEquatable<CssFontFamily>
 		bool decoded = CssValueValidator.TryDecodeUtf8(utf8Text, out string? value);
 		return TryParse(decoded ? value : null, provider, out result);
 	}
-#endif
 
 	/// <inheritdoc/>
 	public bool Equals(CssFontFamily? other)

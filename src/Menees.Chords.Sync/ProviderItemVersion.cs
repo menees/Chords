@@ -4,9 +4,8 @@ public readonly struct ProviderItemVersion : IEquatable<ProviderItemVersion>
 {
 	public ProviderItemVersion(string value)
 	{
-		this.Value = !string.IsNullOrWhiteSpace(value)
-			? value
-			: throw new ArgumentException("An item version is required.", nameof(value));
+		ArgumentException.ThrowIfNullOrWhiteSpace(value);
+		this.Value = value;
 	}
 
 	public string Value { get; }

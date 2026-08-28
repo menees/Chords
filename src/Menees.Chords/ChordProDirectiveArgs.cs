@@ -18,13 +18,13 @@ using Menees.Chords.Parsers;
 /// The parsed arguments from a ChordPro directive with the single legacy <see cref="Value"/>
 /// and with v6+ key=value pairs in <see cref="Attributes"/>.
 /// </summary>
-public sealed class ChordProDirectiveArgs
+public sealed partial class ChordProDirectiveArgs
 {
 	#region Private Data Members
 
 	private const string KeyValuePattern = """(?in)^\s*(((?<key>\w+?)\s*=\s*(("(?<value>[^"]*?)")|('(?<value>[^']*?)')|(?<value>[^\s]+)))\s*)+$""";
 
-	private static readonly Regex KeyValueRegex = new(KeyValuePattern, RegexOptions.Compiled);
+	private static readonly Regex KeyValueRegex = CreateKeyValueRegex();
 	private static readonly StringComparer Comparer = ChordParser.Comparer;
 	private static readonly AttributeDictionary EmptyAttributes = new();
 
@@ -86,6 +86,9 @@ public sealed class ChordProDirectiveArgs
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(KeyValuePattern)]
+	private static partial Regex CreateKeyValueRegex();
 
 	private static AttributeDictionary? TryParseKeyValuePairs(string? text)
 	{

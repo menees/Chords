@@ -506,11 +506,7 @@ public class HtmlFormatterTests
 	[TestMethod]
 	public void GenerateSampleFilesTest()
 	{
-		#if NETFRAMEWORK
-		const string TargetFramework = "net48";
-		#else
-		const string TargetFramework = "net8.0";
-		#endif
+		const string TargetFramework = "net10.0";
 		string outputDirectory = Path.Combine(
 			Path.GetTempPath(),
 			"TestResults",

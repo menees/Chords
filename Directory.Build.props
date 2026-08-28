@@ -17,12 +17,11 @@
 		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
 		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>
 
-		<!-- DOTNET_VERSION: Set framework and core versions for libraries. Set core version for Blazor. Update README.md. -->
-		<!-- We'll support older LTS releases for library builds. We'll use the latest STS release for web builds. -->
-		<MeneesTargetNetFramework>net48</MeneesTargetNetFramework>
-		<MeneesTargetNetCore>net8.0</MeneesTargetNetCore>
-		<MeneesTargetNetCli>net10.0</MeneesTargetNetCli>
-		<MeneesTargetNetWeb>net10.0</MeneesTargetNetWeb>
+		<!-- DOTNET_VERSION: Set the core version, which all project profiles reference. Update README.md. -->
+		<MeneesTargetNetCore>net10.0</MeneesTargetNetCore>
+		<MeneesTargetNetCli>$(MeneesTargetNetCore)</MeneesTargetNetCli>
+		<MeneesTargetNetWeb>$(MeneesTargetNetCore)</MeneesTargetNetWeb>
+		<MeneesTargetNetApp>$(MeneesTargetNetCore)</MeneesTargetNetApp>
 
 		<RepoSrcFolder>$(MSBuildThisFileDirectory)src</RepoSrcFolder>
 		<UseCustomCodeAnalyzers>true</UseCustomCodeAnalyzers>

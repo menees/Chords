@@ -8,11 +8,7 @@ using System.Text.RegularExpressions;
 #endregion
 
 /// <summary>Represents a CSS named, hexadecimal, functional, or variable color.</summary>
-#if NET8_0_OR_GREATER
-public sealed class CssColor : IEquatable<CssColor>, IParsable<CssColor>, ISpanParsable<CssColor>, IUtf8SpanParsable<CssColor>
-#else
-public sealed class CssColor : IEquatable<CssColor>
-#endif
+public sealed partial class CssColor : IEquatable<CssColor>, IParsable<CssColor>, ISpanParsable<CssColor>, IUtf8SpanParsable<CssColor>
 {
 	#region Private Data Members
 
@@ -21,11 +17,9 @@ public sealed class CssColor : IEquatable<CssColor>
 		"color", "color-mix", "hsl", "hsla", "hwb", "lab", "lch", "light-dark", "oklab", "oklch", "rgb", "rgba", "var",
 	};
 
-	private static readonly Regex HexPattern = new(
-		@"^\#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$",
-		RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+	private static readonly Regex HexPattern = CreateHexPattern();
 
-	private static readonly Regex NamePattern = new(@"^-?[a-z][a-z0-9-]*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+	private static readonly Regex NamePattern = CreateNamePattern();
 
 	private readonly string value;
 
@@ -70,7 +64,6 @@ public sealed class CssColor : IEquatable<CssColor>
 	public static CssColor Parse(string value)
 		=> TryParse(value, out CssColor? result) ? result! : throw new FormatException($"'{value}' is not a supported CSS color.");
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static CssColor Parse(string value, IFormatProvider? provider) => Parse(value);
 
@@ -82,7 +75,6 @@ public sealed class CssColor : IEquatable<CssColor>
 		=> CssValueValidator.TryDecodeUtf8(utf8Text, out string? value) && TryParse(value, out CssColor? result)
 			? result!
 			: throw new FormatException("The UTF-8 value is not a supported CSS color.");
-#endif
 
 	/// <summary>Attempts to parse a CSS color.</summary>
 	public static bool TryParse(string? value, out CssColor? result)
@@ -109,7 +101,6 @@ public sealed class CssColor : IEquatable<CssColor>
 		return supported;
 	}
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static bool TryParse(
 		string? value,
@@ -137,7 +128,6 @@ public sealed class CssColor : IEquatable<CssColor>
 		bool decoded = CssValueValidator.TryDecodeUtf8(utf8Text, out string? value);
 		return TryParse(decoded ? value : null, provider, out result);
 	}
-#endif
 
 	/// <inheritdoc/>
 	public bool Equals(CssColor? other) => other is not null && this.value.Equals(other.value, StringComparison.OrdinalIgnoreCase);
@@ -150,6 +140,16 @@ public sealed class CssColor : IEquatable<CssColor>
 
 	/// <inheritdoc/>
 	public override string ToString() => this.value;
+
+	#endregion
+
+	#region Private Methods
+
+	[GeneratedRegex(@"^\#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+	private static partial Regex CreateHexPattern();
+
+	[GeneratedRegex(@"^-?[a-z][a-z0-9-]*$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+	private static partial Regex CreateNamePattern();
 
 	#endregion
 }

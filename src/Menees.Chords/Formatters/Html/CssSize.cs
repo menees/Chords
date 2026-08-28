@@ -8,11 +8,7 @@ using System.Text.RegularExpressions;
 #endregion
 
 /// <summary>Represents a CSS size, length, percentage, keyword, or size-valued function.</summary>
-#if NET8_0_OR_GREATER
-public sealed class CssSize : IEquatable<CssSize>, IParsable<CssSize>, ISpanParsable<CssSize>, IUtf8SpanParsable<CssSize>
-#else
-public sealed class CssSize : IEquatable<CssSize>
-#endif
+public sealed partial class CssSize : IEquatable<CssSize>, IParsable<CssSize>, ISpanParsable<CssSize>, IUtf8SpanParsable<CssSize>
 {
 	#region Private Data Members
 
@@ -28,11 +24,7 @@ public sealed class CssSize : IEquatable<CssSize>
 		"calc", "clamp", "env", "fit-content", "max", "min", "var",
 	};
 
-	private static readonly Regex LengthPattern = new(
-		@"^[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)" +
-		@"(?:%|cap|ch|cm|dvh|dvw|em|ex|ic|in|lh|lvh|lvw|mm|pc|pt|px|q|rem|rlh|svh|svw|vb|vh|vi|vmax|vmin|vw|x)" +
-		@"|0(?:\.0*)?)$",
-		RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+	private static readonly Regex LengthPattern = CreateLengthPattern();
 
 	private readonly string value;
 
@@ -71,7 +63,6 @@ public sealed class CssSize : IEquatable<CssSize>
 	public static CssSize Parse(string value)
 		=> TryParse(value, out CssSize? result) ? result! : throw new FormatException($"'{value}' is not a supported CSS size.");
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static CssSize Parse(string value, IFormatProvider? provider) => Parse(value);
 
@@ -83,7 +74,6 @@ public sealed class CssSize : IEquatable<CssSize>
 		=> CssValueValidator.TryDecodeUtf8(utf8Text, out string? value) && TryParse(value, out CssSize? result)
 			? result!
 			: throw new FormatException("The UTF-8 value is not a supported CSS size.");
-#endif
 
 	/// <summary>Attempts to parse a CSS size.</summary>
 	public static bool TryParse(string? value, out CssSize? result)
@@ -110,7 +100,6 @@ public sealed class CssSize : IEquatable<CssSize>
 		return supported;
 	}
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static bool TryParse(
 		string? value,
@@ -138,7 +127,6 @@ public sealed class CssSize : IEquatable<CssSize>
 		bool decoded = CssValueValidator.TryDecodeUtf8(utf8Text, out string? value);
 		return TryParse(decoded ? value : null, provider, out result);
 	}
-#endif
 
 	/// <inheritdoc/>
 	public bool Equals(CssSize? other) => other is not null && this.value.Equals(other.value, StringComparison.OrdinalIgnoreCase);
@@ -155,6 +143,13 @@ public sealed class CssSize : IEquatable<CssSize>
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(
+		@"^[+-]?(?:(?:\d+(?:\.\d*)?|\.\d+)" +
+		@"(?:%|cap|ch|cm|dvh|dvw|em|ex|ic|in|lh|lvh|lvw|mm|pc|pt|px|q|rem|rlh|svh|svw|vb|vh|vi|vmax|vmin|vw|x)" +
+		@"|0(?:\.0*)?)$",
+		RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+	private static partial Regex CreateLengthPattern();
 
 	private static CssSize FromNumber(double value, string unit)
 	{

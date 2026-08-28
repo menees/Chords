@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<TargetFramework>$(MeneesTargetNetCore)</TargetFramework>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<Description>Google Drive provider seam for ChordBook synchronization.</Description>

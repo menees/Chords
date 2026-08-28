@@ -8,13 +8,11 @@ using System.Text.RegularExpressions;
 #endregion
 
 /// <summary>Defines layout and text overrides for one ChordPro environment.</summary>
-public sealed class EnvironmentStyle
+public sealed partial class EnvironmentStyle
 {
 	#region Private Data Members
 
-	private static readonly Regex NamePattern = new(
-		@"^[a-z0-9_]+$",
-		RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+	private static readonly Regex NamePattern = CreateNamePattern();
 
 	#endregion
 
@@ -75,6 +73,9 @@ public sealed class EnvironmentStyle
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(@"^[a-z0-9_]+$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+	private static partial Regex CreateNamePattern();
 
 	private static void Append(StringBuilder builder, string name, object? value)
 	{

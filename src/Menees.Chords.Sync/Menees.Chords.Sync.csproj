@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<TargetFramework>$(MeneesTargetNetCore)</TargetFramework>
 		<GeneratePackageOnBuild>true</GeneratePackageOnBuild>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<Description>Provider-neutral synchronization contracts and planning for ChordBook.</Description>

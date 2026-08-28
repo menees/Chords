@@ -14,7 +14,7 @@ using Menees.Chords.Transformers;
 /// A ChordPro directive in "{name}", "{name[:] argument}", or "{name[:] key='value'...}" format.
 /// </summary>
 /// <seealso href="https://www.chordpro.org/chordpro/chordpro-directives/"/>
-public sealed class ChordProDirectiveLine : Entry
+public sealed partial class ChordProDirectiveLine : Entry
 {
 	#region Internal Constants
 
@@ -35,7 +35,7 @@ public sealed class ChordProDirectiveLine : Entry
 		+ "\n" + """(?<argument>.+) # Single argument"""
 		+ "\n" + """)?\s*}\s*$ # Closing brace with optional ws""";
 
-	private static readonly Regex DirectiveRegex = new(DirectiveLinePattern, RegexOptions.Compiled);
+	private static readonly Regex DirectiveRegex = CreateDirectiveRegex();
 
 	#endregion
 
@@ -294,6 +294,9 @@ public sealed class ChordProDirectiveLine : Entry
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(DirectiveLinePattern)]
+	private static partial Regex CreateDirectiveRegex();
 
 	private string ToString(string name)
 	{

@@ -1,12 +1,10 @@
 namespace Menees.Chords.Formatters.Html;
 
-#if NET8_0_OR_GREATER
 #region Using Directives
 
 using System.Text;
 
 #endregion
-#endif
 
 internal static class CssValueValidator
 {
@@ -41,7 +39,6 @@ internal static class CssValueValidator
 		return result && parentheses == 0;
 	}
 
-#if NET8_0_OR_GREATER
 	internal static bool TryDecodeUtf8(ReadOnlySpan<byte> utf8Text, out string? value)
 	{
 		bool result;
@@ -58,7 +55,6 @@ internal static class CssValueValidator
 
 		return result;
 	}
-#endif
 
 	#endregion
 }

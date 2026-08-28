@@ -47,7 +47,6 @@ public class CssValueTests
 		CssSize.TryParse("1.2furlongs", out _).ShouldBeFalse();
 	}
 
-#if NET8_0_OR_GREATER
 	[TestMethod]
 	public void ModernParseInterfacesTest()
 	{
@@ -82,7 +81,6 @@ public class CssValueTests
 	private static T ParseUtf8<T>(string value)
 		where T : IUtf8SpanParsable<T>
 		=> T.Parse(Encoding.UTF8.GetBytes(value), null);
-#endif
 
 	#endregion
 }

@@ -4,7 +4,8 @@ public sealed class SyncOperation
 {
 	public SyncOperation(string id, SyncOperationKind kind, string relativePath, long estimatedBytes = 0)
 	{
-		this.Id = !string.IsNullOrWhiteSpace(id) ? id : throw new ArgumentException("An operation ID is required.", nameof(id));
+		ArgumentException.ThrowIfNullOrWhiteSpace(id);
+		this.Id = id;
 		this.Kind = kind;
 		this.RelativePath = relativePath;
 		this.EstimatedBytes = estimatedBytes;

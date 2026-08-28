@@ -16,7 +16,7 @@ using Menees.Chords.Parsers;
 /// <remarks>
 /// A title line can contain other <see cref="Metadata"/> like artist, key, capo, etc.
 /// </remarks>
-public sealed class TitleLine : TextEntry
+public sealed partial class TitleLine : TextEntry
 {
 	#region Private Data Members
 
@@ -33,7 +33,7 @@ public sealed class TitleLine : TextEntry
 	private const string CommentMetadataName = "comment";
 	private const string SpaceEnDashSpace = " – ";
 
-	private static readonly Regex TitleRegex = new(TitleRegexPattern, RegexOptions.Compiled);
+	private static readonly Regex TitleRegex = CreateTitleRegex();
 
 	private static readonly string[] OmitWords = [nameof(Chords), "Tab", "Tabs", "Official", "Bass", "Ukulele", "Power", "Guitar Pro"];
 
@@ -257,6 +257,9 @@ public sealed class TitleLine : TextEntry
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(TitleRegexPattern)]
+	private static partial Regex CreateTitleRegex();
 
 	private static TitleLine? TryCreate(
 		string[] titleWords,

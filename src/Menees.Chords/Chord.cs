@@ -127,7 +127,7 @@ public sealed class Chord
 	/// <returns>A new chord instance if its notation changed, or the same instance otherwise.</returns>
 	public Chord ChangeNotation(Notation notation, Key key)
 	{
-		if (!Enum.IsDefined(typeof(Notation), notation))
+		if (!Enum.IsDefined(notation))
 		{
 			throw new ArgumentOutOfRangeException(nameof(notation));
 		}
@@ -170,7 +170,7 @@ public sealed class Chord
 	/// </remarks>
 	public Chord Transpose(sbyte halfSteps, AccidentalPreference accidentalPreference = AccidentalPreference.Default)
 	{
-		if (!Enum.IsDefined(typeof(AccidentalPreference), accidentalPreference))
+		if (!Enum.IsDefined(accidentalPreference))
 		{
 			throw new ArgumentOutOfRangeException(nameof(accidentalPreference));
 		}

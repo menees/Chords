@@ -38,13 +38,7 @@ public sealed class ChordOverLyricTransformer : DocumentTransformer
 	/// Converts <see cref="DocumentTransformer.Document"/> into "chords over text" format.
 	/// </summary>
 	/// <returns>The current transformer.</returns>
-	public override
-#if NET // Modern .NET is required for C#9 covariant returns.
-		ChordOverLyricTransformer
-#else
-		DocumentTransformer
-#endif
-		Transform()
+	public override ChordOverLyricTransformer Transform()
 	{
 		IReadOnlyList<Entry> result = TransformEntries(this.Document.Entries);
 		this.SetEntries(result);

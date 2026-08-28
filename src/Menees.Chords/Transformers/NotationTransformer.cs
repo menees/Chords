@@ -23,7 +23,7 @@ public sealed class NotationTransformer : DocumentTransformer
 	public NotationTransformer(Document document, Notation notation, DetectKey detectKey = DetectKey.FirstChord)
 		: base(document)
 	{
-		if (!Enum.IsDefined(typeof(Notation), notation))
+		if (!Enum.IsDefined(notation))
 		{
 			throw new ArgumentOutOfRangeException(nameof(notation));
 		}
@@ -41,13 +41,7 @@ public sealed class NotationTransformer : DocumentTransformer
 	/// to the requested notation.
 	/// </summary>
 	/// <returns>The current transformer.</returns>
-	public override
-#if NET
-		NotationTransformer
-#else
-		DocumentTransformer
-#endif
-		Transform()
+	public override NotationTransformer Transform()
 	{
 		Key key = Key.Find(this.Document, this.detectKey)
 			?? throw new InvalidOperationException("The document key is unknown.");

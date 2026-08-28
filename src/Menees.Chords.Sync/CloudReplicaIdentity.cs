@@ -17,8 +17,7 @@ public sealed class CloudReplicaIdentity
 
 	private static string Require(string value, string name)
 	{
-		return !string.IsNullOrWhiteSpace(value)
-			? value
-			: throw new ArgumentException("A value is required.", name);
+		ArgumentException.ThrowIfNullOrWhiteSpace(value, name);
+		return value;
 	}
 }

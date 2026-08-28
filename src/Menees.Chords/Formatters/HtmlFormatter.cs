@@ -16,7 +16,7 @@ using Menees.Chords.Parsers;
 /// <summary>
 /// Formats an <see cref="IEntryContainer"/> as a standalone HTML chord sheet.
 /// </summary>
-public sealed class HtmlFormatter : ContainerFormatter
+public sealed partial class HtmlFormatter : ContainerFormatter
 {
 	#region Private Data Members
 
@@ -25,11 +25,9 @@ public sealed class HtmlFormatter : ContainerFormatter
 
 	private static readonly Lazy<string> DefaultScript = new(() => LoadEmbeddedResource(DefaultScriptResourceName));
 	private static readonly Lazy<string> DefaultStyles = new(() => LoadEmbeddedResource(DefaultStylesResourceName));
-	private static readonly Regex ParenthesizedIdentifier = new(
-		@"^(?<leading>\s*)\((?<identifier>[A-Z][A-Z0-9_]*)\)(?<extension>__+)?(?<trailing>\s*)$",
-		RegexOptions.CultureInvariant);
+	private static readonly Regex ParenthesizedIdentifier = CreateParenthesizedIdentifier();
 
-	private static readonly Regex LeadingParenthesizedItem = new(@"_{2,}(?=\()", RegexOptions.CultureInvariant);
+	private static readonly Regex LeadingParenthesizedItem = CreateLeadingParenthesizedItem();
 
 	private static readonly HashSet<string> RehearsalIdentifiers = new(StringComparer.OrdinalIgnoreCase)
 	{
@@ -206,6 +204,12 @@ public sealed class HtmlFormatter : ContainerFormatter
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(@"^(?<leading>\s*)\((?<identifier>[A-Z][A-Z0-9_]*)\)(?<extension>__+)?(?<trailing>\s*)$", RegexOptions.CultureInvariant)]
+	private static partial Regex CreateParenthesizedIdentifier();
+
+	[GeneratedRegex(@"_{2,}(?=\()", RegexOptions.CultureInvariant)]
+	private static partial Regex CreateLeadingParenthesizedItem();
 
 	private static void AppendElement(StringBuilder builder, XElement element)
 	{

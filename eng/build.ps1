@@ -26,6 +26,11 @@ function GetXmlPropertyValue($fileName, $propertyName)
 	$result = Get-Content $fileName |`
 		Where-Object {$_ -like "*<$propertyName>*</$propertyName>*"} |`
 		ForEach-Object {$_.Replace("<$propertyName>", '').Replace("</$propertyName>", '').Trim()}
+	if ($result -match '^\$\((?<ReferencedPropertyName>[^)]+)\)$')
+	{
+		$result = GetXmlPropertyValue $fileName $Matches.ReferencedPropertyName
+	}
+
 	return $result
 }
 

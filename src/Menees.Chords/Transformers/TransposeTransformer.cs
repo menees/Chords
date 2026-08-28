@@ -30,7 +30,7 @@ public sealed class TransposeTransformer : DocumentTransformer
 		DetectKey detectKey = DetectKey.FirstChord)
 		: base(document)
 	{
-		if (!Enum.IsDefined(typeof(AccidentalPreference), accidentalPreference))
+		if (!Enum.IsDefined(accidentalPreference))
 		{
 			throw new ArgumentOutOfRangeException(nameof(accidentalPreference));
 		}
@@ -67,13 +67,7 @@ public sealed class TransposeTransformer : DocumentTransformer
 	/// in <see cref="DocumentTransformer.Document"/>.
 	/// </summary>
 	/// <returns>The current transformer.</returns>
-	public override
-#if NET
-		TransposeTransformer
-#else
-		DocumentTransformer
-#endif
-		Transform()
+	public override TransposeTransformer Transform()
 	{
 		Key key = this.key ?? Key.Find(this.Document, this.detectKey)
 			?? throw new InvalidOperationException("The document key is unknown.");

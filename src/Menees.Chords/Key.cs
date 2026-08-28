@@ -10,11 +10,7 @@ using System.Text;
 /// <summary>
 /// A named major or minor musical key.
 /// </summary>
-#if NET8_0_OR_GREATER
 public sealed class Key : IEquatable<Key>, IParsable<Key>, ISpanParsable<Key>, IUtf8SpanParsable<Key>
-#else
-public sealed class Key : IEquatable<Key>
-#endif
 {
 	#region Private Data Members
 
@@ -103,7 +99,7 @@ public sealed class Key : IEquatable<Key>
 	public static Key? Find(Document document, DetectKey detectKey = DetectKey.FirstChord)
 	{
 		Conditions.RequireNonNull(document);
-		if (!Enum.IsDefined(typeof(DetectKey), detectKey))
+		if (!Enum.IsDefined(detectKey))
 		{
 			throw new ArgumentOutOfRangeException(nameof(detectKey));
 		}
@@ -111,7 +107,6 @@ public sealed class Key : IEquatable<Key>
 		return DocumentKeyFinder.Find(document, detectKey);
 	}
 
-#if NET8_0_OR_GREATER
 	/// <inheritdoc/>
 	public static Key Parse(string s, IFormatProvider? provider) => Parse(s);
 
@@ -146,7 +141,6 @@ public sealed class Key : IEquatable<Key>
 
 		return success;
 	}
-#endif
 
 	/// <inheritdoc/>
 	public bool Equals(Key? other)

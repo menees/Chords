@@ -51,7 +51,6 @@ public class KeyTests
 		Key.Find(document, DetectKey.LastChord)!.Name.ShouldBe("D");
 	}
 
-#if NET8_0_OR_GREATER
 	[TestMethod]
 	public void ModernParseTest()
 	{
@@ -72,5 +71,4 @@ public class KeyTests
 	private static T ParseUtf8<T>(string value)
 		where T : IUtf8SpanParsable<T>
 		=> T.Parse(Encoding.UTF8.GetBytes(value), null);
-#endif
 }

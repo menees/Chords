@@ -62,11 +62,7 @@ internal class Conditions
 	{
 		// Note: This method doesn't use a "where T : class" constraint because we need to allow generic methods
 		// and types to call Conditions.RequireReference even if they aren't constrained to just classes.
-		if (arg == null)
-		{
-			throw new ArgumentNullException(argName!);
-		}
-
+		ArgumentNullException.ThrowIfNull(arg, argName);
 		return arg;
 	}
 

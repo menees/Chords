@@ -13,7 +13,7 @@ using System.Text.RegularExpressions;
 /// <summary>
 /// Provides the <see cref="DocumentParser"/>'s current line and parsing context.
 /// </summary>
-public sealed class LineContext
+public sealed partial class LineContext
 {
 	#region Private Data Members
 
@@ -28,7 +28,7 @@ public sealed class LineContext
 		""";
 #pragma warning restore MEN002 // Line is too long
 
-	private static readonly Regex EndOfLineAnnotation = new(EndOfLineAnnotationPattern, RegexOptions.RightToLeft | RegexOptions.Compiled);
+	private static readonly Regex EndOfLineAnnotation = CreateEndOfLineAnnotation();
 
 	private Dictionary<string, object>? state;
 	private Lexer? lexer;
@@ -132,6 +132,9 @@ public sealed class LineContext
 	#endregion
 
 	#region Private Methods
+
+	[GeneratedRegex(EndOfLineAnnotationPattern, RegexOptions.RightToLeft)]
+	private static partial Regex CreateEndOfLineAnnotation();
 
 	private static Comment CreateComment(string text, string start, string end)
 	{
