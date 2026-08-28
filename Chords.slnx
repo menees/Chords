@@ -17,6 +17,7 @@
     <File Path=".github/workflows/windows.yml" />
   </Folder>
   <Folder Name="/Src/">
+	<Project Path="src/Menees.Chords.Book.Cli/Menees.Chords.Book.Cli.csproj" />
     <Project Path="src/Menees.Chords.Cli/Menees.Chords.Cli.csproj" />
     <Project Path="src/Menees.Chords.Db/Menees.Chords.Db.csproj" />
     <Project Path="src/Menees.Chords.Sync.GoogleDrive/Menees.Chords.Sync.GoogleDrive.csproj" />

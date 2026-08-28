@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<OutputType>Exe</OutputType>
+		<Description>Diagnostic command-line harness for Menees ChordBook databases.</Description>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Menees.Chords.Db\Menees.Chords.Db.csproj" />
+	</ItemGroup>
+</Project>

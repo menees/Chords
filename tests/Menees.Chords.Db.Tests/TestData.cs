@@ -26,7 +26,7 @@ internal static class TestData
 
 		if (includeFile)
 		{
-			byte[] content = Encoding.UTF8.GetBytes("<song><title>Blessed Assurance</title></song>");
+			byte[] content = OpenSongBytes();
 			Guid fileId = Guid.CreateVersion7(Now.AddMilliseconds(2));
 			database.SongFiles.Add(new SongFile
 			{
@@ -60,5 +60,6 @@ internal static class TestData
 		return database;
 	}
 
-	public static byte[] OpenSongBytes() => Encoding.UTF8.GetBytes("<song><title>Blessed Assurance</title></song>");
+	public static byte[] OpenSongBytes()
+		=> Encoding.UTF8.GetBytes("<song><title>Blessed Assurance</title><lyrics>V1&#10;.Amazing grace</lyrics></song>");
 }

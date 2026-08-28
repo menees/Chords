@@ -342,3 +342,8 @@ healthchecksdb
 # Binary image scraps
 /images/Scraps/*.png
 /images/Scraps/*.pdn
+
+# Temporary planning and prototyping artifacts
+/tests/Menees.Chords.Book.Maui.Phase0
+/PRODUCT_PLAN.md
+/tests/Menees.Chords.Book.Pwa.Phase0
