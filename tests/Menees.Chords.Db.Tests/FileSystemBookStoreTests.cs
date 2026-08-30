@@ -87,6 +87,89 @@ public sealed class FileSystemBookStoreTests
 	}
 
 	[TestMethod]
+	[DataRow((int)FileSystemCommitStep.ManagedAssetReplaced)]
+	[DataRow((int)FileSystemCommitStep.DatabaseReplaced)]
+	public async Task InjectedCommitFailureRestoresDatabaseAndAsset(int failingStepValue)
+	{
+		CancellationToken cancellationToken = this.TestContext.CancellationToken;
+		bool fail = false;
+		FileSystemCommitStep failingStep = (FileSystemCommitStep)failingStepValue;
+		using FileSystemBookStore store = new(this.directory, step =>
+		{
+			if (fail && step == failingStep)
+			{
+				throw new IOException("Injected commit failure.");
+			}
+		});
+		BookLocation location = await store.CreateBookAsync("Original", Guid.NewGuid(), cancellationToken);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken));
+		AddOpenSong(database, Guid.NewGuid());
+		await CommitAsync(store, location, database, cancellationToken);
+		string originalJson = await store.ReadDatabaseJsonAsync(location, cancellationToken);
+		SongFile file = database.SongFiles.Single();
+		byte[] replacement = Encoding.UTF8.GetBytes("{title:Replacement}");
+		file.ContentHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(replacement)).ToLowerInvariant();
+		file.ObservedLength = replacement.Length;
+		database.Name = "Replacement";
+		fail = true;
+
+		await using (IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken))
+		{
+			await write.WriteManagedAssetAsync(file.Id, file.RelativePath, new MemoryStream(replacement), cancellationToken);
+			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), cancellationToken);
+			await Should.ThrowAsync<IOException>(() => write.CommitAsync(cancellationToken));
+		}
+
+		(await store.ReadDatabaseJsonAsync(location, cancellationToken)).ShouldBe(originalJson);
+		using Stream restored = await store.OpenManagedAssetAsync(location, file.Id, cancellationToken);
+		using MemoryStream copy = new();
+		await restored.CopyToAsync(copy, cancellationToken);
+		copy.ToArray().ShouldBe(TestData.OpenSongBytes());
+		Directory.EnumerateDirectories(this.directory, "*.chordbook-stage-*", SearchOption.TopDirectoryOnly).ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public async Task BatchImportCommitsOnceAndRetrySkipsExactDuplicates()
+	{
+		CancellationToken cancellationToken = this.TestContext.CancellationToken;
+		string sourceDirectory = Path.Combine(this.directory, "Sources");
+		Directory.CreateDirectory(sourceDirectory);
+		string[] paths =
+		[
+			Path.Combine(sourceDirectory, "First.cho"),
+			Path.Combine(sourceDirectory, "Second.cho"),
+			Path.Combine(sourceDirectory, "Third.cho"),
+		];
+		for (int index = 0; index < paths.Length; index++)
+		{
+			await File.WriteAllTextAsync(paths[index], $"{{title:Song {index + 1}}}\n[C]Words", cancellationToken);
+		}
+
+		using FileSystemBookStore store = new(this.directory);
+		BookLocation location = await store.CreateBookAsync("Batch", Guid.NewGuid(), cancellationToken);
+
+		IReadOnlyList<BookImportResult> first = await BookImportService.ImportFilesAsync(
+			store,
+			location,
+			paths,
+			Guid.NewGuid(),
+			cancellationToken);
+		IReadOnlyList<BookImportResult> retry = await BookImportService.ImportFilesAsync(
+			store,
+			location,
+			paths,
+			Guid.NewGuid(),
+			cancellationToken);
+
+		first.Count.ShouldBe(paths.Length);
+		retry.ShouldBeEmpty();
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken));
+		database.Songs.Count.ShouldBe(paths.Length);
+		database.SongFiles.Count.ShouldBe(paths.Length);
+		database.Revision.Revision.ShouldBe(2);
+	}
+
+	[TestMethod]
 	public async Task DeleteLeavesUnrelatedContentUntouched()
 	{
 		CancellationToken cancellationToken = this.TestContext.CancellationToken;

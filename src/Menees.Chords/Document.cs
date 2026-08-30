@@ -20,8 +20,6 @@ public sealed class Document : IEntryContainer
 	#region Private Data Members
 
 	private const int Latin1CodePage = 28591;
-	private const int BitsPerByte = 8;
-
 	private static readonly byte[] Utf8Preamble = new UTF8Encoding(true).GetPreamble();
 	private static readonly byte[] Utf16LittleEndianPreamble = Encoding.Unicode.GetPreamble();
 	private static readonly byte[] Utf16BigEndianPreamble = Encoding.BigEndianUnicode.GetPreamble();
@@ -92,47 +90,12 @@ public sealed class Document : IEntryContainer
 		Conditions.RequireNonNull(stream);
 
 		parser ??= new();
-		Stream input = stream;
-		MemoryStream? bufferedInput = null;
-		if (!input.CanSeek)
-		{
-			bufferedInput = new();
-			input.CopyTo(bufferedInput);
-			bufferedInput.Position = 0;
-			input = bufferedInput;
-		}
-
-		try
-		{
-			long initialPosition = input.Position;
-			IReadOnlyList<Entry>? entries = null;
-			if (parser.HasStructuredParsers && LooksLikeXml(input))
-			{
-				input.Position = initialPosition;
-				try
-				{
-					XDocument structuredDocument = XDocument.Load(input, LoadOptions.PreserveWhitespace);
-					entries = parser.Parse(structuredDocument);
-				}
-				catch (XmlException)
-				{
-					// The inexpensive XML probe produced a false positive. Fall back to text parsing.
-				}
-			}
-
-			if (entries == null)
-			{
-				input.Position = initialPosition;
-				entries = ParseTextStream(input, parser);
-			}
-
-			Document result = new(entries, null);
-			return result;
-		}
-		finally
-		{
-			bufferedInput?.Dispose();
-		}
+		using MemoryStream contentStream = new();
+		stream.CopyTo(contentStream);
+		string text = DecodeText(contentStream.ToArray());
+		IReadOnlyList<Entry> entries = ParseContent(text, parser);
+		Document result = new(entries, null);
+		return result;
 	}
 
 	/// <summary>
@@ -178,110 +141,78 @@ public sealed class Document : IEntryContainer
 
 	private static bool LooksLikeXml(string text)
 	{
-		int start = 0;
-		if (text.Length > 0 && text[0] == '\uFEFF')
-		{
-			start++;
-		}
-
-		while (start < text.Length && IsXmlWhitespace(text[start]))
-		{
-			start++;
-		}
-
-		int end = text.Length - 1;
-		while (end >= start && IsXmlWhitespace(text[end]))
-		{
-			end--;
-		}
-
-		return start <= end && text[start] == '<' && text[end] == '>';
-	}
-
-	private static bool LooksLikeXml(Stream stream)
-	{
-		long originalPosition = stream.Position;
+		ReadOnlySpan<char> content = text;
+		bool valid = true;
 		bool result = false;
-		try
+		int start = SkipXmlWhitespace(content, 0);
+		if (start < content.Length && content[start] == '\uFEFF')
 		{
-			long endPosition = stream.Length;
-			byte[] prefix = new byte[sizeof(int)];
-			int prefixCount = stream.Read(prefix, 0, prefix.Length);
-			int codeUnitSize = 1;
-			bool bigEndian = false;
-			long startPosition = originalPosition;
+			start = SkipXmlWhitespace(content, start + 1);
+		}
 
-			if (HasPrefix(prefix, prefixCount, Utf32BigEndianPreamble))
+		while (valid && start < content.Length)
+		{
+			if (content[start..].StartsWith("<?", StringComparison.Ordinal))
 			{
-				codeUnitSize = sizeof(int);
-				bigEndian = true;
-				startPosition += Utf32BigEndianPreamble.Length;
-			}
-			else if (HasPrefix(prefix, prefixCount, Utf32LittleEndianPreamble))
-			{
-				codeUnitSize = sizeof(int);
-				startPosition += Utf32LittleEndianPreamble.Length;
-			}
-			else if (HasPrefix(prefix, prefixCount, Utf8Preamble))
-			{
-				startPosition += Utf8Preamble.Length;
-			}
-			else if (HasPrefix(prefix, prefixCount, Utf16BigEndianPreamble))
-			{
-				codeUnitSize = sizeof(char);
-				bigEndian = true;
-				startPosition += Utf16BigEndianPreamble.Length;
-			}
-			else if (HasPrefix(prefix, prefixCount, Utf16LittleEndianPreamble))
-			{
-				codeUnitSize = sizeof(char);
-				startPosition += Utf16LittleEndianPreamble.Length;
-			}
-			else if (prefixCount >= prefix.Length && prefix[1] == 0 && prefix[2] == 0 && prefix[3] == 0)
-			{
-				codeUnitSize = sizeof(int);
-			}
-			else if (prefixCount >= prefix.Length && prefix[0] == 0 && prefix[1] == 0 && prefix[2] == 0)
-			{
-				codeUnitSize = sizeof(int);
-				bigEndian = true;
-			}
-			else if (prefixCount >= prefix.Length && prefix[1] == 0 && prefix[3] == 0)
-			{
-				codeUnitSize = sizeof(char);
-			}
-			else if (prefixCount >= prefix.Length && prefix[0] == 0 && prefix[2] == 0)
-			{
-				codeUnitSize = sizeof(char);
-				bigEndian = true;
-			}
-
-			if (startPosition < endPosition && (endPosition - startPosition) % codeUnitSize == 0)
-			{
-				long firstPosition = startPosition;
-				int first;
-				do
+				const string Terminator = "?>";
+				int end = content[(start + Terminator.Length)..].IndexOf(Terminator, StringComparison.Ordinal);
+				if (end < 0)
 				{
-					first = ReadCodeUnit(stream, firstPosition, codeUnitSize, bigEndian);
-					firstPosition += codeUnitSize;
+					valid = false;
 				}
-				while (firstPosition < endPosition && IsXmlWhitespace(first));
-
-				long lastPosition = endPosition - codeUnitSize;
-				int last;
-				do
+				else
 				{
-					last = ReadCodeUnit(stream, lastPosition, codeUnitSize, bigEndian);
-					lastPosition -= codeUnitSize;
+					start = SkipXmlWhitespace(content, start + end + (2 * Terminator.Length));
 				}
-				while (lastPosition >= startPosition && IsXmlWhitespace(last));
-
-				result = first == '<' && last == '>';
+			}
+			else if (content[start..].StartsWith("<!--", StringComparison.Ordinal))
+			{
+				const string Prefix = "<!--";
+				const string Terminator = "-->";
+				int end = content[(start + Prefix.Length)..].IndexOf(Terminator, StringComparison.Ordinal);
+				if (end < 0)
+				{
+					valid = false;
+				}
+				else
+				{
+					start = SkipXmlWhitespace(content, start + end + Prefix.Length + Terminator.Length);
+				}
+			}
+			else
+			{
+				break;
 			}
 		}
-		finally
+
+		int nameStart = start + 1;
+		valid = valid
+			&& start < content.Length
+			&& content[start] == '<'
+			&& nameStart < content.Length
+			&& IsXmlNameStartCharacter(content[nameStart]);
+		if (valid)
 		{
-			stream.Position = originalPosition;
+			int nameEnd = nameStart + 1;
+			while (nameEnd < content.Length && IsXmlNameCharacter(content[nameEnd]))
+			{
+				nameEnd++;
+			}
+
+			ReadOnlySpan<char> rootName = content[nameStart..nameEnd];
+			for (int index = nameEnd; !result && index < content.Length - rootName.Length - 2; index++)
+			{
+				result = content[index] == '<'
+					&& content[index + 1] == '/'
+					&& content[(index + 2)..].StartsWith(rootName, StringComparison.Ordinal)
+					&& IsXmlNameBoundary(content[index + rootName.Length + 2]);
+			}
+
+			if (!result)
+			{
+				int openingTagEnd = content[nameEnd..].IndexOf('>');
+				result = openingTagEnd > 0 && content[nameEnd + openingTagEnd - 1] == '/';
+			}
 		}
 
 		return result;
@@ -312,11 +243,8 @@ public sealed class Document : IEntryContainer
 		return entries;
 	}
 
-	private static IReadOnlyList<Entry> ParseTextStream(Stream stream, DocumentParser parser)
+	private static string DecodeText(byte[] content)
 	{
-		using MemoryStream contentStream = new();
-		stream.CopyTo(contentStream);
-		byte[] content = contentStream.ToArray();
 		Encoding encoding = StrictUtf8;
 		int preambleLength = 0;
 		bool allowLatin1Fallback = true;
@@ -362,26 +290,24 @@ public sealed class Document : IEntryContainer
 			text = Encoding.GetEncoding(Latin1CodePage).GetString(content);
 		}
 
-		using StringReader reader = new(text);
-		IReadOnlyList<Entry> result = parser.Parse(reader);
-		return result;
+		return text;
 	}
 
-	private static int ReadCodeUnit(Stream stream, long position, int codeUnitSize, bool bigEndian)
-	{
-		stream.Position = position;
-		int result = 0;
-		for (int index = 0; index < codeUnitSize; index++)
-		{
-			int value = stream.ReadByte();
-			if (value < 0)
-			{
-				result = -1;
-				break;
-			}
+	private static bool IsXmlNameBoundary(char value)
+		=> IsXmlWhitespace(value) || value is '>' or '/';
 
-			int shift = (bigEndian ? codeUnitSize - index - 1 : index) * BitsPerByte;
-			result |= value << shift;
+	private static bool IsXmlNameCharacter(char value)
+		=> IsXmlNameStartCharacter(value) || char.IsDigit(value) || value is '-' or '.';
+
+	private static bool IsXmlNameStartCharacter(char value)
+		=> char.IsLetter(value) || value is '_' or ':';
+
+	private static int SkipXmlWhitespace(ReadOnlySpan<char> content, int start)
+	{
+		int result = start;
+		while (result < content.Length && IsXmlWhitespace(content[result]))
+		{
+			result++;
 		}
 
 		return result;

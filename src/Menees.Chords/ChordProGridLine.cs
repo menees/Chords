@@ -50,7 +50,8 @@ public sealed class ChordProGridLine : SegmentedEntry
 			IReadOnlyList<TextSegment> segments = TryGetSegments(
 				context,
 				false,
-				token => inExplicitGrid ? new TextSegment(token.Text) : null,
+				true,
+				token => inExplicitGrid || token.Type == TokenType.Bracketed ? new TextSegment(token.ToString()) : null,
 				out IReadOnlyList<Entry> annotations);
 
 			if (segments.Count > 0)

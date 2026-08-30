@@ -13,7 +13,7 @@ public sealed class BookSettings
 	public string TitleTemplate { get; set; } = "{title}";
 
 	/// <summary>Gets or sets the song-subtitle template.</summary>
-	public string SubtitleTemplate { get; set; } = "{artist}";
+	public string SubtitleTemplate { get; set; } = "{artists}";
 
 	/// <summary>Gets or sets the revision stamp.</summary>
 	public RevisionStamp Revision { get; set; } = new();

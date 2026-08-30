@@ -23,6 +23,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	private readonly Dictionary<Guid, string> paths = [];
 	private readonly string rootDirectory;
 	private readonly Guid storeId = Guid.NewGuid();
+	private readonly Action<FileSystemCommitStep>? faultInjector;
 
 	#endregion
 
@@ -30,9 +31,15 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 
 	/// <summary>Creates a store rooted at the specified directory.</summary>
 	public FileSystemBookStore(string rootDirectory)
+		: this(rootDirectory, null)
+	{
+	}
+
+	internal FileSystemBookStore(string rootDirectory, Action<FileSystemCommitStep>? faultInjector)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(rootDirectory);
 		this.rootDirectory = Path.GetFullPath(rootDirectory);
+		this.faultInjector = faultInjector;
 		Directory.CreateDirectory(this.rootDirectory);
 	}
 
@@ -107,8 +114,6 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		{
 			Directory.Delete(directory, recursive: false);
 		}
-
-		this.paths.Remove(location.Token);
 	}
 
 	/// <inheritdoc />
@@ -559,6 +564,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				}
 			}
 
+			this.faultInjector?.Invoke(FileSystemCommitStep.RollbackSnapshotCreated);
+
 			try
 			{
 				foreach (SongFile file in next.SongFiles)
@@ -567,10 +574,12 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 						GetManagedPath(stageDirectory, file.RelativePath),
 						GetManagedPath(directory, file.RelativePath),
 						cancellationToken).ConfigureAwait(false);
+					this.faultInjector?.Invoke(FileSystemCommitStep.ManagedAssetReplaced);
 				}
 
 				await ReplaceTextAsync(Path.Combine(directory, DatabaseFileName), DatabaseJson.Serialize(next), cancellationToken)
 					.ConfigureAwait(false);
+				this.faultInjector?.Invoke(FileSystemCommitStep.DatabaseReplaced);
 				HashSet<string> nextPaths = new(next.SongFiles.Select(file => file.RelativePath), PortableManagedFileName.Comparer);
 				foreach (SongFile oldFile in current.SongFiles.Where(file => !nextPaths.Contains(file.RelativePath)))
 				{

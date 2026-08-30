@@ -287,6 +287,18 @@ public class HtmlFormatterTests
 	}
 
 	[TestMethod]
+	public void BracketedChordGridTest()
+	{
+		const string Text = "||:  /[A]___/   [Asus2] /___/[A]  /__[Asus2]_/     [A]/  |  [D]/___/  /__[Dsus2]_/    /   [D]/  :||[x2]";
+		XDocument html = new HtmlFormatter(Document.Parse(Text)).ToXDocument();
+		XElement grid = GetClassElements(html, "grid-line").Single();
+
+		GetClassElements(grid, "grid-chord").Select(element => element.Value)
+			.ShouldBe(["A", "Asus2", "A", "Asus2", "A", "D", "Dsus2", "D"]);
+		grid.Value.ShouldBe("||:  /A___/   Asus2 /___/A  /__Asus2_/     A/  |  D/___/  /__Dsus2_/    /   D/  :||[x2]");
+	}
+
+	[TestMethod]
 	public void DiagramTest()
 	{
 		const string Text = """

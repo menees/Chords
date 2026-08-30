@@ -43,4 +43,16 @@ public class ChordProGridLineTests
 			line.Segments.OfType<ChordSegment>().Select(cs => cs.Chord.Name).ShouldBe(chords);
 		}
 	}
+
+	[TestMethod]
+	public void TryParseBracketedChordsAndRepeatAnnotationTest()
+	{
+		const string Text = "||:  /[A]___/   [Asus2] /___/[A]  /__[Asus2]_/     [A]/  |  [D]/___/  /__[Dsus2]_/    /   [D]/  :||[x2]";
+		Document document = Document.Parse(Text, DocumentParserTests.Ungrouped());
+		ChordProGridLine line = document.Entries.Single().ShouldBeOfType<ChordProGridLine>();
+
+		line.ToString().ShouldBe(Text);
+		line.Segments.OfType<ChordSegment>().Select(segment => segment.Chord.Name)
+			.ShouldBe(["A", "Asus2", "A", "Asus2", "A", "D", "Dsus2", "D"]);
+	}
 }

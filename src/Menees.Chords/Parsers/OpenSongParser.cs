@@ -41,6 +41,58 @@ public static class OpenSongParser
 
 	#region Public Methods
 
+	/// <summary>Checks whether text has the required OpenSong XML structure without parsing an XML document.</summary>
+	/// <param name="text">The text to inspect.</param>
+	/// <returns>True if the text has an OpenSong song root with title and lyrics elements.</returns>
+	public static bool LooksLikeOpenSong(ReadOnlySpan<char> text)
+	{
+		bool valid = true;
+		text = TrimStart(text, includeBom: true);
+		while (valid && (text.StartsWith("<?", StringComparison.Ordinal) || text.StartsWith("<!--", StringComparison.Ordinal)))
+		{
+			string terminator = text.StartsWith("<?", StringComparison.Ordinal) ? "?>" : "-->";
+			int end = text.IndexOf(terminator, StringComparison.Ordinal);
+			if (end < 0)
+			{
+				valid = false;
+			}
+			else
+			{
+				text = TrimStart(text[(end + terminator.Length)..], includeBom: false);
+			}
+		}
+
+		bool result = valid
+			&& HasStartTag(text, "song", requireAtStart: true)
+			&& HasStartTag(text, "title")
+			&& HasStartTag(text, "lyrics")
+			&& text.Contains("</song>", StringComparison.Ordinal);
+		return result;
+
+		static bool HasStartTag(ReadOnlySpan<char> content, string name, bool requireAtStart = false)
+		{
+			ReadOnlySpan<char> marker = $"<{name}";
+			int start = content.IndexOf(marker, StringComparison.Ordinal);
+			bool found = start >= 0
+				&& (!requireAtStart || start == 0)
+				&& start + marker.Length < content.Length
+				&& (char.IsWhiteSpace(content[start + marker.Length]) || content[start + marker.Length] is '>' or '/');
+			return found;
+		}
+
+		static ReadOnlySpan<char> TrimStart(ReadOnlySpan<char> content, bool includeBom)
+		{
+			int start = 0;
+			while (start < content.Length
+				&& (char.IsWhiteSpace(content[start]) || (includeBom && content[start] == '\uFEFF')))
+			{
+				start++;
+			}
+
+			return content[start..];
+		}
+	}
+
 	/// <summary>
 	/// Tries to parse the structured context as an OpenSong XML song.
 	/// </summary>

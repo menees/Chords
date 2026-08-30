@@ -64,6 +64,21 @@ public abstract class SegmentedEntry : Entry
 		bool requiredBracketedChords,
 		Func<Token, TextSegment?>? getSegment,
 		out IReadOnlyList<Entry> annotations)
+		=> TryGetSegments(context, requiredBracketedChords, false, getSegment, out annotations);
+
+	/// <summary>Tries to split the current line into segments, optionally accepting bracketed and unbracketed chords.</summary>
+	/// <param name="context">The current parsing context.</param>
+	/// <param name="requiredBracketedChords">Whether chord names are required to be in brackets.</param>
+	/// <param name="allowBracketedChords">Whether bracketed chord names are allowed when they aren't required.</param>
+	/// <param name="getSegment">An optional callback for unrecognized tokens.</param>
+	/// <param name="annotations">Returns any annotation entries parsed off the end of the line.</param>
+	/// <returns>The parsed segments, or an empty collection if an unrecognized token isn't accepted.</returns>
+	protected static IReadOnlyList<TextSegment> TryGetSegments(
+		LineContext context,
+		bool requiredBracketedChords,
+		bool allowBracketedChords,
+		Func<Token, TextSegment?>? getSegment,
+		out IReadOnlyList<Entry> annotations)
 	{
 		Conditions.RequireNonNull(context);
 
@@ -82,7 +97,8 @@ public abstract class SegmentedEntry : Entry
 				// Handle ChordPro [*Xxx] annotations before punctuation-only tokens such as [*↓].
 				result.Add(new ChordAnnotationSegment($"[{lexer.Token.Text}]"));
 			}
-			else if (lexer.Token.Type == chordTokenType
+			else if ((lexer.Token.Type == chordTokenType
+					|| (allowBracketedChords && lexer.Token.Type == TokenType.Bracketed))
 				&& (Chord.TryParse(lexer.Token.Text, out Chord? chord)
 					|| (!requiredBracketedChords && (chord = ChordSegment.TryParseParenthesized(lexer.Token.Text)) is not null)))
 			{

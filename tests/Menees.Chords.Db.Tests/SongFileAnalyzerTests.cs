@@ -1,9 +1,11 @@
 #region Using Directives
 
 using System.IO;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 
 #endregion
 
@@ -49,6 +51,44 @@ public sealed class SongFileAnalyzerTests
 		bom.TextEncoding.ShouldBe("utf-16");
 		latin1.ByteOrderMark.ShouldBe(ByteOrderMarkKind.None);
 		latin1.TextEncoding.ShouldBe("iso-8859-1");
+	}
+
+	[TestMethod]
+	[DoNotParallelize]
+	public void OrdinarySongsDoNotThrowXmlExceptionsDuringDetection()
+	{
+		const int SongCount = 514;
+		int testThreadId = Environment.CurrentManagedThreadId;
+		int xmlExceptionCount = 0;
+		AppDomain.CurrentDomain.FirstChanceException += HandleFirstChanceException;
+		try
+		{
+			for (int index = 0; index < SongCount; index++)
+			{
+				string text = (index % 3) switch
+				{
+					0 => $"{{title:Song {index}}}\n{{artist:Artist}}\n[C]ChordPro lyrics",
+					1 => $"Song {index}\n\nC  G  Am\nChords over ordinary lyrics",
+					_ => $"Song {index}\n\nOrdinary lyrics with no chords or directives",
+				};
+				SongFileAnalysis analysis = SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(text), $"song-{index}.cho");
+				analysis.SourceFormat.ShouldNotBe(SourceFormat.OpenSongXml);
+			}
+		}
+		finally
+		{
+			AppDomain.CurrentDomain.FirstChanceException -= HandleFirstChanceException;
+		}
+
+		xmlExceptionCount.ShouldBe(0);
+
+		void HandleFirstChanceException(object? sender, FirstChanceExceptionEventArgs args)
+		{
+			if (Environment.CurrentManagedThreadId == testThreadId && args.Exception is XmlException)
+			{
+				xmlExceptionCount++;
+			}
+		}
 	}
 
 	[TestMethod]

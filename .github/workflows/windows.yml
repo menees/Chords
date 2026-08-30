@@ -23,6 +23,9 @@ jobs:
         # DOTNET_VERSION: Use .NET SDK for Blazor app
         dotnet-version: 10.0.x
 
+    - name: Install MAUI Windows workload
+      run: dotnet workload install maui-windows
+
     - name: Restore dependencies
       run: dotnet restore
 

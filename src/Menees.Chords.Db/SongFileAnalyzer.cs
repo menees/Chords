@@ -3,7 +3,7 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Xml.Linq;
+using Menees.Chords.Parsers;
 
 #endregion
 
@@ -46,9 +46,11 @@ public static class SongFileAnalyzer
 		else
 		{
 			(Encoding encoding, ByteOrderMarkKind bom) = DetectEncoding(content.Span);
-			using MemoryStream stream = new(content.ToArray(), writable: false);
-			Document document = Document.Load(stream);
-			bool openSong = IsOpenSong(content.Span);
+			int preambleLength = GetPreambleLength(bom);
+			string text = encoding.GetString(content.Span[preambleLength..]);
+			using StringReader reader = new(text);
+			Document document = Document.Load(reader);
+			bool openSong = OpenSongParser.LooksLikeOpenSong(text);
 			List<MetadataEntry> entries = [.. GetMetadata(document)];
 			SortedDictionary<string, IReadOnlyList<SourceMetadataValue>> metadata = new(StringComparer.Ordinal);
 			foreach (IGrouping<string, MetadataEntry> group in entries.GroupBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
@@ -147,6 +149,16 @@ public static class SongFileAnalyzer
 		return string.IsNullOrWhiteSpace(result) ? "Untitled" : result;
 	}
 
+	private static int GetPreambleLength(ByteOrderMarkKind bom) => bom switch
+	{
+		ByteOrderMarkKind.Utf8 => Utf8Preamble.Length,
+		ByteOrderMarkKind.Utf16LittleEndian => Utf16LittleEndianPreamble.Length,
+		ByteOrderMarkKind.Utf16BigEndian => Utf16BigEndianPreamble.Length,
+		ByteOrderMarkKind.Utf32LittleEndian => Utf32LittleEndianPreamble.Length,
+		ByteOrderMarkKind.Utf32BigEndian => Utf32BigEndianPreamble.Length,
+		_ => 0,
+	};
+
 	private static IEnumerable<MetadataEntry> GetMetadata(Document document)
 	{
 		foreach (Entry entry in document.Entries)
@@ -167,25 +179,6 @@ public static class SongFileAnalyzer
 				yield return parsed;
 			}
 		}
-	}
-
-	private static bool IsOpenSong(ReadOnlySpan<byte> content)
-	{
-		bool result;
-		try
-		{
-			using MemoryStream stream = new(content.ToArray(), writable: false);
-			XElement? root = XDocument.Load(stream).Root;
-			result = root?.Name.LocalName == "song"
-				&& root.Elements().Any(element => element.Name.LocalName == "title")
-				&& root.Elements().Any(element => element.Name.LocalName == "lyrics");
-		}
-		catch (System.Xml.XmlException)
-		{
-			result = false;
-		}
-
-		return result;
 	}
 
 	#endregion
