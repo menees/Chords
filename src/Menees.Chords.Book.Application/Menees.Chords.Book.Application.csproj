@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCli)</TargetFramework>
+		<Description>Portable application use cases for Menees ChordBook clients.</Description>
+		<IsPackable>false</IsPackable>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Menees.Chords.Db\Menees.Chords.Db.csproj" />
+		<ProjectReference Include="..\Menees.Chords\Menees.Chords.csproj" />
+	</ItemGroup>
+</Project>

@@ -21,6 +21,7 @@
 		<PackageReference Include="Microsoft.Maui.Controls" />
 	</ItemGroup>
 	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<ProjectReference Include="..\Menees.Chords.Book.Application\Menees.Chords.Book.Application.csproj" />
 		<ProjectReference Include="..\Menees.Chords.Db\Menees.Chords.Db.csproj" />
 		<ProjectReference Include="..\Menees.Chords\Menees.Chords.csproj" />
 	</ItemGroup>

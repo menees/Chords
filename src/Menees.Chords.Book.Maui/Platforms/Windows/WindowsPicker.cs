@@ -57,7 +57,7 @@ public sealed class WindowsPicker : IWindowsPicker
 
 	private static IntPtr GetWindowHandle()
 	{
-		MauiWinUIWindow window = Application.Current?.Windows[0].Handler?.PlatformView as MauiWinUIWindow
+		MauiWinUIWindow window = global::Microsoft.Maui.Controls.Application.Current?.Windows[0].Handler?.PlatformView as MauiWinUIWindow
 			?? throw new InvalidOperationException("The MAUI WinUI window is not available.");
 		return WindowNative.GetWindowHandle(window);
 	}

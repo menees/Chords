@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>$(MeneesTargetNetCore)</TargetFramework>
+		<RootNamespace>Menees.Chords.Book.Application.Tests</RootNamespace>
+		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\..\src\Menees.Chords.Book.Application\Menees.Chords.Book.Application.csproj" />
+	</ItemGroup>
+</Project>

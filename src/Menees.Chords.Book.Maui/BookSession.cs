@@ -1,8 +1,9 @@
 #region Using Directives
 
 using System.IO;
+using System.Text.Json;
+using Menees.Chords.Book.Application;
 using Menees.Chords.Db;
-using Menees.Chords.Formatters;
 
 #endregion
 
@@ -16,6 +17,8 @@ public sealed partial class BookSession : IDisposable
 	private const string DefaultBookName = "My ChordBook";
 	private const string CurrentBookPreference = "ChordBook.CurrentBookPath";
 	private const string DeviceIdPreference = "ChordBook.DeviceId";
+	private const string RecentBooksPreference = "ChordBook.RecentBooks";
+	private const int MaximumRecentBooks = 10;
 	private const string DatabaseFileName = "database.json";
 	private const string LegacyCompanyDirectory = "Bill Menees";
 	private const string LegacyProductDirectory = "Menees.Chords.Book.Maui";
@@ -23,6 +26,7 @@ public sealed partial class BookSession : IDisposable
 	private const string ManagedProductDirectory = "ChordBook";
 	private const string StagePattern = ".*.chordbook-stage-*";
 	private const double AbandonedStageMinutes = 1;
+	private readonly BookApplicationSession application;
 	private FileSystemBookStore? store;
 	private BookLocation? location;
 	private string? booksRoot;
@@ -31,11 +35,21 @@ public sealed partial class BookSession : IDisposable
 
 	#region Public API
 
-	public ChordDatabase? Database { get; private set; }
+	public BookSession(BookApplicationSession application)
+	{
+		this.application = application;
+	}
+
+	public ChordDatabase? Database => this.application.Database;
 
 	public string? DirectoryPath { get; private set; }
 
+	public BookMetadataRefreshResult? LastMetadataRefresh { get; private set; }
+
 	public Guid DeviceId { get; } = GetOrCreateDeviceId();
+
+	public static IReadOnlyList<RecentBook> GetRecentBooks()
+		=> [.. LoadRecentBooks().Where(book => File.Exists(Path.Combine(book.Path, DatabaseFileName)))];
 
 	public void Dispose() => this.store?.Dispose();
 
@@ -100,52 +114,46 @@ public sealed partial class BookSession : IDisposable
 			sourcePaths,
 			this.DeviceId,
 			cancellationToken).ConfigureAwait(false);
-		await this.ReloadAsync(cancellationToken).ConfigureAwait(false);
+		await this.application.ReloadAsync(cancellationToken).ConfigureAwait(false);
 		return results.Count;
 	}
 
-	public IReadOnlyList<SongRow> GetSongs()
+	public IReadOnlyList<SongRow> SearchSongs(string? query, bool includeArchived)
 	{
-		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
 		return
 		[
-			.. database.Songs
-				.Where(song => !song.IsArchived)
-				.OrderBy(song => song.Title, StringComparer.CurrentCultureIgnoreCase)
-				.ThenBy(song => song.Id)
-				.Select(song => new SongRow(song.Id, song.Title, string.Join(", ", song.Artists))),
+			.. this.application.Search(query, includeArchived)
+				.Select(song => new SongRow(
+					song.Id,
+					song.Title,
+					song.DisplayText)),
 		];
+	}
+
+	public Task OpenRecentAsync(RecentBook book, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(book);
+		return this.OpenAsync(book.Path, cancellationToken);
+	}
+
+	public async Task RenameAsync(string name, CancellationToken cancellationToken = default)
+	{
+		await this.application.RenameAsync(name, this.DeviceId, cancellationToken).ConfigureAwait(false);
+		this.RememberCurrentBook();
 	}
 
 	public async Task<SongPresentation> GetPresentationAsync(Guid songId, CancellationToken cancellationToken = default)
 	{
-		(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
-		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
-		Song song = database.Songs.Single(item => item.Id == songId);
-		SongFile? file = database.SongFiles
-			.Where(item => item.SongId == songId && !item.IsArchived)
-			.OrderByDescending(item => item.DisplayPriority)
-			.ThenBy(item => item.MediaKind)
-			.ThenBy(item => item.Id)
-			.FirstOrDefault();
-		SongPresentation result;
-		if (file is null)
+		BookSongPresentation presentation = await this.application.GetPresentationAsync(songId, cancellationToken).ConfigureAwait(false);
+		string? pdfPath = null;
+		if (presentation.MediaKind == MediaKind.Pdf && presentation.SongFileId is Guid fileId)
 		{
-			result = new SongPresentation(song.Title, "<html><body><p>This song has no active file.</p></body></html>", null);
-		}
-		else if (file.MediaKind == MediaKind.Pdf)
-		{
-			string pdfPath = Path.Combine(activeStore.GetDirectory(activeLocation), file.RelativePath);
-			result = new SongPresentation(song.Title, null, pdfPath);
-		}
-		else
-		{
-			using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
-			Document document = Document.Load(stream);
-			result = new SongPresentation(song.Title, new HtmlFormatter(document).ToString(), null);
+			(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+			SongFile file = this.Database!.SongFiles.Single(item => item.Id == fileId);
+			pdfPath = Path.Combine(activeStore.GetDirectory(activeLocation), file.RelativePath);
 		}
 
-		return result;
+		return new(presentation.Title, presentation.Html, pdfPath);
 	}
 
 	#endregion
@@ -251,16 +259,38 @@ public sealed partial class BookSession : IDisposable
 		return result;
 	}
 
+	private static List<RecentBook> LoadRecentBooks()
+	{
+		string? json = Preferences.Default.Get<string?>(RecentBooksPreference, null);
+		List<RecentBook>? result = null;
+		if (!string.IsNullOrWhiteSpace(json))
+		{
+			try
+			{
+				result = JsonSerializer.Deserialize<List<RecentBook>>(json);
+			}
+			catch (JsonException)
+			{
+				// Ignore malformed local UI state. Opening a valid book rebuilds it.
+			}
+		}
+
+		return result ?? [];
+	}
+
 	private (FileSystemBookStore Store, BookLocation Location) GetActiveBook()
 		=> (this.store ?? throw new InvalidOperationException("No book is open."),
 			this.location ?? throw new InvalidOperationException("No book is open."));
 
-	private async Task ReloadAsync(CancellationToken cancellationToken)
+	private void RememberCurrentBook()
 	{
-		(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
-		this.Database = DatabaseJson.Deserialize(
-			await activeStore.ReadDatabaseJsonAsync(activeLocation, cancellationToken).ConfigureAwait(false));
-		this.DirectoryPath = activeStore.GetDirectory(activeLocation);
+		if (this.DirectoryPath is string path && this.Database is ChordDatabase database)
+		{
+			List<RecentBook> books = LoadRecentBooks();
+			books.RemoveAll(book => StringComparer.OrdinalIgnoreCase.Equals(book.Path, path));
+			books.Insert(0, new(database.Name, path));
+			Preferences.Default.Set(RecentBooksPreference, JsonSerializer.Serialize(books.Take(MaximumRecentBooks)));
+		}
 	}
 
 	private async Task SwitchAsync(
@@ -270,18 +300,29 @@ public sealed partial class BookSession : IDisposable
 	{
 		FileSystemBookStore? priorStore = this.store;
 		BookLocation? priorLocation = this.location;
+		BookMetadataRefreshResult? priorMetadataRefresh = this.LastMetadataRefresh;
 		this.store = nextStore;
 		this.location = nextLocation;
 		try
 		{
-			await this.ReloadAsync(cancellationToken).ConfigureAwait(false);
+			BookMetadataRefreshResult metadataRefresh = await BookMetadataRefresh.RefreshAsync(
+				nextStore,
+				nextLocation,
+				this.DeviceId,
+				cancellationToken)
+				.ConfigureAwait(false);
+			await this.application.ActivateAsync(nextStore, nextLocation, cancellationToken).ConfigureAwait(false);
+			this.DirectoryPath = nextStore.GetDirectory(nextLocation);
+			this.LastMetadataRefresh = metadataRefresh;
 			Preferences.Default.Set(CurrentBookPreference, this.DirectoryPath);
+			this.RememberCurrentBook();
 			priorStore?.Dispose();
 		}
 		catch
 		{
 			this.store = priorStore;
 			this.location = priorLocation;
+			this.LastMetadataRefresh = priorMetadataRefresh;
 			nextStore.Dispose();
 			throw;
 		}

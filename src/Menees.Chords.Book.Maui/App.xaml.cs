@@ -1,6 +1,6 @@
 namespace Menees.Chords.Book.Maui;
 
-public partial class App : Application
+public partial class App : global::Microsoft.Maui.Controls.Application
 {
 	#region Private Data
 

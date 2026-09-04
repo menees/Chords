@@ -5,55 +5,103 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
 	xmlns:local="clr-namespace:Menees.Chords.Book.Maui"
 	Title="ChordBook">
-	<Grid RowDefinitions="Auto,*,Auto" ColumnDefinitions="360,*">
-		<Grid Grid.Row="0" Grid.ColumnSpan="2" Padding="12" ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="8" BackgroundColor="#EEEAF4">
-			<Button x:Name="ImportButton" Text="Import…" Clicked="HandleImportClicked" />
-			<Button x:Name="NewBookButton" Grid.Column="1" Text="New Book…" Clicked="HandleNewBookClicked" />
-			<Button x:Name="OpenBookButton" Grid.Column="2" Text="Open Book…" Clicked="HandleOpenBookClicked" />
-			<SearchBar x:Name="SongSearch" Grid.Column="3" Placeholder="Search songs" TextChanged="HandleSearchTextChanged" />
-			<Label x:Name="BookName" Grid.Column="4" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+	<Grid>
+		<Grid x:Name="ManagementSurface" RowDefinitions="Auto,Auto,*,Auto" BackgroundColor="#F8F7FA">
+			<Grid Padding="12" ColumnDefinitions="*,220,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#EEEAF4">
+				<Label x:Name="BookName" FontSize="22" FontAttributes="Bold" VerticalOptions="Center" />
+				<Picker
+					x:Name="RecentBooks"
+					Grid.Column="1"
+					Title="Recent books"
+					ItemDisplayBinding="{Binding Name}"
+					SelectedIndexChanged="HandleRecentBookSelected" />
+				<Button x:Name="NewBookButton" Grid.Column="2" Text="New Book…" Clicked="HandleNewBookClicked" />
+				<Button x:Name="OpenBookButton" Grid.Column="3" Text="Open Book…" Clicked="HandleOpenBookClicked" />
+				<Button x:Name="RenameBookButton" Grid.Column="4" Text="Rename…" Clicked="HandleRenameBookClicked" />
+				<Button x:Name="ImportButton" Grid.Column="5" Text="Import…" Clicked="HandleImportClicked" />
+			</Grid>
+
+			<Grid Grid.Row="1" Padding="12,8" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" BackgroundColor="#F8F7FA">
+				<Label Text="Songs" FontAttributes="Bold" FontSize="20" VerticalOptions="Center" />
+				<SearchBar x:Name="SongSearch" Grid.Column="1" Placeholder="Search titles, artists, tags, and metadata" TextChanged="HandleSearchTextChanged" />
+				<Label Grid.Column="2" Text="Show archived" VerticalOptions="Center" />
+				<CheckBox x:Name="ShowArchived" Grid.Column="3" CheckedChanged="HandleShowArchivedChanged" />
+			</Grid>
+
+			<Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+				<CollectionView
+					x:Name="SongList"
+					Margin="8,0,2,0"
+					IsGrouped="True"
+					ItemSizingStrategy="MeasureAllItems"
+					SelectionMode="Single"
+					SelectionChanged="HandleSongSelectionChanged">
+					<CollectionView.ItemsLayout>
+						<LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
+					</CollectionView.ItemsLayout>
+					<CollectionView.GroupHeaderTemplate>
+						<DataTemplate x:DataType="local:SongGroup">
+							<Label
+								Text="{Binding Key}"
+								Padding="8,2"
+								FontAttributes="Bold"
+								TextColor="White"
+								BackgroundColor="#55525A" />
+						</DataTemplate>
+					</CollectionView.GroupHeaderTemplate>
+					<CollectionView.ItemTemplate>
+						<DataTemplate x:DataType="local:SongRow">
+							<Label
+								Text="{Binding DisplayText}"
+								Padding="8,4"
+								FontSize="14"
+								LineBreakMode="WordWrap" />
+						</DataTemplate>
+					</CollectionView.ItemTemplate>
+				</CollectionView>
+
+				<ScrollView Grid.Column="1" WidthRequest="40" VerticalScrollBarVisibility="Never">
+					<VerticalStackLayout x:Name="JumpLetters" Spacing="0" Padding="2,0" />
+				</ScrollView>
+			</Grid>
+
+			<Grid Grid.Row="3" Padding="12,6" ColumnDefinitions="*,Auto" BackgroundColor="#25232A">
+				<Label x:Name="Status" Text="Starting ChordBook…" TextColor="White" LineBreakMode="TailTruncation" />
+				<Label
+					x:Name="BookPath"
+					Grid.Column="1"
+					MaximumWidthRequest="700"
+					TextColor="#D7CAE9"
+					TextDecorations="Underline"
+					LineBreakMode="MiddleTruncation">
+					<Label.GestureRecognizers>
+						<TapGestureRecognizer Tapped="HandleBookPathTapped" />
+					</Label.GestureRecognizers>
+				</Label>
+			</Grid>
 		</Grid>
 
-		<Grid Grid.Row="1" Grid.Column="0" Padding="8" RowDefinitions="Auto,*" BackgroundColor="#F8F7FA">
-			<Label Text="Library" FontAttributes="Bold" FontSize="20" Margin="6" />
-			<CollectionView x:Name="SongList" Grid.Row="1" SelectionMode="Single" SelectionChanged="HandleSongSelectionChanged">
-				<CollectionView.ItemsLayout>
-					<LinearItemsLayout Orientation="Vertical" ItemSpacing="2" />
-				</CollectionView.ItemsLayout>
-				<CollectionView.ItemTemplate>
-					<DataTemplate x:DataType="local:SongRow">
-						<Grid Padding="8,6" RowDefinitions="Auto,Auto">
-							<Label Text="{Binding Title}" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-							<Label Grid.Row="1" Text="{Binding Artists}" FontSize="12" TextColor="#555555" LineBreakMode="TailTruncation" />
-						</Grid>
-					</DataTemplate>
-				</CollectionView.ItemTemplate>
-			</CollectionView>
-		</Grid>
-
-		<Grid Grid.Row="1" Grid.Column="1" Padding="12" RowDefinitions="Auto,*">
-			<Label x:Name="SelectedTitle" FontSize="24" FontAttributes="Bold" />
+		<Grid x:Name="PerformanceSurface" IsVisible="False" RowDefinitions="Auto,*" BackgroundColor="Black">
+			<Grid Padding="6" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="6" BackgroundColor="#25232A">
+				<Button Text="← Library" Clicked="HandleExitPerformanceClicked" />
+				<Button x:Name="PreviousSongButton" Grid.Column="1" Text="← Previous" Clicked="HandlePreviousSongClicked" />
+				<Label
+					x:Name="PerformanceTitle"
+					Grid.Column="2"
+					FontSize="18"
+					FontAttributes="Bold"
+					TextColor="White"
+					HorizontalTextAlignment="Center"
+					VerticalOptions="Center"
+					LineBreakMode="TailTruncation" />
+				<Label x:Name="PerformancePosition" Grid.Column="3" TextColor="#D7CAE9" VerticalOptions="Center" />
+				<Button x:Name="NextSongButton" Grid.Column="4" Text="Next →" Clicked="HandleNextSongClicked" />
+			</Grid>
 			<WebView
 				x:Name="SongViewer"
 				Grid.Row="1"
-				Margin="0,12,0,0"
 				Navigated="HandleSongViewerNavigated"
 				SizeChanged="HandleSongViewerSizeChanged" />
-		</Grid>
-
-		<Grid Grid.Row="2" Grid.ColumnSpan="2" Padding="12,6" ColumnDefinitions="*,Auto" BackgroundColor="#25232A">
-			<Label x:Name="Status" Text="Starting ChordBook…" TextColor="White" LineBreakMode="TailTruncation" />
-			<Label
-				x:Name="BookPath"
-				Grid.Column="1"
-				MaximumWidthRequest="700"
-				TextColor="#D7CAE9"
-				TextDecorations="Underline"
-				LineBreakMode="MiddleTruncation">
-				<Label.GestureRecognizers>
-					<TapGestureRecognizer Tapped="HandleBookPathTapped" />
-				</Label.GestureRecognizers>
-			</Label>
 		</Grid>
 	</Grid>
 </ContentPage>

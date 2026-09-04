@@ -581,6 +581,9 @@ public class HtmlFormatterTests
 
 		((string?)script.Attribute("id")).ShouldBe("menees-chords-pagination");
 		defaultScript.ShouldContain("measureColumns(metrics.height)");
+		defaultScript.ShouldContain("event.key === \"PageUp\" || event.key === \"PageDown\"");
+		defaultScript.ShouldContain("direction * pageHeight");
+		defaultScript.ShouldContain("event.preventDefault()");
 		defaultStyles.ShouldContain("--column-min-width: 18em");
 		defaultStyles.ShouldContain("inline-size: max-content");
 		defaultStyles.ShouldContain("color-scheme: light dark");

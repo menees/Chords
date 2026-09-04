@@ -47,6 +47,9 @@ public sealed class SongFile
 	/// <summary>Gets or sets the content revision.</summary>
 	public long ContentRevision { get; set; }
 
+	/// <summary>Gets or sets the version of <see cref="SongFileAnalyzer"/> used to populate catalog metadata.</summary>
+	public int AnalysisVersion { get; set; }
+
 	/// <summary>Gets or sets recovery-version provenance.</summary>
 	public RecoveryVersionProvenance? RecoveryVersion { get; set; }
 

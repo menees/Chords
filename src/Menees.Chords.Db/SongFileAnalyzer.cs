@@ -12,6 +12,13 @@ namespace Menees.Chords.Db;
 /// <summary>Detects supported song formats, encodings, and metadata while preserving source bytes.</summary>
 public static class SongFileAnalyzer
 {
+	#region Public Data
+
+	/// <summary>Gets the current persisted metadata-analysis version.</summary>
+	public const int CurrentAnalysisVersion = 1;
+
+	#endregion
+
 	#region Private Data
 
 	private static readonly UTF8Encoding StrictUtf8 = new(false, true);
@@ -159,9 +166,9 @@ public static class SongFileAnalyzer
 		_ => 0,
 	};
 
-	private static IEnumerable<MetadataEntry> GetMetadata(Document document)
+	private static IEnumerable<MetadataEntry> GetMetadata(IEntryContainer container)
 	{
-		foreach (Entry entry in document.Entries)
+		foreach (Entry entry in container.Entries)
 		{
 			if (entry is MetadataEntry metadata)
 			{
@@ -177,6 +184,14 @@ public static class SongFileAnalyzer
 			else if (entry is ChordProDirectiveLine directive && MetadataEntry.TryParse(directive) is MetadataEntry parsed)
 			{
 				yield return parsed;
+			}
+
+			if (entry is IEntryContainer child)
+			{
+				foreach (MetadataEntry descendant in GetMetadata(child))
+				{
+					yield return descendant;
+				}
 			}
 		}
 	}

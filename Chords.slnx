@@ -17,6 +17,7 @@
     <File Path=".github/workflows/windows.yml" />
   </Folder>
   <Folder Name="/Src/">
+	<Project Path="src/Menees.Chords.Book.Application/Menees.Chords.Book.Application.csproj" />
 	<Project Path="src/Menees.Chords.Book.Maui/Menees.Chords.Book.Maui.csproj" />
 	<Project Path="src/Menees.Chords.Book.Cli/Menees.Chords.Book.Cli.csproj" />
     <Project Path="src/Menees.Chords.Cli/Menees.Chords.Cli.csproj" />
@@ -34,5 +35,6 @@
     <Project Path="tests/Menees.Chords.Tests/Menees.Chords.Tests.csproj" />
     <Project Path="tests/Menees.Chords.Db.Tests/Menees.Chords.Db.Tests.csproj" />
     <Project Path="tests/Menees.Chords.Sync.Tests/Menees.Chords.Sync.Tests.csproj" />
+	<Project Path="tests/Menees.Chords.Book.Application.Tests/Menees.Chords.Book.Application.Tests.csproj" />
   </Folder>
 </Solution>

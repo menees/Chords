@@ -415,6 +415,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		file.SourceFormat = analysis.SourceFormat;
 		file.TextEncoding = analysis.TextEncoding;
 		file.ByteOrderMark = analysis.ByteOrderMark;
+		file.AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion;
 		Song song = database.Songs.Single(item => item.Id == file.SongId);
 		if (analysis.Metadata.ContainsKey("title"))
 		{

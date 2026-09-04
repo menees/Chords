@@ -139,6 +139,7 @@ public static class BookImportService
 					ObservedLength = import.Content.Length,
 					ObservedWriteUtc = now,
 					ContentRevision = 1,
+					AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion,
 					Revision = RevisionStamp.Initial(deviceId, now),
 				};
 				database.Songs.Add(song);
