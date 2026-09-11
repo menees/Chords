@@ -75,6 +75,68 @@ public sealed class BookApplicationSessionTests
 		session.Search("hidden", includeArchived: true).Single().IsArchived.ShouldBeTrue();
 	}
 
+	[TestMethod]
+	public async Task SetlistConstructionPreservesOrderedRepeatedEntries()
+	{
+		CancellationToken cancellationToken = this.TestContext.CancellationToken;
+		Guid deviceId = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Songs", deviceId, cancellationToken);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken));
+		Song first = CreateSong("First", "Artist A", string.Empty, isArchived: false, deviceId);
+		Song second = CreateSong("Second", "Artist B", string.Empty, isArchived: false, deviceId);
+		first.DurationSeconds = 60;
+		second.DurationSeconds = 90;
+		database.Songs.AddRange([first, second]);
+		await using (IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken))
+		{
+			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), cancellationToken);
+			await write.CommitAsync(cancellationToken);
+		}
+
+		BookApplicationSession session = new();
+		await session.ActivateAsync(store, location, cancellationToken);
+		Guid setlistId = await session.CreateSetlistAsync("  Friday Night  ", deviceId, cancellationToken);
+		IReadOnlyList<Guid> entryIds = await session.AddSongsToSetlistAsync(
+			setlistId,
+			[second.Id, first.Id, second.Id],
+			deviceId,
+			cancellationToken);
+
+		SetlistCatalogItem setlist = session.GetSetlists().Single();
+		setlist.Name.ShouldBe("Friday Night");
+		setlist.EntryCount.ShouldBe(3);
+		setlist.KnownDurationCount.ShouldBe(3);
+		setlist.TotalDurationSeconds.ShouldBe(240);
+		session.GetSetlistEntries(setlistId).Select(entry => entry.SongId).ShouldBe([second.Id, first.Id, second.Id]);
+
+		await session.RemoveSetlistEntryAsync(setlistId, entryIds[0], deviceId, cancellationToken);
+		await session.RenameSetlistAsync(setlistId, "Saturday", deviceId, cancellationToken);
+		await session.MoveSetlistEntryAsync(setlistId, entryIds[2], -1, deviceId, cancellationToken);
+		session.GetSetlists().Single().Name.ShouldBe("Saturday");
+		session.GetSetlistEntries(setlistId).Select(entry => entry.SongId).ShouldBe([second.Id, first.Id]);
+
+		ChordDatabase committed = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken));
+		committed.Setlists.Single().Revision.Revision.ShouldBe(5);
+		committed.Revision.Revision.ShouldBe(6);
+
+		// Archive is reversible and must preserve repeated-entry identities and order on disk.
+		Guid[] remainingEntryIds = [.. committed.Setlists.Single().Entries.Select(entry => entry.Id)];
+		await session.SetSetlistArchivedAsync(setlistId, true, deviceId, cancellationToken);
+		session.GetSetlists().ShouldBeEmpty();
+		session.GetSetlists(includeArchived: true).Single().IsArchived.ShouldBeTrue();
+		await session.ActivateAsync(store, location, cancellationToken);
+		session.GetSetlists().ShouldBeEmpty();
+		session.GetSetlistEntries(setlistId).Select(entry => entry.EntryId).ShouldBe(remainingEntryIds);
+
+		await session.SetSetlistArchivedAsync(setlistId, false, deviceId, cancellationToken);
+		session.GetSetlists().Single().IsArchived.ShouldBeFalse();
+		committed = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken));
+		committed.Setlists.Single().Entries.Select(entry => entry.Id).ShouldBe(remainingEntryIds);
+		committed.Setlists.Single().Revision.Revision.ShouldBe(7);
+		committed.Revision.Revision.ShouldBe(8);
+	}
+
 	#endregion
 
 	#region Private Methods

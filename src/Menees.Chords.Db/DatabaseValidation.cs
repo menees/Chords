@@ -42,7 +42,7 @@ public static class DatabaseValidation
 			ValidateUniqueIds(database.CustomTabs.Select(item => item.Id), "customTabs", problems);
 
 			HashSet<Guid> songIds = [.. database.Songs.Select(item => item.Id)];
-			HashSet<Guid> fileIds = [.. database.SongFiles.Select(item => item.Id)];
+			Dictionary<Guid, SongFile> filesById = database.SongFiles.DistinctBy(file => file.Id).ToDictionary(file => file.Id);
 			HashSet<Guid> profileIds = [.. database.InstrumentProfiles.Select(item => item.Id)];
 			HashSet<string> paths = new(PortableManagedFileName.Comparer);
 			for (int index = 0; index < database.SongFiles.Count; index++)
@@ -80,7 +80,7 @@ public static class DatabaseValidation
 					problems.Add(new(path + ".instrumentProfileId", "The referenced instrument profile does not exist."));
 				}
 
-				ValidateOptionalFile(setting.PreferredSongFileId, setting.SongId, fileIds, database.SongFiles, path, problems);
+				ValidateOptionalFile(setting.PreferredSongFileId, setting.SongId, filesById, path, problems);
 			}
 
 			foreach ((Setlist setlist, int setlistIndex) in database.Setlists.Select((value, index) => (value, index)))
@@ -105,7 +105,7 @@ public static class DatabaseValidation
 						problems.Add(new(path + ".instrumentProfileId", "The referenced instrument profile does not exist."));
 					}
 
-					ValidateOptionalFile(entry.PreferredSongFileId, entry.SongId, fileIds, database.SongFiles, path, problems);
+					ValidateOptionalFile(entry.PreferredSongFileId, entry.SongId, filesById, path, problems);
 				}
 			}
 		}
@@ -151,18 +151,17 @@ public static class DatabaseValidation
 	private static void ValidateOptionalFile(
 		Guid? preferredFileId,
 		Guid songId,
-		HashSet<Guid> fileIds,
-		IReadOnlyList<SongFile> files,
+		IReadOnlyDictionary<Guid, SongFile> files,
 		string path,
 		List<ValidationProblem> problems)
 	{
 		if (preferredFileId is Guid fileId)
 		{
-			if (!fileIds.Contains(fileId))
+			if (!files.TryGetValue(fileId, out SongFile? file))
 			{
 				problems.Add(new(path + ".preferredSongFileId", "The referenced song file does not exist."));
 			}
-			else if (files.Single(file => file.Id == fileId).SongId != songId)
+			else if (file.SongId != songId)
 			{
 				problems.Add(new(path + ".preferredSongFileId", "The referenced file belongs to a different song."));
 			}

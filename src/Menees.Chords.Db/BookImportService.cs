@@ -42,20 +42,8 @@ public static class BookImportService
 	{
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(sourcePaths);
-		List<PendingImport> imports = [];
-		foreach (string sourcePath in sourcePaths)
-		{
-			ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
-			await using FileStream input = new(
-				sourcePath,
-				FileMode.Open,
-				FileAccess.Read,
-				FileShare.ReadWrite | FileShare.Delete,
-				bufferSize: 1,
-				FileOptions.Asynchronous | FileOptions.SequentialScan);
-			imports.Add(await ReadAsync(Path.GetFileName(sourcePath), input, cancellationToken).ConfigureAwait(false));
-		}
-
+		IEnumerable<Func<Task<PendingImport>>> imports = sourcePaths.Select(path => new Func<Task<PendingImport>>(
+			() => ReadFileAsync(path, cancellationToken)));
 		return await ImportAsync(store, location, imports, deviceId, skipDuplicates: true, cancellationToken).ConfigureAwait(false);
 	}
 
@@ -72,10 +60,11 @@ public static class BookImportService
 		ArgumentException.ThrowIfNullOrWhiteSpace(sourceName);
 		ArgumentNullException.ThrowIfNull(source);
 		PendingImport import = await ReadAsync(sourceName, source, cancellationToken).ConfigureAwait(false);
+		Task<PendingImport> Read() => Task.FromResult(import);
 		IReadOnlyList<BookImportResult> results = await ImportAsync(
 			store,
 			location,
-			[import],
+			[Read],
 			deviceId,
 			skipDuplicates: false,
 			cancellationToken).ConfigureAwait(false);
@@ -89,21 +78,24 @@ public static class BookImportService
 	private static async Task<IReadOnlyList<BookImportResult>> ImportAsync(
 		IBookStore store,
 		BookLocation location,
-		IReadOnlyList<PendingImport> imports,
+		IEnumerable<Func<Task<PendingImport>>> imports,
 		Guid deviceId,
 		bool skipDuplicates,
 		CancellationToken cancellationToken)
 	{
-		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
+		string expectedJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
+		ChordDatabase database = DatabaseJson.Deserialize(expectedJson);
 		Dictionary<Guid, Song> songsById = database.Songs.ToDictionary(song => song.Id);
 		HashSet<string> identities =
 		[
 			.. database.SongFiles.Select(file => CreateIdentity(songsById[file.SongId].Title, file.ContentHash)),
 		];
-		List<(PendingImport Import, BookImportResult Result)> additions = [];
+		List<BookImportResult> additions = [];
+		await using IStagedBookWrite write = await store.StageWriteAsync(location, expectedJson, cancellationToken).ConfigureAwait(false);
 		DateTimeOffset now = DateTimeOffset.UtcNow;
-		foreach (PendingImport import in imports)
+		foreach (Func<Task<PendingImport>> read in imports)
 		{
+			PendingImport import = await read().ConfigureAwait(false);
 			string contentHash = SongFileAnalyzer.Hash(import.Content);
 			if (!skipDuplicates || identities.Add(CreateIdentity(import.Analysis.Title, contentHash)))
 			{
@@ -144,7 +136,9 @@ public static class BookImportService
 				};
 				database.Songs.Add(song);
 				database.SongFiles.Add(file);
-				additions.Add((import, new BookImportResult(songId, songFileId, relativePath, import.Analysis)));
+				additions.Add(new BookImportResult(songId, songFileId, relativePath, import.Analysis));
+				using MemoryStream content = new(import.Content, writable: false);
+				await write.WriteManagedAssetAsync(songFileId, relativePath, content, cancellationToken).ConfigureAwait(false);
 			}
 		}
 
@@ -156,22 +150,24 @@ public static class BookImportService
 				ModifiedUtc = now,
 				DeviceId = deviceId,
 			};
-			await using IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken).ConfigureAwait(false);
-			foreach ((PendingImport import, BookImportResult result) in additions)
-			{
-				using MemoryStream content = new(import.Content, writable: false);
-				await write.WriteManagedAssetAsync(
-					result.SongFileId,
-					result.RelativePath,
-					content,
-					cancellationToken).ConfigureAwait(false);
-			}
-
 			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
 			await write.CommitAsync(cancellationToken).ConfigureAwait(false);
 		}
 
-		return [.. additions.Select(addition => addition.Result)];
+		return additions;
+	}
+
+	private static async Task<PendingImport> ReadFileAsync(string sourcePath, CancellationToken cancellationToken)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(sourcePath);
+		await using FileStream input = new(
+			sourcePath,
+			FileMode.Open,
+			FileAccess.Read,
+			FileShare.ReadWrite | FileShare.Delete,
+			bufferSize: 1,
+			FileOptions.Asynchronous | FileOptions.SequentialScan);
+		return await ReadAsync(Path.GetFileName(sourcePath), input, cancellationToken).ConfigureAwait(false);
 	}
 
 	private static string CreateIdentity(string title, string contentHash) => title.ToUpperInvariant() + "\0" + contentHash;

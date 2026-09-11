@@ -1,0 +1,304 @@
+#region Using Directives
+
+using System.IO;
+using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
+using Menees.Chords.Db;
+
+#endregion
+
+namespace Menees.Chords.Book.Application;
+
+public sealed partial class BookApplicationSession
+{
+	#region Public API
+
+	/// <summary>Moves an occurrence to an absolute one-based position, preserving every entry identity.</summary>
+	public Task SetSetlistEntryPositionAsync(Guid setlistId, Guid entryId, int position, Guid deviceId, CancellationToken cancellationToken = default)
+		=> this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				Setlist setlist = database.Setlists.Single(item => item.Id == setlistId);
+				if (position < 1 || position > setlist.Entries.Count)
+				{
+					throw new ArgumentOutOfRangeException(nameof(position), $"Enter a position from 1 to {setlist.Entries.Count}.");
+				}
+
+				SetlistEntry entry = setlist.Entries.Single(item => item.Id == entryId);
+				setlist.Entries.Remove(entry);
+				setlist.Entries.Insert(position - 1, entry);
+				setlist.Revision = NextRevision(setlist.Revision, deviceId, now);
+			},
+			deviceId,
+			cancellationToken,
+			refreshSongs: false);
+
+	/// <summary>Saves a permutation of the existing entry IDs after native drag-and-drop reordering.</summary>
+	public Task SetSetlistOrderAsync(Guid setlistId, IReadOnlyList<Guid> entryIds, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(entryIds);
+		return this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				Setlist setlist = database.Setlists.Single(item => item.Id == setlistId);
+				Dictionary<Guid, SetlistEntry> entries = setlist.Entries.ToDictionary(entry => entry.Id);
+				if (entryIds.Count != entries.Count || entryIds.Distinct().Count() != entries.Count || !entryIds.ToHashSet().SetEquals(entries.Keys))
+				{
+					throw new InvalidOperationException("The setlist entries changed. Reopen the setlist before reordering it.");
+				}
+
+				setlist.Entries.Clear();
+				setlist.Entries.AddRange(entryIds.Select(id => entries[id]));
+				setlist.Revision = NextRevision(setlist.Revision, deviceId, now);
+			},
+			deviceId,
+			cancellationToken,
+			refreshSongs: false);
+	}
+
+	/// <summary>Archives or restores a selection of songs without modifying their files or setlist occurrences.</summary>
+	public Task SetSongsArchivedAsync(IReadOnlyList<Guid> songIds, bool archived, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(songIds);
+		return this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				Dictionary<Guid, Song> songs = database.Songs.ToDictionary(song => song.Id);
+				foreach (Guid id in songIds.Distinct())
+				{
+					Song song = songs[id];
+					song.IsArchived = archived;
+					song.Revision = NextRevision(song.Revision, deviceId, now);
+				}
+			},
+			deviceId,
+			cancellationToken,
+			refreshSongs: true);
+	}
+
+	/// <summary>Permanently deletes an archived setlist, retaining a synchronization tombstone.</summary>
+	public Task DeleteArchivedSetlistAsync(Guid setlistId, Guid deviceId, CancellationToken cancellationToken = default)
+		=> this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				Setlist setlist = database.Setlists.Single(item => item.Id == setlistId);
+				if (!setlist.IsArchived)
+				{
+					throw new InvalidOperationException("Archive the setlist before permanently deleting it.");
+				}
+
+				database.Setlists.Remove(setlist);
+				AddTombstone(database, setlist.Id, nameof(Setlist), setlist.Revision, deviceId, now);
+			},
+			deviceId,
+			cancellationToken);
+
+	/// <summary>Deletes only archived songs, their managed files, and all references in one staged commit.</summary>
+	public async Task DeleteArchivedSongsAsync(IReadOnlyList<Guid> songIds, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(songIds);
+		HashSet<Guid> ids = [.. songIds];
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		string expectedJson = this.committedJson!;
+		try
+		{
+			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+			ChordDatabase database = this.Database!;
+			Dictionary<Guid, Song> songsById = database.Songs.ToDictionary(song => song.Id);
+			Song[] songs = [.. ids.Select(id => songsById[id])];
+			if (songs.Any(song => !song.IsArchived))
+			{
+				throw new InvalidOperationException("Every selected song must be archived before permanent deletion.");
+			}
+
+			DateTimeOffset now = DateTimeOffset.UtcNow;
+			await using IStagedBookWrite write = await activeStore.StageWriteAsync(activeLocation, expectedJson, cancellationToken).ConfigureAwait(false);
+			foreach (SongFile file in database.SongFiles.Where(file => ids.Contains(file.SongId)))
+			{
+				await write.DeleteManagedAssetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+				AddTombstone(database, file.Id, nameof(SongFile), file.Revision, deviceId, now);
+			}
+
+			foreach (SongInstrumentSetting setting in database.SongInstrumentSettings.Where(item => ids.Contains(item.SongId)))
+			{
+				AddTombstone(database, setting.Id, nameof(SongInstrumentSetting), setting.Revision, deviceId, now);
+			}
+
+			foreach (Setlist setlist in database.Setlists)
+			{
+				if (setlist.Entries.RemoveAll(entry => ids.Contains(entry.SongId)) > 0)
+				{
+					setlist.Revision = NextRevision(setlist.Revision, deviceId, now);
+				}
+			}
+
+			foreach (Song song in songs)
+			{
+				AddTombstone(database, song.Id, nameof(Song), song.Revision, deviceId, now);
+			}
+
+			database.SongFiles.RemoveAll(file => ids.Contains(file.SongId));
+			database.SongInstrumentSettings.RemoveAll(setting => ids.Contains(setting.SongId));
+			database.Songs.RemoveAll(song => ids.Contains(song.Id));
+			database.Revision = NextRevision(database.Revision, deviceId, now);
+			string updatedJson = DatabaseJson.Serialize(database);
+			await write.WriteDatabaseJsonAsync(updatedJson, cancellationToken).ConfigureAwait(false);
+			await write.CommitAsync(cancellationToken).ConfigureAwait(false);
+
+			this.SetDatabase(database);
+			this.committedJson = updatedJson;
+		}
+		catch
+		{
+			if (expectedJson is not null)
+			{
+				this.SetDatabase(DatabaseJson.Deserialize(expectedJson));
+			}
+
+			throw;
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
+	}
+
+	/// <summary>Loads song metadata and an optional editable text file with an optimistic concurrency revision.</summary>
+	public async Task<SongEditDocument> GetSongEditAsync(Guid songId, CancellationToken cancellationToken = default)
+	{
+		(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
+		Song song = database.Songs.Single(item => item.Id == songId);
+		SongFile? file = database.SongFiles.Where(item => item.SongId == songId && !item.IsArchived)
+			.OrderByDescending(item => item.DisplayPriority).ThenBy(item => item.MediaKind).ThenBy(item => item.Id).FirstOrDefault();
+		string? text = null;
+		string? hash = null;
+		if (file is { MediaKind: MediaKind.Text } && file.SourceFormat != SourceFormat.OpenSongXml)
+		{
+			using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
+			using MemoryStream bytes = new();
+			await stream.CopyToAsync(bytes, cancellationToken).ConfigureAwait(false);
+			hash = SongFileAnalyzer.Hash(bytes.ToArray());
+			bytes.Position = 0;
+			using StreamReader reader = new(bytes, GetTextEncoding(file), detectEncodingFromByteOrderMarks: true);
+			text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+		}
+
+		return new(song.Id, song.Revision.Revision, song.Title, [.. song.Artists], [.. song.Tags], file?.Id, hash, text);
+	}
+
+	/// <summary>Saves explicit catalog edits and changed text together, refusing to overwrite a newer edit.</summary>
+	public async Task SaveSongEditAsync(
+		SongEditDocument original,
+		string title,
+		IReadOnlyList<string> artists,
+		IReadOnlyList<string> tags,
+		string? text,
+		Guid deviceId,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(original);
+		ArgumentException.ThrowIfNullOrWhiteSpace(title);
+		ArgumentNullException.ThrowIfNull(artists);
+		ArgumentNullException.ThrowIfNull(tags);
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		string expectedJson = this.committedJson!;
+		try
+		{
+			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+			ChordDatabase database = this.Database!;
+			Song song = database.Songs.Single(item => item.Id == original.SongId);
+			if (song.Revision.Revision != original.Revision)
+			{
+				throw new InvalidOperationException("This song changed while the editor was open. Reopen it before saving.");
+			}
+
+			DateTimeOffset now = DateTimeOffset.UtcNow;
+			bool changedText = original.Text is not null && text is not null && !StringComparer.Ordinal.Equals(original.Text, text);
+			await using IStagedBookWrite? write = changedText
+				? await activeStore.StageWriteAsync(activeLocation, expectedJson, cancellationToken).ConfigureAwait(false) : null;
+			if (write is not null)
+			{
+				SongFile file = database.SongFiles.Single(item => item.Id == original.FileId);
+				using Stream existing = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
+				using MemoryStream existingBytes = new();
+				await existing.CopyToAsync(existingBytes, cancellationToken).ConfigureAwait(false);
+				if (!StringComparer.Ordinal.Equals(SongFileAnalyzer.Hash(existingBytes.ToArray()), original.ContentHash))
+				{
+					throw new InvalidOperationException("The song file changed outside the editor. Reopen it before saving.");
+				}
+
+				Encoding encoding = GetTextEncoding(file);
+				byte[] preamble = file.ByteOrderMark == ByteOrderMarkKind.None ? [] : encoding.GetPreamble();
+				byte[] bytes = [.. preamble, .. encoding.GetBytes(text!)];
+				SongFileAnalysis analysis = SongFileAnalyzer.Analyze(bytes, file.RelativePath);
+				if (analysis.MediaKind != MediaKind.Text || analysis.SourceFormat == SourceFormat.OpenSongXml)
+				{
+					throw new InvalidOperationException("The text editor supports ChordPro, chord-over-text, and mixed song text.");
+				}
+
+				file.ContentHash = SongFileAnalyzer.Hash(bytes);
+				file.ContentRevision++;
+				file.SourceFormat = analysis.SourceFormat;
+				file.AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion;
+				file.ObservedLength = bytes.Length;
+				file.ObservedWriteUtc = now;
+				file.Revision = NextRevision(file.Revision, deviceId, now);
+				song.SourceMetadata.Clear();
+				foreach ((string name, IReadOnlyList<SourceMetadataValue> values) in analysis.Metadata)
+				{
+					song.SourceMetadata[name] = [.. values];
+				}
+
+				using MemoryStream content = new(bytes);
+				await write.WriteManagedAssetAsync(file.Id, file.RelativePath, content, cancellationToken).ConfigureAwait(false);
+			}
+
+			song.Title = title.Trim();
+			song.Artists = [.. artists.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())];
+			song.Tags = [.. tags.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())];
+			song.Revision = NextRevision(song.Revision, deviceId, now);
+			database.Revision = NextRevision(database.Revision, deviceId, now);
+			string updatedJson;
+			if (write is null)
+			{
+				updatedJson = await activeStore.CommitMetadataAsync(activeLocation, expectedJson, database, cancellationToken).ConfigureAwait(false);
+			}
+			else
+			{
+				updatedJson = DatabaseJson.Serialize(database);
+				await write.WriteDatabaseJsonAsync(updatedJson, cancellationToken).ConfigureAwait(false);
+				await write.CommitAsync(cancellationToken).ConfigureAwait(false);
+			}
+
+			this.SetDatabase(database);
+			this.committedJson = updatedJson;
+		}
+		catch
+		{
+			if (expectedJson is not null)
+			{
+				this.SetDatabase(DatabaseJson.Deserialize(expectedJson));
+			}
+
+			throw;
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static Encoding GetTextEncoding(SongFile file)
+		=> Encoding.GetEncoding(file.TextEncoding ?? "utf-8", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+
+	private static void AddTombstone(ChordDatabase database, Guid id, string type, RevisionStamp revision, Guid deviceId, DateTimeOffset now)
+		=> database.Tombstones.Add(new Tombstone { EntityId = id, EntityType = type, Revision = NextRevision(revision, deviceId, now) });
+
+	#endregion
+}

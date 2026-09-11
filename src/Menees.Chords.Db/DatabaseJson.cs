@@ -19,21 +19,24 @@ public static class DatabaseJson
 	/// <summary>Migrates, deserializes, and validates database JSON.</summary>
 	public static ChordDatabase Deserialize(string json)
 	{
-		JsonNode document;
-		try
-		{
-			document = JsonNode.Parse(json) ?? throw new DatabaseFormatException("The database JSON is empty.");
-		}
-		catch (JsonException exception)
-		{
-			throw new DatabaseFormatException("The database JSON is invalid.", exception);
-		}
-
-		JsonObject migrated = DatabaseSchema.Migrate(document);
 		ChordDatabase database;
 		try
 		{
-			database = migrated.Deserialize<ChordDatabase>(Options)
+			using JsonDocument document = JsonDocument.Parse(json);
+			if (document.RootElement.ValueKind != JsonValueKind.Object)
+			{
+				throw new DatabaseFormatException("The database JSON root must be an object.");
+			}
+
+			int version = document.RootElement.TryGetProperty("schemaVersion", out JsonElement value) ? value.GetInt32() : 0;
+			if (version > ChordDatabase.CurrentSchemaVersion)
+			{
+				throw new UnsupportedSchemaVersionException(version);
+			}
+
+			database = (version == ChordDatabase.CurrentSchemaVersion
+				? document.RootElement.Deserialize<ChordDatabase>(Options)
+				: DatabaseSchema.Migrate(JsonNode.Parse(json)!).Deserialize<ChordDatabase>(Options))
 				?? throw new DatabaseFormatException("The database JSON did not contain an object.");
 		}
 		catch (JsonException exception)

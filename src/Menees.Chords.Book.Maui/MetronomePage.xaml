@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Menees.Chords.Book.Maui.MetronomePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" Title="Metronome">
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="10" MaximumWidthRequest="620">
+            <Label Text="Metronome" FontSize="24" />
+            <Label Text="One click per beat. Tempo and meter are explicit settings; song text does not change them automatically." />
+            <Label Text="Tempo (20–300 BPM)" />
+            <Entry x:Name="bpm" Keyboard="Numeric" />
+            <Label Text="Beats per measure (1–16)" />
+            <Entry x:Name="beats" Keyboard="Numeric" />
+            <Label Text="Beat unit" />
+            <Picker x:Name="beatUnit" />
+            <Label Text="Volume" />
+            <Slider x:Name="volume" Minimum="0" Maximum="1" />
+            <HorizontalStackLayout Spacing="8">
+                <CheckBox x:Name="audio" /><Label Text="Audio" VerticalOptions="Center" />
+                <CheckBox x:Name="visual" /><Label Text="Visual" VerticalOptions="Center" />
+                <CheckBox x:Name="accent" /><Label Text="Accent first beat" VerticalOptions="Center" />
+            </HorizontalStackLayout>
+            <Label x:Name="pulse" FontSize="44" HorizontalTextAlignment="Center" />
+            <Button x:Name="toggle" Text="Start" Clicked="HandleToggle" />
+            <HorizontalStackLayout Spacing="8">
+                <Button Text="Save for This Song" Clicked="HandleSave" />
+                <Button Text="Use Book Defaults" Clicked="HandleReset" />
+                <Button Text="Back to Song" Clicked="HandleClose" />
+            </HorizontalStackLayout>
+            <Label x:Name="status" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

@@ -2,6 +2,7 @@
 
 using System.IO;
 using System.IO.Compression;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -69,17 +70,19 @@ public static class BookBackup
 		foreach (SongFile file in database.SongFiles.OrderBy(file => file.RelativePath, PortableManagedFileName.Comparer))
 		{
 			await using Stream source = await store.OpenManagedAssetAsync(location, file.Id, cancellationToken).ConfigureAwait(false);
-			using MemoryStream copy = new();
-			await source.CopyToAsync(copy, cancellationToken).ConfigureAwait(false);
-			byte[] bytes = copy.ToArray();
-			string hash = SongFileAnalyzer.Hash(bytes);
+			ZipArchiveEntry entry = archive.CreateEntry(file.RelativePath, CompressionLevel.Optimal);
+			await using Stream destination = entry.Open();
+			using SHA256 algorithm = SHA256.Create();
+			await using CryptoStream hashing = new(destination, algorithm, CryptoStreamMode.Write, leaveOpen: true);
+			await source.CopyToAsync(hashing, cancellationToken).ConfigureAwait(false);
+			await hashing.FlushFinalBlockAsync(cancellationToken).ConfigureAwait(false);
+			string hash = Convert.ToHexString(algorithm.Hash!).ToLowerInvariant();
 			if (!StringComparer.OrdinalIgnoreCase.Equals(hash, file.ContentHash))
 			{
 				throw new BookStoreValidationException($"Managed asset '{file.RelativePath}' does not match its database hash.");
 			}
 
 			manifest.Entries.Add(file.RelativePath, hash);
-			await WriteEntryAsync(archive, file.RelativePath, bytes, cancellationToken).ConfigureAwait(false);
 		}
 
 		byte[] manifestBytes = Utf8NoBom.GetBytes(JsonSerializer.Serialize(manifest, ManifestOptions) + "\n");
@@ -96,8 +99,10 @@ public static class BookBackup
 	{
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(input);
-		Dictionary<string, byte[]> payloads = await ReadAndValidateAsync(input, cancellationToken).ConfigureAwait(false);
-		ChordDatabase restored = DatabaseJson.Deserialize(Utf8NoBom.GetString(payloads[DatabaseEntryName]));
+		using ZipArchive archive = new(input, ZipArchiveMode.Read, leaveOpen: true);
+		Dictionary<string, ZipArchiveEntry> payloads = await ReadAndValidateAsync(archive, cancellationToken).ConfigureAwait(false);
+		byte[] databaseBytes = await ReadEntryAsync(payloads[DatabaseEntryName], cancellationToken).ConfigureAwait(false);
+		ChordDatabase restored = DatabaseJson.Deserialize(Utf8NoBom.GetString(databaseBytes));
 		BookLocation location = await store.CreateBookAsync(name ?? restored.Name, deviceId, cancellationToken).ConfigureAwait(false);
 		try
 		{
@@ -106,10 +111,11 @@ public static class BookBackup
 			await using IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken).ConfigureAwait(false);
 			foreach (SongFile file in restored.SongFiles)
 			{
+				await using Stream content = payloads[file.RelativePath].Open();
 				await write.WriteManagedAssetAsync(
 					file.Id,
 					file.RelativePath,
-					new MemoryStream(payloads[file.RelativePath], writable: false),
+					content,
 					cancellationToken).ConfigureAwait(false);
 			}
 
@@ -129,27 +135,28 @@ public static class BookBackup
 
 	#region Private Methods
 
-	private static async Task<Dictionary<string, byte[]>> ReadAndValidateAsync(Stream input, CancellationToken cancellationToken)
+	private static async Task<Dictionary<string, ZipArchiveEntry>> ReadAndValidateAsync(ZipArchive archive, CancellationToken cancellationToken)
 	{
-		Dictionary<string, byte[]> entries = new(StringComparer.Ordinal);
-		using ZipArchive archive = new(input, ZipArchiveMode.Read, leaveOpen: true);
+		Dictionary<string, ZipArchiveEntry> entries = new(StringComparer.Ordinal);
 		foreach (ZipArchiveEntry entry in archive.Entries)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
 			string name = entry.FullName;
 			bool allowed = name is DatabaseEntryName or ManifestEntryName || PortableManagedFileName.Validate(name).Count == 0;
-			if (!allowed || !entries.TryAdd(name, await ReadEntryAsync(entry, cancellationToken).ConfigureAwait(false)))
+			if (!allowed || !entries.TryAdd(name, entry))
 			{
 				throw new BookStoreValidationException($"Backup contains an unsafe or duplicate entry '{name}'.");
 			}
 		}
 
-		if (!entries.TryGetValue(ManifestEntryName, out byte[]? manifestBytes)
-			|| !entries.TryGetValue(DatabaseEntryName, out byte[]? databaseBytes))
+		if (!entries.TryGetValue(ManifestEntryName, out ZipArchiveEntry? manifestEntry)
+			|| !entries.TryGetValue(DatabaseEntryName, out ZipArchiveEntry? databaseEntry))
 		{
 			throw new BookStoreValidationException("Backup must contain database.json and manifest.json.");
 		}
 
+		byte[] manifestBytes = await ReadEntryAsync(manifestEntry, cancellationToken).ConfigureAwait(false);
+		byte[] databaseBytes = await ReadEntryAsync(databaseEntry, cancellationToken).ConfigureAwait(false);
 		BookBackupManifest manifest = JsonSerializer.Deserialize<BookBackupManifest>(manifestBytes, ManifestOptions)
 			?? throw new BookStoreValidationException("Backup manifest is invalid.");
 		if (manifest.FormatVersion != 1 || manifest.Entries.Count != entries.Count - 1)
@@ -159,10 +166,16 @@ public static class BookBackup
 
 		foreach ((string name, string expectedHash) in manifest.Entries)
 		{
-			if (!entries.TryGetValue(name, out byte[]? bytes)
-				|| !StringComparer.OrdinalIgnoreCase.Equals(SongFileAnalyzer.Hash(bytes), expectedHash))
+			if (!entries.TryGetValue(name, out ZipArchiveEntry? entry))
 			{
-				throw new BookStoreValidationException($"Backup entry '{name}' is missing or corrupt.");
+				throw new BookStoreValidationException($"Backup entry '{name}' is missing.");
+			}
+
+			await using Stream content = entry.Open();
+			byte[] hash = await SHA256.HashDataAsync(content, cancellationToken).ConfigureAwait(false);
+			if (!StringComparer.OrdinalIgnoreCase.Equals(Convert.ToHexString(hash), expectedHash))
+			{
+				throw new BookStoreValidationException($"Backup entry '{name}' is corrupt.");
 			}
 		}
 

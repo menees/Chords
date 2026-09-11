@@ -1,5 +1,6 @@
 #region Using Directives
 
+using System.Collections.Concurrent;
 using System.IO;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
@@ -21,6 +22,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	private static readonly UTF8Encoding Utf8NoBom = new(false, true);
 	private readonly SemaphoreSlim commitLock = new(1, 1);
 	private readonly Dictionary<Guid, string> paths = [];
+	private readonly ConcurrentDictionary<Guid, AssetPathIndex> assetPaths = new();
 	private readonly string rootDirectory;
 	private readonly Guid storeId = Guid.NewGuid();
 	private readonly Action<FileSystemCommitStep>? faultInjector;
@@ -78,6 +80,14 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(directory);
 		string fullPath = Path.GetFullPath(directory);
+		using (FileStream lease = AcquireBookLease(fullPath))
+		{
+			foreach (string stage in Directory.EnumerateDirectories(Path.GetDirectoryName(fullPath)!, $".{Path.GetFileName(fullPath)}.chordbook-stage-*"))
+			{
+				AssetMoveJournal.Recover(fullPath, stage);
+			}
+		}
+
 		string json = await File.ReadAllTextAsync(Path.Combine(fullPath, DatabaseFileName), Utf8NoBom, cancellationToken)
 			.ConfigureAwait(false);
 		ChordDatabase database = DatabaseJson.Deserialize(json);
@@ -102,14 +112,19 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	public async Task DeleteBookAsync(BookLocation location, CancellationToken cancellationToken = default)
 	{
 		string directory = this.GetPath(location);
-		ChordDatabase database = DatabaseJson.Deserialize(await this.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
-		foreach (SongFile file in database.SongFiles)
+		using (FileStream lease = AcquireBookLease(directory))
 		{
-			cancellationToken.ThrowIfCancellationRequested();
-			File.Delete(GetManagedPath(directory, file.RelativePath));
+			ChordDatabase database = DatabaseJson.Deserialize(await this.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
+			foreach (SongFile file in database.SongFiles)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				File.Delete(GetManagedPath(directory, file.RelativePath));
+			}
+
+			File.Delete(Path.Combine(directory, DatabaseFileName));
 		}
 
-		File.Delete(Path.Combine(directory, DatabaseFileName));
+		File.Delete(Path.Combine(directory, ".write-lock"));
 		if (!Directory.EnumerateFileSystemEntries(directory).Any())
 		{
 			Directory.Delete(directory, recursive: false);
@@ -130,87 +145,82 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		foreach (SongFile file in database.SongFiles.OrderBy(file => file.Id))
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			string path = GetManagedPath(directory, file.RelativePath);
-			FileInfo info = new(path);
-			string hash = await HashFileAsync(path, cancellationToken).ConfigureAwait(false);
-			yield return new(file.Id, file.RelativePath, info.Length, hash);
+			yield return new(file.Id, file.RelativePath, file.ObservedLength ?? 0, file.ContentHash);
 		}
 	}
 
 	/// <inheritdoc />
-	public Task<Stream> OpenManagedAssetAsync(
+	public async Task<Stream> OpenManagedAssetAsync(
 		BookLocation location,
 		Guid songFileId,
 		CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
 		string directory = this.GetPath(location);
-		ChordDatabase database = DatabaseJson.Deserialize(File.ReadAllText(Path.Combine(directory, DatabaseFileName), Utf8NoBom));
-		SongFile file = database.SongFiles.SingleOrDefault(file => file.Id == songFileId)
-			?? throw new KeyNotFoundException("The managed asset does not exist.");
+		string databasePath = Path.Combine(directory, DatabaseFileName);
+		FileInfo info = new(databasePath);
+		if (!this.assetPaths.TryGetValue(location.Token, out AssetPathIndex? index)
+			|| index.Length != info.Length || index.ModifiedUtc != info.LastWriteTimeUtc)
+		{
+			string json = await File.ReadAllTextAsync(databasePath, Utf8NoBom, cancellationToken).ConfigureAwait(false);
+			ChordDatabase database = DatabaseJson.Deserialize(json);
+			index = new(info.Length, info.LastWriteTimeUtc, database.SongFiles.ToDictionary(file => file.Id, file => file.RelativePath));
+			this.assetPaths[location.Token] = index;
+		}
+
+		string path = index.Paths.TryGetValue(songFileId, out string? relativePath) ? GetManagedPath(directory, relativePath)
+			: throw new KeyNotFoundException("The managed asset does not exist.");
 		Stream result = new FileStream(
-			GetManagedPath(directory, file.RelativePath),
+			path,
 			FileMode.Open,
 			FileAccess.Read,
 			FileShare.ReadWrite | FileShare.Delete,
 			bufferSize: 1,
 			FileOptions.Asynchronous | FileOptions.SequentialScan);
-		return Task.FromResult(result);
+		return result;
+	}
+
+	/// <inheritdoc />
+	public async Task CommitMetadataAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken = default)
+	{
+		string directory = this.GetPath(location);
+		MetadataCommit.Validate(location, expectedJson, updatedJson);
+		await this.CommitReconciledMetadataAsync(location, expectedJson, updatedJson, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <inheritdoc />
+	public async Task<string> CommitMetadataAsync(
+		BookLocation location,
+		string expectedJson,
+		ChordDatabase database,
+		CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		MetadataCommit.Validate(location, expectedJson, database);
+		string json = DatabaseJson.Serialize(database);
+		await this.CommitReconciledMetadataAsync(location, expectedJson, json, cancellationToken).ConfigureAwait(false);
+		return json;
 	}
 
 	/// <inheritdoc />
 	public async Task<IStagedBookWrite> StageWriteAsync(BookLocation location, CancellationToken cancellationToken = default)
 	{
-		string directory = this.GetPath(location);
 		string json = await this.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
+		return await this.StageWriteAsync(location, json, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <inheritdoc />
+	public Task<IStagedBookWrite> StageWriteAsync(BookLocation location, string json, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		string directory = this.GetPath(location);
 		ChordDatabase database = DatabaseJson.Deserialize(json);
 		string stageDirectory = Path.Combine(
 			Path.GetDirectoryName(directory)!,
 			$".{Path.GetFileName(directory)}.chordbook-stage-{Guid.NewGuid():N}");
 		Directory.CreateDirectory(stageDirectory);
-		try
-		{
-			Dictionary<Guid, string> assets = [];
-			foreach (SongFile file in database.SongFiles)
-			{
-				string source = GetManagedPath(directory, file.RelativePath);
-				string stagedName = file.RelativePath;
-				if (!File.Exists(source))
-				{
-					IReadOnlyList<string> renameCandidates =
-					[
-						.. Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
-							.Where(path => PortableManagedFileName.TryGetSongFileId(Path.GetFileName(path), out Guid id) && id == file.Id),
-					];
-					if (renameCandidates.Count != 1)
-					{
-						throw new BookStoreValidationException($"Managed asset '{file.RelativePath}' is missing or has ambiguous rename candidates.");
-					}
-
-					source = renameCandidates[0];
-					stagedName = Path.GetFileName(source);
-				}
-
-				string target = GetManagedPath(stageDirectory, stagedName);
-				await CopyFileAsync(source, target, cancellationToken).ConfigureAwait(false);
-				assets.Add(file.Id, stagedName);
-			}
-
-			IStagedBookWrite result = new StagedWrite(
-				this,
-				location,
-				directory,
-				stageDirectory,
-				json,
-				assets,
-				HashText(json));
-			return result;
-		}
-		catch
-		{
-			Directory.Delete(stageDirectory, recursive: true);
-			throw;
-		}
+		Dictionary<Guid, string> assets = database.SongFiles.ToDictionary(file => file.Id, file => file.RelativePath);
+		return Task.FromResult<IStagedBookWrite>(new StagedWrite(this, location, directory, stageDirectory, json, assets, json));
 	}
 
 	/// <inheritdoc />
@@ -286,7 +296,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		CancellationToken cancellationToken = default)
 	{
 		string directory = this.GetPath(location);
-		ChordDatabase database = DatabaseJson.Deserialize(await this.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
+		string expectedJson = await this.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
+		ChordDatabase database = DatabaseJson.Deserialize(expectedJson);
 		Dictionary<Guid, List<string>> observed = [];
 		foreach (string path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
 		{
@@ -312,6 +323,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			problems.AddRange(names.Select(name => new ExternalBookProblem(name, "A GUID-suffixed file is an unaccepted external import candidate.")));
 		}
 
+		bool observationsChanged = false;
 		int renamedCount = 0;
 		int changedCount = 0;
 		DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -357,6 +369,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 					changedCount++;
 				}
 
+				observationsChanged = true;
 				file.ObservedLength = info.Length;
 				file.ObservedWriteUtc = info.LastWriteTimeUtc;
 			}
@@ -367,12 +380,10 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			}
 		}
 
-		if (renamedCount > 0 || changedCount > 0)
+		if (renamedCount > 0 || changedCount > 0 || observationsChanged)
 		{
 			database.Revision = NextRevision(database.Revision, deviceId, now);
-			await using IStagedBookWrite write = await this.StageWriteAsync(location, cancellationToken).ConfigureAwait(false);
-			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
-			await write.CommitAsync(cancellationToken).ConfigureAwait(false);
+			await this.CommitReconciledMetadataAsync(location, expectedJson, DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
 		}
 
 		return new(renamedCount, changedCount, problems);
@@ -382,27 +393,51 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 
 	#region Private Methods
 
-	private static async Task CopyFileAsync(string source, string target, CancellationToken cancellationToken)
+	private static FileStream AcquireBookLease(string directory)
 	{
-		await using FileStream input = new(
-			source,
-			FileMode.Open,
-			FileAccess.Read,
-			FileShare.ReadWrite | FileShare.Delete,
-			BufferSize,
-			FileOptions.Asynchronous | FileOptions.SequentialScan);
-		await using FileStream output = new(
-			target,
-			FileMode.CreateNew,
-			FileAccess.Write,
-			FileShare.None,
-			BufferSize,
-			FileOptions.Asynchronous | FileOptions.WriteThrough);
-		await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-		await output.FlushAsync(cancellationToken).ConfigureAwait(false);
-		output.Flush(flushToDisk: true);
-		File.SetLastWriteTimeUtc(target, File.GetLastWriteTimeUtc(source));
+		try
+		{
+			return new FileStream(Path.Combine(directory, ".write-lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+		}
+		catch (IOException)
+		{
+			throw new BookStoreConcurrencyException();
+		}
 	}
+
+	private static async Task<string> WriteAssetContentAsync(string target, Stream content, CancellationToken cancellationToken)
+	{
+		string temporary = target + ".writing";
+		byte[] buffer = System.Buffers.ArrayPool<byte>.Shared.Rent(BufferSize);
+		using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+		try
+		{
+			await using (FileStream output = new(temporary, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize, FileOptions.Asynchronous))
+			{
+				int read;
+				while ((read = await content.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
+				{
+					hash.AppendData(buffer, 0, read);
+					await output.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+				}
+
+				await output.FlushAsync(cancellationToken).ConfigureAwait(false);
+				output.Flush(flushToDisk: true);
+			}
+
+			File.Move(temporary, target, overwrite: true);
+			return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+		}
+		finally
+		{
+			System.Buffers.ArrayPool<byte>.Shared.Return(buffer);
+			File.Delete(temporary);
+		}
+	}
+
+	private static List<SongFile> GetInstalledFiles(ChordDatabase next, Dictionary<Guid, SongFile> previous, Dictionary<Guid, string> writes)
+		=> [.. next.SongFiles.Where(file => writes.ContainsKey(file.Id)
+			|| !previous.TryGetValue(file.Id, out SongFile? old) || !StringComparer.Ordinal.Equals(file.RelativePath, old.RelativePath))];
 
 	private static void ApplyAnalysis(
 		ChordDatabase database,
@@ -446,8 +481,6 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 
 		return Path.Combine(directory, relativePath);
 	}
-
-	private static string HashText(string text) => Convert.ToHexString(SHA256.HashData(Utf8NoBom.GetBytes(text))).ToLowerInvariant();
 
 	private static RevisionStamp NextRevision(RevisionStamp current, Guid deviceId, DateTimeOffset now) => new()
 	{
@@ -497,13 +530,64 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		stream.Flush(flushToDisk: true);
 	}
 
+	private async Task CommitReconciledMetadataAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken)
+	{
+		string directory = this.GetPath(location);
+		await this.commitLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			using FileStream lease = AcquireBookLease(directory);
+			string target = Path.Combine(directory, DatabaseFileName);
+			string current = await File.ReadAllTextAsync(target, Utf8NoBom, cancellationToken).ConfigureAwait(false);
+			if (!StringComparer.Ordinal.Equals(current, expectedJson))
+			{
+				throw new BookStoreConcurrencyException();
+			}
+
+			// Only the small JSON file is flushed and atomically replaced. Song bytes are never opened.
+			await ReplaceTextAsync(target, updatedJson, cancellationToken).ConfigureAwait(false);
+			this.assetPaths.TryRemove(location.Token, out _);
+		}
+		finally
+		{
+			this.commitLock.Release();
+		}
+	}
+
+	private void InstallAssets(
+		string directory,
+		string stageDirectory,
+		string rollback,
+		List<SongFile> installed,
+		Dictionary<Guid, SongFile> previousFiles,
+		Dictionary<Guid, string> writtenHashes,
+		AssetMoveJournal journal,
+		CancellationToken cancellationToken)
+	{
+		foreach (SongFile file in installed)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			string source = writtenHashes.ContainsKey(file.Id) ? GetManagedPath(stageDirectory, file.RelativePath)
+				: GetManagedPath(rollback, previousFiles[file.Id].RelativePath);
+			string target = GetManagedPath(directory, file.RelativePath);
+			if (writtenHashes.ContainsKey(file.Id) && file.ObservedWriteUtc is DateTimeOffset modified)
+			{
+				File.SetLastWriteTimeUtc(source, modified.UtcDateTime);
+			}
+
+			journal.Move(source, target);
+			this.faultInjector?.Invoke(FileSystemCommitStep.ManagedAssetReplaced);
+		}
+	}
+
 	private async Task CommitAsync(
 		BookLocation location,
 		string directory,
 		string stageDirectory,
 		string databaseJson,
 		Dictionary<Guid, string> assets,
-		string expectedDatabaseHash,
+		Dictionary<Guid, string> writtenHashes,
+		string expectedDatabaseJson,
 		CancellationToken cancellationToken)
 	{
 		ChordDatabase next;
@@ -516,16 +600,13 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			throw new BookStoreValidationException("The staged database is invalid.", exception);
 		}
 
-		if (next.Id != location.Token)
+		if (next.Id != location.Token || !next.SongFiles.Select(file => file.Id).ToHashSet().SetEquals(assets.Keys))
 		{
-			throw new BookStoreValidationException("The staged database ID does not match the opened book.");
+			throw new BookStoreValidationException("The staged database identity or asset set does not match the transaction.");
 		}
 
-		if (!next.SongFiles.Select(file => file.Id).ToHashSet().SetEquals(assets.Keys))
-		{
-			throw new BookStoreValidationException("The staged assets do not exactly match the database's managed song files.");
-		}
-
+		ChordDatabase current = DatabaseJson.Deserialize(expectedDatabaseJson);
+		Dictionary<Guid, SongFile> previousFiles = current.SongFiles.ToDictionary(file => file.Id);
 		foreach (SongFile file in next.SongFiles)
 		{
 			if (!StringComparer.Ordinal.Equals(file.RelativePath, assets[file.Id]))
@@ -533,63 +614,73 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				throw new BookStoreValidationException($"Asset {file.Id:D} has a path that does not match the database.");
 			}
 
-			string stagedPath = GetManagedPath(stageDirectory, file.RelativePath);
-			string hash = await HashFileAsync(stagedPath, cancellationToken).ConfigureAwait(false);
-			if (!string.IsNullOrEmpty(file.ContentHash) && !StringComparer.OrdinalIgnoreCase.Equals(hash, file.ContentHash))
+			string hash = writtenHashes.TryGetValue(file.Id, out string? writtenHash) ? writtenHash
+				: previousFiles.TryGetValue(file.Id, out SongFile? original) ? original.ContentHash
+				: throw new BookStoreValidationException("A new asset requires content.");
+			if (!StringComparer.OrdinalIgnoreCase.Equals(hash, file.ContentHash))
 			{
 				throw new BookStoreValidationException($"Asset {file.Id:D} does not match its content hash.");
 			}
 		}
 
+		Dictionary<Guid, SongFile> nextFiles = next.SongFiles.ToDictionary(file => file.Id);
+		List<SongFile> affected = [.. current.SongFiles.Where(file => writtenHashes.ContainsKey(file.Id)
+			|| !nextFiles.TryGetValue(file.Id, out SongFile? nextFile) || !StringComparer.Ordinal.Equals(file.RelativePath, nextFile.RelativePath))];
 		await this.commitLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 		try
 		{
-			string currentJson = await File.ReadAllTextAsync(Path.Combine(directory, DatabaseFileName), Utf8NoBom, cancellationToken)
-				.ConfigureAwait(false);
-			if (!StringComparer.Ordinal.Equals(HashText(currentJson), expectedDatabaseHash))
+			using FileStream lease = AcquireBookLease(directory);
+			string targetJson = Path.Combine(directory, DatabaseFileName);
+			string currentJson = await File.ReadAllTextAsync(targetJson, Utf8NoBom, cancellationToken).ConfigureAwait(false);
+			if (!StringComparer.Ordinal.Equals(currentJson, expectedDatabaseJson))
 			{
 				throw new BookStoreConcurrencyException();
 			}
 
-			ChordDatabase current = DatabaseJson.Deserialize(currentJson);
-			string rollback = Path.Combine(stageDirectory, ".rollback");
-			Directory.CreateDirectory(rollback);
-			await CopyFileAsync(Path.Combine(directory, DatabaseFileName), Path.Combine(rollback, DatabaseFileName), cancellationToken)
-				.ConfigureAwait(false);
-			foreach (SongFile file in current.SongFiles)
+			HashSet<string> affectedPaths = new(affected.Select(file => file.RelativePath), PortableManagedFileName.Comparer);
+			List<SongFile> installed = GetInstalledFiles(next, previousFiles, writtenHashes);
+			foreach (SongFile file in installed)
 			{
-				string path = GetManagedPath(directory, file.RelativePath);
-				if (File.Exists(path))
+				if (!affectedPaths.Contains(file.RelativePath) && File.Exists(GetManagedPath(directory, file.RelativePath)))
 				{
-					await CopyFileAsync(path, GetManagedPath(rollback, file.RelativePath), cancellationToken).ConfigureAwait(false);
+					throw new BookStoreValidationException("An asset destination already exists outside this transaction.");
 				}
 			}
 
-			this.faultInjector?.Invoke(FileSystemCommitStep.RollbackSnapshotCreated);
-
+			string rollback = Directory.CreateDirectory(Path.Combine(stageDirectory, ".rollback")).FullName;
+			using AssetMoveJournal journal = new(directory, stageDirectory, currentJson, databaseJson);
+			bool databaseReplaced = false;
 			try
 			{
-				foreach (SongFile file in next.SongFiles)
+				foreach (SongFile file in affected)
 				{
-					await ReplaceFromStageAsync(
-						GetManagedPath(stageDirectory, file.RelativePath),
-						GetManagedPath(directory, file.RelativePath),
-						cancellationToken).ConfigureAwait(false);
-					this.faultInjector?.Invoke(FileSystemCommitStep.ManagedAssetReplaced);
+					cancellationToken.ThrowIfCancellationRequested();
+					string source = GetManagedPath(directory, file.RelativePath);
+					if (File.Exists(source))
+					{
+						string target = GetManagedPath(rollback, file.RelativePath);
+						journal.Move(source, target);
+					}
 				}
 
-				await ReplaceTextAsync(Path.Combine(directory, DatabaseFileName), DatabaseJson.Serialize(next), cancellationToken)
-					.ConfigureAwait(false);
+				this.faultInjector?.Invoke(FileSystemCommitStep.RollbackSnapshotCreated);
+				this.InstallAssets(directory, stageDirectory, rollback, installed, previousFiles, writtenHashes, journal, cancellationToken);
+
+				await ReplaceTextAsync(targetJson, databaseJson, cancellationToken).ConfigureAwait(false);
+				this.assetPaths.TryRemove(location.Token, out _);
+				databaseReplaced = true;
 				this.faultInjector?.Invoke(FileSystemCommitStep.DatabaseReplaced);
-				HashSet<string> nextPaths = new(next.SongFiles.Select(file => file.RelativePath), PortableManagedFileName.Comparer);
-				foreach (SongFile oldFile in current.SongFiles.Where(file => !nextPaths.Contains(file.RelativePath)))
-				{
-					File.Delete(GetManagedPath(directory, oldFile.RelativePath));
-				}
+				journal.Complete();
 			}
 			catch
 			{
-				await RestoreAsync(directory, rollback, current, next).ConfigureAwait(false);
+				if (databaseReplaced)
+				{
+					await ReplaceTextAsync(targetJson, currentJson, CancellationToken.None).ConfigureAwait(false);
+				}
+
+				journal.Rollback();
+				journal.Discard();
 				throw;
 			}
 		}
@@ -600,20 +691,6 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	}
 
 #pragma warning disable SA1204 // Keeping transaction helpers adjacent makes the commit/rollback flow auditable.
-	private static async Task ReplaceFromStageAsync(string source, string target, CancellationToken cancellationToken)
-	{
-		string temporary = target + $".{Guid.NewGuid():N}.tmp";
-		try
-		{
-			await CopyFileAsync(source, temporary, cancellationToken).ConfigureAwait(false);
-			File.Move(temporary, target, overwrite: true);
-		}
-		finally
-		{
-			File.Delete(temporary);
-		}
-	}
-
 	private static async Task ReplaceTextAsync(string target, string text, CancellationToken cancellationToken)
 	{
 		string temporary = target + $".{Guid.NewGuid():N}.tmp";
@@ -628,30 +705,6 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		}
 	}
 
-	private static async Task RestoreAsync(
-		string directory,
-		string rollback,
-		ChordDatabase current,
-		ChordDatabase attempted)
-	{
-		foreach (SongFile file in current.SongFiles)
-		{
-			string backup = GetManagedPath(rollback, file.RelativePath);
-			if (File.Exists(backup))
-			{
-				await ReplaceFromStageAsync(backup, GetManagedPath(directory, file.RelativePath), CancellationToken.None).ConfigureAwait(false);
-			}
-		}
-
-		HashSet<string> currentPaths = new(current.SongFiles.Select(file => file.RelativePath), PortableManagedFileName.Comparer);
-		foreach (SongFile file in attempted.SongFiles.Where(file => !currentPaths.Contains(file.RelativePath)))
-		{
-			File.Delete(GetManagedPath(directory, file.RelativePath));
-		}
-
-		string databaseBackup = Path.Combine(rollback, DatabaseFileName);
-		await ReplaceFromStageAsync(databaseBackup, Path.Combine(directory, DatabaseFileName), CancellationToken.None).ConfigureAwait(false);
-	}
 #pragma warning restore SA1204
 
 	private string GetPath(BookLocation location)
@@ -686,6 +739,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			throw new BookStoreException($"Book ID {databaseId} is already open at a different directory.");
 		}
 
+		this.assetPaths.TryRemove(databaseId, out _);
 		this.paths[databaseId] = directory;
 		return new(this.storeId, databaseId);
 	}
@@ -694,13 +748,16 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 
 	#region Private Types
 
+	private sealed record AssetPathIndex(long Length, DateTime ModifiedUtc, Dictionary<Guid, string> Paths);
+
 	private sealed class StagedWrite : IStagedBookWrite
 	{
 		private readonly FileSystemBookStore owner;
 		private readonly BookLocation location;
 		private readonly string directory;
 		private readonly string stageDirectory;
-		private readonly string expectedDatabaseHash;
+		private readonly string expectedDatabaseJson;
+		private readonly Dictionary<Guid, string> writtenHashes = [];
 		private Dictionary<Guid, string>? assets;
 		private string databaseJson;
 
@@ -711,7 +768,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			string stageDirectory,
 			string databaseJson,
 			Dictionary<Guid, string> assets,
-			string expectedDatabaseHash)
+			string expectedDatabaseJson)
 		{
 			this.owner = owner;
 			this.location = location;
@@ -719,7 +776,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			this.stageDirectory = stageDirectory;
 			this.databaseJson = databaseJson;
 			this.assets = assets;
-			this.expectedDatabaseHash = expectedDatabaseHash;
+			this.expectedDatabaseJson = expectedDatabaseJson;
 		}
 
 		public Task WriteDatabaseJsonAsync(string json, CancellationToken cancellationToken = default)
@@ -738,22 +795,14 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		{
 			Dictionary<Guid, string> activeAssets = this.EnsureActive();
 			string target = GetManagedPath(this.stageDirectory, relativePath);
+			string hash = await WriteAssetContentAsync(target, content, cancellationToken).ConfigureAwait(false);
 			if (activeAssets.TryGetValue(songFileId, out string? oldPath)
 				&& !PortableManagedFileName.Comparer.Equals(oldPath, relativePath))
 			{
 				File.Delete(GetManagedPath(this.stageDirectory, oldPath));
 			}
 
-			await using FileStream output = new(
-				target,
-				FileMode.Create,
-				FileAccess.Write,
-				FileShare.None,
-				BufferSize,
-				FileOptions.Asynchronous | FileOptions.WriteThrough);
-			await content.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-			await output.FlushAsync(cancellationToken).ConfigureAwait(false);
-			output.Flush(flushToDisk: true);
+			this.writtenHashes[songFileId] = hash;
 			activeAssets[songFileId] = relativePath;
 		}
 
@@ -770,7 +819,11 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			}
 
 			string target = GetManagedPath(this.stageDirectory, relativePath);
-			File.Move(GetManagedPath(this.stageDirectory, oldPath), target);
+			if (this.writtenHashes.ContainsKey(songFileId) && !StringComparer.Ordinal.Equals(oldPath, relativePath))
+			{
+				File.Move(GetManagedPath(this.stageDirectory, oldPath), target);
+			}
+
 			activeAssets[songFileId] = relativePath;
 			return Task.CompletedTask;
 		}
@@ -785,6 +838,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			}
 
 			File.Delete(GetManagedPath(this.stageDirectory, path));
+			this.writtenHashes.Remove(songFileId);
 			return Task.CompletedTask;
 		}
 
@@ -797,7 +851,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				this.stageDirectory,
 				this.databaseJson,
 				activeAssets,
-				this.expectedDatabaseHash,
+				this.writtenHashes,
+				this.expectedDatabaseJson,
 				cancellationToken).ConfigureAwait(false);
 			this.assets = null;
 			Directory.Delete(this.stageDirectory, recursive: true);
@@ -806,7 +861,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		public ValueTask DisposeAsync()
 		{
 			this.assets = null;
-			if (Directory.Exists(this.stageDirectory))
+			if (Directory.Exists(this.stageDirectory) && !File.Exists(Path.Combine(this.stageDirectory, AssetMoveJournal.FileName)))
 			{
 				Directory.Delete(this.stageDirectory, recursive: true);
 			}

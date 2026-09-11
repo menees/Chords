@@ -6,29 +6,43 @@
 	xmlns:local="clr-namespace:Menees.Chords.Book.Maui"
 	Title="ChordBook">
 	<Grid>
-		<Grid x:Name="ManagementSurface" RowDefinitions="Auto,Auto,*,Auto" BackgroundColor="#F8F7FA">
-			<Grid Padding="12" ColumnDefinitions="*,220,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#EEEAF4">
-				<Label x:Name="BookName" FontSize="22" FontAttributes="Bold" VerticalOptions="Center" />
+		<Grid x:Name="ManagementSurface" RowDefinitions="Auto,Auto,Auto,*,Auto" BackgroundColor="#F8F7FA">
+			<Grid Padding="8" ColumnDefinitions="Auto,*,220,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#EEEAF4">
+				<Button x:Name="ManagementBackButton" IsVisible="False" Text="← Back" Clicked="HandleBackClicked" />
+				<Label x:Name="BookName" Grid.Column="1" FontSize="22" FontAttributes="Bold" VerticalOptions="Center" />
 				<Picker
 					x:Name="RecentBooks"
-					Grid.Column="1"
+					Grid.Column="2"
 					Title="Recent books"
 					ItemDisplayBinding="{Binding Name}"
 					SelectedIndexChanged="HandleRecentBookSelected" />
-				<Button x:Name="NewBookButton" Grid.Column="2" Text="New Book…" Clicked="HandleNewBookClicked" />
-				<Button x:Name="OpenBookButton" Grid.Column="3" Text="Open Book…" Clicked="HandleOpenBookClicked" />
-				<Button x:Name="RenameBookButton" Grid.Column="4" Text="Rename…" Clicked="HandleRenameBookClicked" />
-				<Button x:Name="ImportButton" Grid.Column="5" Text="Import…" Clicked="HandleImportClicked" />
+				<Button x:Name="NewBookButton" Grid.Column="3" Text="New Book…" Clicked="HandleNewBookClicked" />
+				<Button x:Name="OpenBookButton" Grid.Column="4" Text="Open Book…" Clicked="HandleOpenBookClicked" />
+				<Button x:Name="RenameBookButton" Grid.Column="5" Text="Rename…" Clicked="HandleRenameBookClicked" />
+				<Button x:Name="ImportButton" Grid.Column="6" Text="Import…" Clicked="HandleImportClicked" />
 			</Grid>
 
-			<Grid Grid.Row="1" Padding="12,8" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8" BackgroundColor="#F8F7FA">
+			<local:BookTabs x:Name="ManagementTabs" Grid.Row="1" HeightRequest="48" SelectionChanged="HandleManagementTabChanged" />
+
+			<Grid x:Name="SongToolbar" Grid.Row="2" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#F8F7FA">
 				<Label Text="Songs" FontAttributes="Bold" FontSize="20" VerticalOptions="Center" />
 				<SearchBar x:Name="SongSearch" Grid.Column="1" Placeholder="Search titles, artists, tags, and metadata" TextChanged="HandleSearchTextChanged" />
 				<Label Grid.Column="2" Text="Show archived" VerticalOptions="Center" />
 				<CheckBox x:Name="ShowArchived" Grid.Column="3" CheckedChanged="HandleShowArchivedChanged" />
+				<Button Grid.Column="4" Text="Select" Clicked="HandleSelectSongsClicked" />
 			</Grid>
 
-			<Grid Grid.Row="2" ColumnDefinitions="*,Auto">
+			<Grid x:Name="SongSelectionToolbar" Grid.Row="2" IsVisible="False" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#E4DEEB">
+				<Label x:Name="SelectedSongCount" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
+				<Button Grid.Column="2" Text="Add to Setlist…" Clicked="HandleAddSelectedSongsClicked" />
+				<Button x:Name="EditSelectedSongButton" Grid.Column="3" Text="Edit…" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
+                <Button x:Name="ArchiveSelectedSongsButton" Grid.Column="4" Text="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
+                <Button x:Name="RestoreSelectedSongsButton" Grid.Column="5" Text="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
+                <Button x:Name="DeleteSelectedSongsButton" Grid.Column="6" Text="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
+                <Button Grid.Column="7" Text="Cancel" Clicked="HandleCancelSongSelectionClicked" />
+			</Grid>
+
+			<Grid x:Name="SongSurface" Grid.Row="3" ColumnDefinitions="*,Auto">
 				<CollectionView
 					x:Name="SongList"
 					Margin="8,0,2,0"
@@ -51,11 +65,12 @@
 					</CollectionView.GroupHeaderTemplate>
 					<CollectionView.ItemTemplate>
 						<DataTemplate x:DataType="local:SongRow">
-							<Label
-								Text="{Binding DisplayText}"
-								Padding="8,4"
-								FontSize="14"
-								LineBreakMode="WordWrap" />
+							<Grid Padding="8,4">
+								<Label
+									Text="{Binding DisplayText}" TextColor="{Binding RowTextColor}" FontAttributes="{Binding RowFontAttributes}"
+									FontSize="14"
+									LineBreakMode="WordWrap" />
+							</Grid>
 						</DataTemplate>
 					</CollectionView.ItemTemplate>
 				</CollectionView>
@@ -65,7 +80,79 @@
 				</ScrollView>
 			</Grid>
 
-			<Grid Grid.Row="3" Padding="12,6" ColumnDefinitions="*,Auto" BackgroundColor="#25232A">
+			<Grid x:Name="SetlistSurface" Grid.Row="2" Grid.RowSpan="2" IsVisible="False">
+				<Grid x:Name="SetlistOverview" RowDefinitions="Auto,*">
+					<Grid Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
+						<Label x:Name="SetlistHeading" Text="Setlists" FontAttributes="Bold" FontSize="20" VerticalOptions="Center" />
+						<SearchBar x:Name="SetlistSearch" Grid.Column="1" Placeholder="Search setlist names, dates, and notes" TextChanged="HandleSetlistSearchTextChanged" />
+						<Label Grid.Column="2" Text="Show archived" VerticalOptions="Center" />
+						<CheckBox x:Name="ShowArchivedSetlists" Grid.Column="3" CheckedChanged="HandleShowArchivedSetlistsChanged" />
+						<Button Grid.Column="4" Text="New Setlist…" Clicked="HandleNewSetlistClicked" />
+					</Grid>
+					<Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+						<CollectionView
+							x:Name="SetlistList"
+							Margin="8,0,2,0"
+							IsGrouped="True"
+							ItemSizingStrategy="MeasureAllItems"
+							SelectionMode="Single"
+							SelectionChanged="HandleSetlistSelected">
+							<CollectionView.GroupHeaderTemplate>
+								<DataTemplate x:DataType="local:SetlistGroup">
+									<Label Text="{Binding Key}" Padding="8,2" FontAttributes="Bold" TextColor="White" BackgroundColor="#55525A" />
+								</DataTemplate>
+							</CollectionView.GroupHeaderTemplate>
+							<CollectionView.ItemTemplate>
+								<DataTemplate x:DataType="local:SetlistRow">
+									<Label Text="{Binding DisplayText}" TextColor="{Binding RowTextColor}" FontAttributes="{Binding RowFontAttributes}" Padding="8,4" FontSize="14" LineBreakMode="WordWrap" />
+								</DataTemplate>
+							</CollectionView.ItemTemplate>
+						</CollectionView>
+						<ScrollView Grid.Column="1" WidthRequest="40" VerticalScrollBarVisibility="Never">
+							<VerticalStackLayout x:Name="SetlistJumpLetters" Spacing="0" Padding="2,0" />
+						</ScrollView>
+					</Grid>
+				</Grid>
+
+				<Grid x:Name="SetlistDetail" IsVisible="False" RowDefinitions="Auto,*">
+					<Grid Padding="12,4" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+						<VerticalStackLayout VerticalOptions="Center" Spacing="0">
+							<Label x:Name="SetlistDetailName" FontAttributes="Bold" FontSize="20" />
+							<Label x:Name="SetlistDetailMetadata" FontSize="12" TextColor="#55525A" />
+						</VerticalStackLayout>
+						<Button x:Name="AddSetlistSongsButton" Grid.Column="1" Text="Add Songs…" Clicked="HandleAddSetlistSongsClicked" />
+						<Button x:Name="RenameSetlistButton" Grid.Column="2" Text="Rename…" Clicked="HandleRenameSetlistClicked" />
+						<Button x:Name="EditSetlistButton" Grid.Column="3" Text="Edit" Clicked="HandleEditSetlistClicked" />
+						<Button x:Name="ArchiveSetlistButton" Grid.Column="4" Text="Archive" IsVisible="False" Clicked="HandleArchiveSetlistClicked" />
+                        <Button x:Name="DeleteSetlistButton" Grid.Column="5" Text="Delete Permanently…" IsVisible="False" Clicked="HandleDeleteSetlistClicked" />
+					</Grid>
+					<CollectionView
+						x:Name="SetlistEntries"
+						Grid.Row="1"
+						Margin="8,0"
+						SelectionMode="Single"
+						ReorderCompleted="HandleSetlistReorderCompleted" SelectionChanged="HandleSetlistEntrySelected">
+						<CollectionView.EmptyView>
+							<Label Margin="12" Text="This setlist is empty. Choose Add Songs to begin building it." />
+						</CollectionView.EmptyView>
+						<CollectionView.ItemTemplate>
+							<DataTemplate x:DataType="local:SetlistEntryRow">
+								<Grid ColumnDefinitions="64,*,Auto,Auto,Auto" Padding="8,3" ColumnSpacing="5">
+
+									<Label Text="{Binding Position}" IsVisible="{Binding IsViewing}" HorizontalTextAlignment="Center" VerticalOptions="Center" />
+                                    <local:PositionEntry Text="{Binding Position, Mode=OneWay}" IsVisible="{Binding IsEditing}" Keyboard="Numeric" HorizontalTextAlignment="Center" PositionSubmitted="HandleSetlistPositionCompleted" Unfocused="HandleSetlistPositionUnfocused" SemanticProperties.Description="Song position, starting at 1. Press Enter to move." />
+									<Label Grid.Column="1" Text="{Binding DisplayText}" TextColor="{Binding Song.RowTextColor}" FontAttributes="{Binding Song.RowFontAttributes}" FontSize="14" LineBreakMode="WordWrap" VerticalOptions="Center" />
+									<Button Grid.Column="2" Text="↑" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveUp}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryUpClicked" />
+									<Button Grid.Column="3" Text="↓" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveDown}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryDownClicked" />
+									<Button Grid.Column="4" Text="Remove" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleRemoveSetlistEntryClicked" />
+								</Grid>
+							</DataTemplate>
+						</CollectionView.ItemTemplate>
+					</CollectionView>
+				</Grid>
+			</Grid>
+
+			<Grid Grid.Row="4" Padding="12,6" ColumnDefinitions="*,Auto" BackgroundColor="#25232A">
 				<Label x:Name="Status" Text="Starting ChordBook…" TextColor="White" LineBreakMode="TailTruncation" />
 				<Label
 					x:Name="BookPath"
@@ -82,25 +169,30 @@
 		</Grid>
 
 		<Grid x:Name="PerformanceSurface" IsVisible="False" RowDefinitions="Auto,*" BackgroundColor="Black">
-			<Grid Padding="6" ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="6" BackgroundColor="#25232A">
-				<Button Text="← Library" Clicked="HandleExitPerformanceClicked" />
+			<Grid Padding="8" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6" BackgroundColor="#25232A">
+				<Button Text="← Back" Clicked="HandleBackClicked" />
 				<Button x:Name="PreviousSongButton" Grid.Column="1" Text="← Previous" Clicked="HandlePreviousSongClicked" />
+				<Button Grid.Column="2" Text="Add to Setlist…" Clicked="HandleAddToSetlistClicked" />
 				<Label
 					x:Name="PerformanceTitle"
-					Grid.Column="2"
+					Grid.Column="3"
 					FontSize="18"
 					FontAttributes="Bold"
 					TextColor="White"
 					HorizontalTextAlignment="Center"
 					VerticalOptions="Center"
 					LineBreakMode="TailTruncation" />
-				<Label x:Name="PerformancePosition" Grid.Column="3" TextColor="#D7CAE9" VerticalOptions="Center" />
-				<Button x:Name="NextSongButton" Grid.Column="4" Text="Next →" Clicked="HandleNextSongClicked" />
+				<Label x:Name="PerformancePosition" Grid.Column="4" TextColor="#D7CAE9" VerticalOptions="Center" />
+				<Button x:Name="NextSongButton" Grid.Column="5" Text="Next →" Clicked="HandleNextSongClicked" />
+                <Button Grid.Column="6" Text="Edit…" Clicked="HandleEditCurrentSongClicked" />
+                <Button Grid.Column="7" Text="Metronome…" Clicked="HandleMetronomeClicked" />
 			</Grid>
 			<WebView
 				x:Name="SongViewer"
 				Grid.Row="1"
+				Navigating="HandleSongViewerNavigating"
 				Navigated="HandleSongViewerNavigated"
+				Unloaded="HandleSongViewerUnloaded"
 				SizeChanged="HandleSongViewerSizeChanged" />
 		</Grid>
 	</Grid>

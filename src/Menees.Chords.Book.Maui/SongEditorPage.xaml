@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Menees.Chords.Book.Maui.SongEditorPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" Title="Edit Song">
+    <Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
+        <HorizontalStackLayout Spacing="12">
+            <Label Text="Edit Song" FontSize="22" VerticalOptions="Center" />
+            <Button Text="Save" Clicked="HandleSave" />
+            <Button Text="Cancel" Clicked="HandleCancel" />
+        </HorizontalStackLayout>
+        <VerticalStackLayout Grid.Row="1" Spacing="4">
+            <Label Text="Catalog title" />
+            <Entry x:Name="songTitle" Placeholder="Title" />
+            <Label Text="Artists (semicolon separated)" />
+            <Entry x:Name="artists" />
+            <Label Text="Tags (semicolon separated)" />
+            <Entry x:Name="tags" />
+            <Label x:Name="editingHint" />
+        </VerticalStackLayout>
+        <Editor x:Name="text" Grid.Row="2" FontFamily="Consolas" FontSize="15" />
+        <Label x:Name="status" Grid.Row="3" TextColor="DarkRed" />
+    </Grid>
+</ContentPage>

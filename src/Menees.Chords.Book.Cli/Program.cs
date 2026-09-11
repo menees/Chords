@@ -62,6 +62,11 @@ internal static class Program
 				args[2],
 				args.ElementAtOrDefault(CommandAndTwoArguments)).ConfigureAwait(false),
 			"import" when args.Length == CommandAndTwoArguments => await ImportAsync(args[1], args[2]).ConfigureAwait(false),
+			"import-mobilesheets-setlists" when args.Length is CommandAndTwoArguments or CommandAndThreeArguments
+				=> await ImportMobileSheetsSetlistsAsync(
+					args[1],
+					args[2],
+					args.Length == CommandAndThreeArguments && args[3] == "--apply").ConfigureAwait(false),
 			_ => ShowUsage(),
 		};
 		return result;
@@ -106,6 +111,23 @@ internal static class Program
 		BookLocation location = await store.OpenBookAsync(bookDirectory).ConfigureAwait(false);
 		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location).ConfigureAwait(false));
 		Console.WriteLine($"{database.Name}: {database.Songs.Count} songs, {database.SongFiles.Count} files, {database.Setlists.Count} setlists");
+		return 0;
+	}
+
+	private static async Task<int> ImportMobileSheetsSetlistsAsync(
+		string bookDirectory,
+		string extractDirectory,
+		bool apply)
+	{
+		MobileSheetsSetlistImportResult result = await MobileSheetsSetlistImporter.ImportAsync(
+			bookDirectory,
+			extractDirectory,
+			HarnessDeviceId,
+			apply).ConfigureAwait(false);
+		Console.WriteLine(
+			$"{(result.Applied ? "Imported" : "Would import")} {result.AddedSetlistCount} setlists, "
+			+ $"{result.EntryCount} ordered entries, and {result.ImportedSongCount} missing songs. "
+			+ $"{result.ExistingSetlistCount} setlists already exist.");
 		return 0;
 	}
 
@@ -166,6 +188,7 @@ internal static class Program
 			  reconcile <book-folder> [--apply]
 			  search <book-folder> <query>
 			  import <book-folder> <source-file>
+			  import-mobilesheets-setlists <book-folder> <extract-folder> [--apply]
 			  backup <book-folder> <output.mcbbak>
 			  restore <input.mcbbak> <books-root> [new-name]
 			""");

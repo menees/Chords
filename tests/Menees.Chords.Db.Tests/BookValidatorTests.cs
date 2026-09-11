@@ -193,6 +193,16 @@ public sealed class BookValidatorTests
 		public Task DeleteBookAsync(BookLocation location, CancellationToken cancellationToken = default)
 			=> throw new NotSupportedException();
 
+		public Task<string> CommitMetadataAsync(
+			BookLocation location, string expectedJson, ChordDatabase database, CancellationToken cancellationToken = default)
+			=> throw new NotSupportedException();
+
+		public Task CommitMetadataAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken = default)
+			=> throw new NotSupportedException();
+
+		public Task<IStagedBookWrite> StageWriteAsync(BookLocation location, string expectedJson, CancellationToken cancellationToken = default)
+			=> throw new NotSupportedException();
+
 		public Task<IStagedBookWrite> StageWriteAsync(BookLocation location, CancellationToken cancellationToken = default)
 			=> throw new NotSupportedException();
 

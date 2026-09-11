@@ -90,7 +90,7 @@ public sealed class InMemoryBookStore : IBookStore
 				pair.Key,
 				pair.Value.RelativePath,
 				pair.Value.Content.LongLength,
-				Convert.ToHexString(SHA256.HashData(pair.Value.Content)).ToLowerInvariant()))];
+				pair.Value.ContentHash))];
 		}
 
 		foreach (ManagedAssetDescriptor descriptor in descriptors)
@@ -116,8 +116,51 @@ public sealed class InMemoryBookStore : IBookStore
 				throw new KeyNotFoundException("The managed asset does not exist.");
 			}
 
-			return Task.FromResult<Stream>(new MemoryStream([.. asset.Content], writable: false));
+			return Task.FromResult<Stream>(new MemoryStream(asset.Content, writable: false));
 		}
+	}
+
+	/// <inheritdoc />
+	public Task CommitMetadataAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		MetadataCommit.Validate(location, expectedJson, updatedJson);
+		lock (this.syncRoot)
+		{
+			BookState current = this.GetState(location);
+			if (!StringComparer.Ordinal.Equals(current.DatabaseJson, expectedJson))
+			{
+				throw new BookStoreConcurrencyException();
+			}
+
+			this.books[location.Token] = new BookState(updatedJson, current.Assets, current.Version + 1);
+		}
+
+		return Task.CompletedTask;
+	}
+
+	/// <inheritdoc />
+	public Task<string> CommitMetadataAsync(
+		BookLocation location,
+		string expectedJson,
+		ChordDatabase database,
+		CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		MetadataCommit.Validate(location, expectedJson, database);
+		string json = DatabaseJson.Serialize(database);
+		lock (this.syncRoot)
+		{
+			BookState current = this.GetState(location);
+			if (!StringComparer.Ordinal.Equals(current.DatabaseJson, expectedJson))
+			{
+				throw new BookStoreConcurrencyException();
+			}
+
+			this.books[location.Token] = new BookState(json, current.Assets, current.Version + 1);
+		}
+
+		return Task.FromResult(json);
 	}
 
 	/// <inheritdoc />
@@ -127,11 +170,23 @@ public sealed class InMemoryBookStore : IBookStore
 		lock (this.syncRoot)
 		{
 			BookState state = this.GetState(location);
-			Dictionary<Guid, AssetState> assets = state.Assets.ToDictionary(
-				pair => pair.Key,
-				pair => new AssetState(pair.Value.RelativePath, [.. pair.Value.Content]));
+			Dictionary<Guid, AssetState> assets = new(state.Assets);
 			IStagedBookWrite result = new StagedWrite(this, location, state.DatabaseJson, assets, state.Version);
 			return Task.FromResult(result);
+		}
+	}
+
+	/// <inheritdoc />
+	public Task<IStagedBookWrite> StageWriteAsync(BookLocation location, string expectedJson, CancellationToken cancellationToken = default)
+	{
+		lock (this.syncRoot)
+		{
+			if (!StringComparer.Ordinal.Equals(this.GetState(location).DatabaseJson, expectedJson))
+			{
+				throw new BookStoreConcurrencyException();
+			}
+
+			return this.StageWriteAsync(location, cancellationToken);
 		}
 	}
 
@@ -182,7 +237,7 @@ public sealed class InMemoryBookStore : IBookStore
 				throw new BookStoreValidationException($"Asset {file.Id:D} has a path that does not match the database.");
 			}
 
-			string hash = Convert.ToHexString(SHA256.HashData(asset.Content)).ToLowerInvariant();
+			string hash = asset.ContentHash;
 			if (!string.IsNullOrEmpty(file.ContentHash) && !StringComparer.OrdinalIgnoreCase.Equals(file.ContentHash, hash))
 			{
 				throw new BookStoreValidationException($"Asset {file.Id:D} does not match its content hash.");
@@ -225,7 +280,10 @@ public sealed class InMemoryBookStore : IBookStore
 
 	#region Private Types
 
-	private sealed record AssetState(string RelativePath, byte[] Content);
+	private sealed record AssetState(string RelativePath, byte[] Content)
+	{
+		public string ContentHash { get; } = Convert.ToHexString(SHA256.HashData(Content)).ToLowerInvariant();
+	}
 
 	private sealed record BookState(string DatabaseJson, Dictionary<Guid, AssetState> Assets, long Version);
 

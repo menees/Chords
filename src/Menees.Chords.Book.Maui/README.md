@@ -15,8 +15,17 @@ first vertical slice of Phase 2:
   with a filtered jump index;
 - version and refresh extracted directive metadata once when an older book is opened, without rewriting managed song bytes;
 - use a full-window management surface for library and book work;
+- browse and filter an information-dense `#`/A-Z-grouped setlist catalog with a used-letter jump index, song counts,
+  known total durations, dates, and searchable notes;
+- open an ordered setlist, enter an explicit edit mode, rename it, add or remove songs, and move entries up or down;
+- enter an explicit multi-select mode from the filtered song catalog and append all selected songs to a new or existing
+  setlist with one database commit, while preserving the visible order;
+- use the same top-left **Back** placement to leave performance and setlist-detail views, with the same navigation
+  hierarchy exposed through Android's system Back button;
+- use the same top-left **Back** placement to leave performance and setlist-detail views, with the same navigation
+  hierarchy exposed through Android's system Back button;
 - switch to a separate full-window performance surface and initially focus its viewer when rendering a managed text chart or PDF;
-- move to the previous or next song in the filtered management context, then return to the unchanged library view;
+- move to the previous or next song in either the filtered library or selected setlist context, then return to the unchanged management view;
 - advance paginated text charts by exactly one rendered page with Page Up and Page Down; and
 - open the current book folder in Windows File Explorer from the status-bar link.
 
@@ -33,3 +42,7 @@ The project intentionally targets Windows in the production build today. On non-
 hosts it compiles an empty placeholder so the repository's shared-library CI remains
 cross-platform. Future MAUI targets can replace platform adapters without changing the
 database or store contracts.
+
+September 6 update: Select mode uses the native list selection indicator without a duplicate row checkbox. Viewer resize scripts wait for successful navigation and stop when performance closes or the viewer unloads; obsolete song loads cannot reopen the viewer after Back. Setlist Edit now offers Archive/Restore. Enable Show archived in the setlist overview to find archived lists; their ordered entries are retained. Archive/restore persistence is covered by the application tests. The Windows build passes; desktop interaction verification remains pending because Computer Use app approval timed out.
+
+September 7 storage update: metadata changes now mutate the active database in place and save only JSON. Asset transactions stage only incoming content and move only affected files, with an interruption-recovery journal. Unchanged assets are never copied or hashed during ordinary book/setlist operations. Batch imports and backups process asset payloads incrementally. See `REORDER_AUDIT.md` at the repository root for measurements and verification limits. Computer Use is disabled at the user's request.

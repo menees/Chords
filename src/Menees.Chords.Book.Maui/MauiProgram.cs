@@ -16,7 +16,10 @@ public static class MauiProgram
 	{
 		MauiAppBuilder builder = MauiApp.CreateBuilder();
 		builder.UseMauiApp<App>();
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<BookTabs, BookTabsHandler>());
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<PositionEntry, PositionEntryHandler>());
 		builder.Services.AddSingleton<IWindowsPicker, WindowsPicker>();
+		builder.Services.AddSingleton<IMetronomeEngine, WindowsMetronomeEngine>();
 		builder.Services.AddSingleton<BookApplicationSession>();
 		builder.Services.AddSingleton<BookSession>();
 		builder.Services.AddSingleton<MainPage>();

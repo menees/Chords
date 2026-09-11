@@ -126,9 +126,75 @@ public sealed partial class BookSession : IDisposable
 				.Select(song => new SongRow(
 					song.Id,
 					song.Title,
-					song.DisplayText)),
+					song.DisplayText,
+					song.IsArchived)),
 		];
 	}
+
+	public IReadOnlyList<SetlistRow> GetSetlists(bool includeArchived = false)
+		=>
+		[
+			.. this.application.GetSetlists(includeArchived).Select(setlist => new SetlistRow(
+				setlist.Id,
+				setlist.Name,
+				setlist.Date,
+				setlist.Notes,
+				setlist.EntryCount,
+				setlist.KnownDurationCount,
+				setlist.TotalDurationSeconds,
+				setlist.IsArchived)),
+		];
+
+	public IReadOnlyList<SetlistEntryRow> GetSetlistEntries(Guid setlistId, bool isEditing = false)
+	{
+		Dictionary<Guid, SongRow> songs = this.SearchSongs(string.Empty, includeArchived: true)
+			.ToDictionary(song => song.Id);
+		IReadOnlyList<SetlistEntryCatalogItem> entries = this.application.GetSetlistEntries(setlistId);
+		return
+		[
+			.. entries.Select((entry, index) => new SetlistEntryRow(
+				entry.EntryId,
+				songs[entry.SongId],
+				index + 1,
+				isEditing,
+				index > 0,
+				index + 1 < entries.Count)),
+		];
+	}
+
+	public Task<Guid> CreateSetlistAsync(string name, CancellationToken cancellationToken = default)
+		=> this.application.CreateSetlistAsync(name, this.DeviceId, cancellationToken);
+
+	public Task RenameSetlistAsync(Guid setlistId, string name, CancellationToken cancellationToken = default)
+		=> this.application.RenameSetlistAsync(setlistId, name, this.DeviceId, cancellationToken);
+
+	public Task SetSetlistArchivedAsync(Guid setlistId, bool isArchived, CancellationToken cancellationToken = default)
+		=> this.application.SetSetlistArchivedAsync(setlistId, isArchived, this.DeviceId, cancellationToken);
+
+	public Task<Guid> AddSongToSetlistAsync(
+		Guid setlistId,
+		Guid songId,
+		CancellationToken cancellationToken = default)
+		=> this.application.AddSongToSetlistAsync(setlistId, songId, this.DeviceId, cancellationToken);
+
+	public Task<IReadOnlyList<Guid>> AddSongsToSetlistAsync(
+		Guid setlistId,
+		IReadOnlyList<Guid> songIds,
+		CancellationToken cancellationToken = default)
+		=> this.application.AddSongsToSetlistAsync(setlistId, songIds, this.DeviceId, cancellationToken);
+
+	public Task RemoveSetlistEntryAsync(
+		Guid setlistId,
+		Guid entryId,
+		CancellationToken cancellationToken = default)
+		=> this.application.RemoveSetlistEntryAsync(setlistId, entryId, this.DeviceId, cancellationToken);
+
+	public Task MoveSetlistEntryAsync(
+		Guid setlistId,
+		Guid entryId,
+		int offset,
+		CancellationToken cancellationToken = default)
+		=> this.application.MoveSetlistEntryAsync(setlistId, entryId, offset, this.DeviceId, cancellationToken);
 
 	public Task OpenRecentAsync(RecentBook book, CancellationToken cancellationToken = default)
 	{
@@ -167,7 +233,7 @@ public sealed partial class BookSession : IDisposable
 			DateTime oldestActiveWrite = DateTime.UtcNow - TimeSpan.FromMinutes(AbandonedStageMinutes);
 			foreach (string directory in Directory.EnumerateDirectories(rootDirectory, StagePattern, SearchOption.TopDirectoryOnly))
 			{
-				if (Directory.GetLastWriteTimeUtc(directory) < oldestActiveWrite)
+				if (Directory.GetLastWriteTimeUtc(directory) < oldestActiveWrite && !File.Exists(Path.Combine(directory, ".moves")))
 				{
 					Directory.Delete(directory, recursive: true);
 				}

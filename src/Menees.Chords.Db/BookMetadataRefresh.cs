@@ -22,8 +22,8 @@ public static class BookMetadataRefresh
 	{
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(location);
-		ChordDatabase database = DatabaseJson.Deserialize(
-			await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
+		string expectedJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
+		ChordDatabase database = DatabaseJson.Deserialize(expectedJson);
 		HashSet<Guid> affectedSongIds =
 		[
 			.. database.SongFiles
@@ -36,6 +36,8 @@ public static class BookMetadataRefresh
 		{
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 			Dictionary<Guid, SongFileAnalysis> analyses = [];
+			Dictionary<Guid, Song> songs = database.Songs.ToDictionary(song => song.Id);
+			ILookup<Guid, SongFile> filesBySong = database.SongFiles.ToLookup(file => file.SongId);
 			foreach (SongFile file in database.SongFiles.Where(file => affectedSongIds.Contains(file.SongId)))
 			{
 				try
@@ -68,15 +70,15 @@ public static class BookMetadataRefresh
 
 			foreach (Guid songId in affectedSongIds)
 			{
-				SongFile? metadataFile = database.SongFiles
-					.Where(file => file.SongId == songId && !file.IsArchived
+				SongFile? metadataFile = filesBySong[songId]
+					.Where(file => !file.IsArchived
 						&& analyses.TryGetValue(file.Id, out SongFileAnalysis? analysis) && analysis.MediaKind == MediaKind.Text)
 					.OrderByDescending(file => file.DisplayPriority)
 					.ThenBy(file => file.Id)
 					.FirstOrDefault();
 				if (metadataFile is not null)
 				{
-					ApplyMetadata(database.Songs.Single(song => song.Id == songId), analyses[metadataFile.Id], deviceId, now);
+					ApplyMetadata(songs[songId], analyses[metadataFile.Id], deviceId, now);
 					updatedSongCount++;
 				}
 			}
@@ -84,9 +86,7 @@ public static class BookMetadataRefresh
 			if (analyzedFileCount > 0)
 			{
 				database.Revision = NextRevision(database.Revision, deviceId, now);
-				await using IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken).ConfigureAwait(false);
-				await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
-				await write.CommitAsync(cancellationToken).ConfigureAwait(false);
+				await store.CommitMetadataAsync(location, expectedJson, DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
 			}
 		}
 

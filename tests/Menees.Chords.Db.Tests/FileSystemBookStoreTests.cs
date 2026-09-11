@@ -43,6 +43,124 @@ public sealed class FileSystemBookStoreTests
 	}
 
 	[TestMethod]
+	public async Task ActiveWriterLeaseRejectsMetadataAndAssetCommits()
+	{
+		var token = this.TestContext.CancellationToken;
+		using FileSystemBookStore store = new(this.directory);
+		BookLocation location = await store.CreateBookAsync("Locked", Guid.NewGuid(), token);
+		string original = await store.ReadDatabaseJsonAsync(location, token);
+		ChordDatabase database = DatabaseJson.Deserialize(original);
+		database.Name = "Blocked";
+		await using IStagedBookWrite staged = await store.StageWriteAsync(location, token);
+		await staged.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), token);
+		string lockPath = Path.Combine(store.GetDirectory(location), ".write-lock");
+		using (FileStream lease = File.Open(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+		{
+			await Should.ThrowAsync<BookStoreConcurrencyException>(() => store.CommitMetadataAsync(location, original, database, token));
+			await Should.ThrowAsync<BookStoreConcurrencyException>(() => staged.CommitAsync(token));
+		}
+
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(original);
+	}
+
+	[TestMethod]
+	[DataRow(0)]
+	[DataRow(1)]
+	[DataRow(2)]
+	[DataRow(3)]
+	public async Task InterruptedAssetMovesRecoverOnOpen(int phase)
+	{
+		const int Installed = 1;
+		const int Committed = 2;
+		const int RolledBack = 3;
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		using FileSystemBookStore store = new(this.directory);
+		BookLocation location = await store.CreateBookAsync("Recovery", device, token);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
+		AddOpenSong(database, device);
+		await CommitAsync(store, location, database, token);
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		string book = store.GetDirectory(location);
+		string stage = Path.Combine(this.directory, $".{Path.GetFileName(book)}.chordbook-stage-{Guid.NewGuid():N}");
+		Directory.CreateDirectory(Path.Combine(stage, ".rollback"));
+		SongFile file = database.SongFiles.Single();
+		byte[] replacement = Encoding.UTF8.GetBytes("{title: Replacement}");
+		file.ContentHash = SongFileAnalyzer.Hash(replacement);
+		file.ObservedLength = replacement.Length;
+		string after = DatabaseJson.Serialize(database);
+		await File.WriteAllBytesAsync(Path.Combine(stage, file.RelativePath), replacement, token);
+		using (AssetMoveJournal journal = new(book, stage, before, after))
+		{
+			journal.Move(Path.Combine(book, file.RelativePath), Path.Combine(stage, ".rollback", file.RelativePath));
+			if (phase >= Installed)
+			{
+				journal.Move(Path.Combine(stage, file.RelativePath), Path.Combine(book, file.RelativePath));
+			}
+
+			if (phase == Committed)
+			{
+				await File.WriteAllTextAsync(Path.Combine(book, "database.json"), after, token);
+			}
+			else if (phase == RolledBack)
+			{
+				journal.Rollback();
+			}
+		}
+
+		using FileSystemBookStore reopened = new(this.directory);
+		BookLocation recovered = await reopened.OpenBookAsync(book, token);
+		(await reopened.ReadDatabaseJsonAsync(recovered, token)).ShouldBe(phase == Committed ? after : before);
+		(await File.ReadAllBytesAsync(Path.Combine(book, file.RelativePath), token)).ShouldBe(phase == Committed ? replacement : TestData.OpenSongBytes());
+		Directory.Exists(stage).ShouldBeFalse();
+	}
+
+	[TestMethod]
+	public async Task MetadataCommitRejectsStaleWritesAndAssetChanges()
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		using FileSystemBookStore store = new(this.directory);
+		BookLocation location = await store.CreateBookAsync("Original", device, token);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
+		AddOpenSong(database, device);
+		await CommitAsync(store, location, database, token);
+		string original = await store.ReadDatabaseJsonAsync(location, token);
+		await using IStagedBookWrite stale = await store.StageWriteAsync(location, token);
+		database.Name = "Renamed";
+		string updated = DatabaseJson.Serialize(database);
+		await store.CommitMetadataAsync(location, original, updated, token);
+		await Should.ThrowAsync<BookStoreConcurrencyException>(() => store.CommitMetadataAsync(location, original, original, token));
+		await Should.ThrowAsync<BookStoreConcurrencyException>(() => stale.CommitAsync(token));
+		database.SongFiles[0].ContentRevision++;
+		await Should.ThrowAsync<BookStoreValidationException>(() => store.CommitMetadataAsync(location, updated, DatabaseJson.Serialize(database), token));
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(updated);
+	}
+
+	[TestMethod]
+	public async Task MetadataCancellationAndStagedCommitPreserveConcurrencyBoundary()
+	{
+		var token = this.TestContext.CancellationToken;
+		using FileSystemBookStore store = new(this.directory);
+		BookLocation location = await store.CreateBookAsync("Original", Guid.NewGuid(), token);
+		string original = await store.ReadDatabaseJsonAsync(location, token);
+		ChordDatabase database = DatabaseJson.Deserialize(original);
+		database.Name = "Canceled";
+		using CancellationTokenSource canceled = new();
+		await canceled.CancelAsync();
+		await Should.ThrowAsync<OperationCanceledException>(
+			() => store.CommitMetadataAsync(location, original, DatabaseJson.Serialize(database), canceled.Token));
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(original);
+		await using IStagedBookWrite write = await store.StageWriteAsync(location, token);
+		database.Name = "Staged";
+		string staged = DatabaseJson.Serialize(database);
+		await write.WriteDatabaseJsonAsync(staged, token);
+		await write.CommitAsync(token);
+		await Should.ThrowAsync<BookStoreConcurrencyException>(() => store.CommitMetadataAsync(location, original, original, token));
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(staged);
+	}
+
+	[TestMethod]
 	public async Task CommitPersistsAcrossStoreInstances()
 	{
 		CancellationToken cancellationToken = this.TestContext.CancellationToken;

@@ -22,7 +22,14 @@ public interface IBookStore
 	/// <summary>Reads the exact canonical database JSON.</summary>
 	Task<string> ReadDatabaseJsonAsync(BookLocation location, CancellationToken cancellationToken = default);
 
-	/// <summary>Enumerates only assets referenced by the chord database.</summary>
+	/// <summary>Atomically replaces metadata if the exact expected JSON is still current, without accessing assets.</summary>
+	/// <remarks>Book and asset identities, paths, and content must remain unchanged. Analysis and display metadata may change.</remarks>
+	Task CommitMetadataAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken = default);
+
+	/// <summary>Validates and saves mutable metadata, returning the new persistence baseline without cloning database objects.</summary>
+	Task<string> CommitMetadataAsync(BookLocation location, string expectedJson, ChordDatabase database, CancellationToken cancellationToken = default);
+
+	/// <summary>Enumerates recorded asset metadata without opening or hashing content. Use BookValidator for integrity checking.</summary>
 	IAsyncEnumerable<ManagedAssetDescriptor> EnumerateManagedAssetsAsync(
 		BookLocation location,
 		CancellationToken cancellationToken = default);
@@ -35,6 +42,9 @@ public interface IBookStore
 
 	/// <summary>Begins an isolated, failure-safe staged write.</summary>
 	Task<IStagedBookWrite> StageWriteAsync(BookLocation location, CancellationToken cancellationToken = default);
+
+	/// <summary>Begins an incremental transaction against the caller's exact database version.</summary>
+	Task<IStagedBookWrite> StageWriteAsync(BookLocation location, string expectedJson, CancellationToken cancellationToken = default);
 
 	/// <summary>Gets available bytes when the store supports capacity reporting.</summary>
 	Task<long?> GetAvailableSpaceAsync(BookLocation location, CancellationToken cancellationToken = default);
