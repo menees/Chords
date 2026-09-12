@@ -112,7 +112,10 @@ public sealed class ReorderStorageTests
 				await session.SetSetlistOrderAsync(list, reversed, device, token);
 				session.GetSetlistEntries(list).Select(item => item.EntryId).ShouldBe(reversed);
 				await session.RenameAsync("Renamed", device, token);
+				Guid customTab = await session.SaveCustomTabAsync(null, "Practice", "Song", "artist", device, token);
+				await session.DeleteCustomTabAsync(customTab, device, token);
 				await session.SaveSongEditAsync(edit, "Metadata edit", [], [], edit.Text, device, token);
+				await VerifyDisplayAsync(session, edit.SongId, device, token);
 				await session.SetSongsArchivedAsync([edit.SongId], true, device, token);
 				ChordDatabase persisted = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
 				persisted.Setlists[0].Entries.Select(item => item.Id).ShouldBe(reversed);
@@ -142,6 +145,14 @@ public sealed class ReorderStorageTests
 	#endregion
 
 	#region Private Methods
+
+	private static async Task VerifyDisplayAsync(BookApplicationSession session, Guid songId, Guid device, CancellationToken token)
+	{
+		SongCatalogItem unrelated = session.Search(string.Empty).First(song => song.Id != songId);
+		await session.SaveDisplaySettingsAsync(songId, new() { FontSize = 24 }, device, token);
+		session.Search("display:true").Single().Id.ShouldBe(songId);
+		session.Search(string.Empty).Single(song => song.Id == unrelated.Id).ShouldBeSameAs(unrelated);
+	}
 
 	private async Task VerifyIncrementalAssetOperationsAsync(FileSystemBookStore store, BookLocation location, Guid device, CancellationToken token)
 	{

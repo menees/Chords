@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Menees.Chords.Book.Maui.SongFilesPage"
+	xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+	xmlns:local="clr-namespace:Menees.Chords.Book.Maui" Title="Song Sheets">
+	<Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
+		<Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+			<Label x:Name="heading" FontSize="22" VerticalOptions="Center" />
+			<Button Grid.Column="1" Text="Close" Clicked="HandleClose" />
+		</Grid>
+		<FlexLayout x:Name="actions" Grid.Row="1" Wrap="Wrap" AlignItems="Center">
+			<Button x:Name="add" Text="Add Sheets…" Clicked="HandleAdd" Margin="0,0,8,4" />
+			<Button x:Name="prefer" Text="Make Default" Clicked="HandlePrefer" Margin="0,0,8,4" />
+			<Button x:Name="edit" Text="Edit Sheet…" Clicked="HandleEdit" Margin="0,0,8,4" />
+			<Button x:Name="up" Text="Move Up" Clicked="HandleUp" Margin="0,0,8,4" />
+			<Button x:Name="down" Text="Move Down" Clicked="HandleDown" Margin="0,0,8,4" />
+			<Button x:Name="rename" Text="Rename…" Clicked="HandleRename" Margin="0,0,8,4" />
+			<Button x:Name="archive" Text="Archive" Clicked="HandleArchive" Margin="0,0,8,4" />
+			<Button x:Name="delete" Text="Delete Permanently…" Clicked="HandleDelete" Margin="0,0,8,4" />
+		</FlexLayout>
+		<CollectionView x:Name="files" Grid.Row="2" SelectionMode="Single" SelectionChanged="HandleSelectionChanged">
+			<CollectionView.EmptyView><Label Text="No sheets. Add a text chart or PDF to this song." /></CollectionView.EmptyView>
+			<CollectionView.ItemTemplate>
+				<DataTemplate x:DataType="local:SongFileRow">
+					<VerticalStackLayout Padding="8" Spacing="2">
+						<Label Text="{Binding Name}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+						<Label Text="{Binding Details}" FontSize="12" />
+					</VerticalStackLayout>
+				</DataTemplate>
+			</CollectionView.ItemTemplate>
+		</CollectionView>
+		<Label x:Name="status" Grid.Row="3" Text="The first active sheet is the default. Reordering and archiving do not change sheet content." />
+	</Grid>
+</ContentPage>

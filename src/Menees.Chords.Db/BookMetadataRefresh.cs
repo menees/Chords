@@ -99,20 +99,7 @@ public static class BookMetadataRefresh
 
 	private static void ApplyMetadata(Song song, SongFileAnalysis analysis, Guid deviceId, DateTimeOffset now)
 	{
-		if (analysis.Metadata.ContainsKey("title") || analysis.Metadata.ContainsKey("t"))
-		{
-			song.Title = analysis.Title;
-		}
-
-		song.Artists = [.. analysis.Artists];
-		song.SourceMetadata.Clear();
-		foreach ((string key, IReadOnlyList<SourceMetadataValue> values) in analysis.Metadata)
-		{
-			song.SourceMetadata[key] =
-			[
-				.. values.Select(value => new SourceMetadataValue { Value = value.Value, SourceName = value.SourceName }),
-			];
-		}
+		_ = SourceMetadataReconciliation.Apply(song, analysis);
 
 		song.Revision = NextRevision(song.Revision, deviceId, now);
 	}

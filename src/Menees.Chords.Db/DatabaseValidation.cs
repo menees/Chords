@@ -151,7 +151,7 @@ public static class DatabaseValidation
 	private static void ValidateOptionalFile(
 		Guid? preferredFileId,
 		Guid songId,
-		IReadOnlyDictionary<Guid, SongFile> files,
+		Dictionary<Guid, SongFile> files,
 		string path,
 		List<ValidationProblem> problems)
 	{

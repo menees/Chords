@@ -8,4 +8,8 @@ public sealed record SongCatalogItem(
 	string DisplayText,
 	bool IsArchived,
 	int ActiveFileCount,
-	DateTimeOffset? LastAccessedUtc);
+	DateTimeOffset? LastAccessedUtc,
+	int ArchivedFileCount = 0,
+	int RecoveryFileCount = 0,
+	bool HasDisplayOverride = false,
+	bool HasMetronomeOverride = false);

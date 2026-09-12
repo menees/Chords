@@ -15,6 +15,9 @@ public sealed class DisplayProfile
 	/// <summary>Gets or sets the column count.</summary>
 	public int Columns { get; set; } = 1;
 
+	/// <summary>Gets or sets whether responsive layout uses all available width instead of limiting columns.</summary>
+	public bool AutoColumns { get; set; } = true;
+
 	/// <summary>Gets or sets whether chords are shown.</summary>
 	public bool ShowChords { get; set; } = true;
 

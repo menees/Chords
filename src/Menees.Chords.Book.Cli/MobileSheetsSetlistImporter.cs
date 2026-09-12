@@ -3,6 +3,7 @@
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
 using Microsoft.VisualBasic.FileIO;
@@ -19,8 +20,10 @@ internal static class MobileSheetsSetlistImporter
 		string bookDirectory,
 		string extractDirectory,
 		Guid deviceId,
-		bool apply)
+		bool apply,
+		CancellationToken cancellationToken = default)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
 		string songsCsv = Path.Combine(extractDirectory, "Songs.csv");
 		string setlistsDirectory = Path.Combine(extractDirectory, "SetLists");
 		string filesDirectory = Path.Combine(extractDirectory, "Files");
@@ -29,11 +32,11 @@ internal static class MobileSheetsSetlistImporter
 			throw new DirectoryNotFoundException("The extract must contain Songs.csv, SetLists, and Files.");
 		}
 
-		IReadOnlyDictionary<int, LegacySong> legacySongs = ReadLegacySongs(songsCsv);
-		IReadOnlyList<LegacySetlist> legacySetlists = ReadLegacySetlists(setlistsDirectory);
+		Dictionary<int, LegacySong> legacySongs = ReadLegacySongs(songsCsv);
+		List<LegacySetlist> legacySetlists = ReadLegacySetlists(setlistsDirectory);
 		using FileSystemBookStore store = CreateStore(bookDirectory);
-		BookLocation location = await store.OpenBookAsync(bookDirectory).ConfigureAwait(false);
-		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location).ConfigureAwait(false));
+		BookLocation location = await store.OpenBookAsync(bookDirectory, cancellationToken).ConfigureAwait(false);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
 		Dictionary<int, Guid> songIds = ResolveSongIds(database, legacySongs);
 		int[] requiredIds = [.. legacySetlists.SelectMany(setlist => setlist.SongIds).Distinct()];
 		int[] missingIds = [.. requiredIds.Where(id => !songIds.TryGetValue(id, out _))];
@@ -56,13 +59,14 @@ internal static class MobileSheetsSetlistImporter
 				store,
 				location,
 				missingPaths,
-				deviceId).ConfigureAwait(false);
+				deviceId,
+				cancellationToken: cancellationToken).ConfigureAwait(false);
 			if (imported.Count != missingPaths.Length)
 			{
 				throw new InvalidDataException("Not every missing setlist song was imported.");
 			}
 
-			database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location).ConfigureAwait(false));
+			database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
 			songIds = ResolveSongIds(database, legacySongs);
 		}
 
@@ -110,9 +114,9 @@ internal static class MobileSheetsSetlistImporter
 			database.Setlists.AddRange(additions);
 			database.Revision = NextRevision(database.Revision, deviceId, now);
 			DatabaseValidation.ThrowIfInvalid(database);
-			await using IStagedBookWrite write = await store.StageWriteAsync(location).ConfigureAwait(false);
-			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database)).ConfigureAwait(false);
-			await write.CommitAsync().ConfigureAwait(false);
+			await using IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken).ConfigureAwait(false);
+			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
+			await write.CommitAsync(cancellationToken).ConfigureAwait(false);
 		}
 
 		int entryCount = legacySetlists.Sum(setlist => setlist.SongIds.Count);
@@ -147,7 +151,7 @@ internal static class MobileSheetsSetlistImporter
 		DeviceId = deviceId,
 	};
 
-	private static IReadOnlyDictionary<int, LegacySong> ReadLegacySongs(string path)
+	private static Dictionary<int, LegacySong> ReadLegacySongs(string path)
 	{
 		List<IReadOnlyDictionary<string, string>> rows = ReadRows(path);
 		Dictionary<int, LegacySong> result = [];
@@ -162,7 +166,7 @@ internal static class MobileSheetsSetlistImporter
 		return result;
 	}
 
-	private static IReadOnlyList<LegacySetlist> ReadLegacySetlists(string directory)
+	private static List<LegacySetlist> ReadLegacySetlists(string directory)
 	{
 		List<LegacySetlist> result = [];
 		foreach (string path in Directory.EnumerateFiles(directory, "*.csv", System.IO.SearchOption.TopDirectoryOnly)
@@ -206,7 +210,7 @@ internal static class MobileSheetsSetlistImporter
 
 	private static Dictionary<int, Guid> ResolveSongIds(
 		ChordDatabase database,
-		IReadOnlyDictionary<int, LegacySong> legacySongs)
+		Dictionary<int, LegacySong> legacySongs)
 	{
 		Dictionary<string, Guid> managedSongs = new(StringComparer.OrdinalIgnoreCase);
 		foreach (SongFile file in database.SongFiles)

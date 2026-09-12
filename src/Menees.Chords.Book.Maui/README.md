@@ -1,7 +1,6 @@
 # ChordBook MAUI Windows
 
-This is the production Windows-first ChordBook application. It currently implements the
-first vertical slice of Phase 2:
+This is the production Windows-first ChordBook application. The delivered Windows features include:
 
 - migrate an existing prototype book, or create `My ChordBook`, under `%LOCALAPPDATA%\Menees\ChordBook\Books`;
 - reopen that local book on later launches;
@@ -20,8 +19,6 @@ first vertical slice of Phase 2:
 - open an ordered setlist, enter an explicit edit mode, rename it, add or remove songs, and move entries up or down;
 - enter an explicit multi-select mode from the filtered song catalog and append all selected songs to a new or existing
   setlist with one database commit, while preserving the visible order;
-- use the same top-left **Back** placement to leave performance and setlist-detail views, with the same navigation
-  hierarchy exposed through Android's system Back button;
 - use the same top-left **Back** placement to leave performance and setlist-detail views, with the same navigation
   hierarchy exposed through Android's system Back button;
 - switch to a separate full-window performance surface and initially focus its viewer when rendering a managed text chart or PDF;
@@ -45,4 +42,4 @@ database or store contracts.
 
 September 6 update: Select mode uses the native list selection indicator without a duplicate row checkbox. Viewer resize scripts wait for successful navigation and stop when performance closes or the viewer unloads; obsolete song loads cannot reopen the viewer after Back. Setlist Edit now offers Archive/Restore. Enable Show archived in the setlist overview to find archived lists; their ordered entries are retained. Archive/restore persistence is covered by the application tests. The Windows build passes; desktop interaction verification remains pending because Computer Use app approval timed out.
 
-September 7 storage update: metadata changes now mutate the active database in place and save only JSON. Asset transactions stage only incoming content and move only affected files, with an interruption-recovery journal. Unchanged assets are never copied or hashed during ordinary book/setlist operations. Batch imports and backups process asset payloads incrementally. See `REORDER_AUDIT.md` at the repository root for measurements and verification limits. Computer Use is disabled at the user's request.
+September 7 storage update: metadata changes now mutate the active database in place and save only JSON. Asset transactions stage only incoming content and move only affected files, with an interruption-recovery journal. Unchanged assets are never copied or hashed during ordinary book/setlist operations. Batch imports and backups process asset payloads incrementally. Computer Use was disabled at the user's request for that audit.

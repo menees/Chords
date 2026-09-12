@@ -36,6 +36,11 @@ csharp_style_prefer_primary_constructors = false:error
 # Code files
 [*.{cs,vb}]
 dotnet_diagnostic.CA1031.severity = warning
+dotnet_diagnostic.CA1068.severity = warning
+dotnet_diagnostic.CA1859.severity = warning
+dotnet_diagnostic.IDE0059.severity = warning
+dotnet_diagnostic.MEN019.severity = warning
+dotnet_diagnostic.SYSLIB1096.severity = warning
 dotnet_diagnostic.CA1062.severity = none
 dotnet_diagnostic.CA1303.severity = none
 dotnet_diagnostic.CA1304.severity = none

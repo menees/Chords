@@ -1,4 +1,4 @@
-﻿namespace Menees.Chords.Formatters;
+namespace Menees.Chords.Formatters;
 
 #region Using Directives
 
@@ -582,7 +582,8 @@ public class HtmlFormatterTests
 		((string?)script.Attribute("id")).ShouldBe("menees-chords-pagination");
 		defaultScript.ShouldContain("measureColumns(metrics.height)");
 		defaultScript.ShouldContain("event.key === \"PageUp\" || event.key === \"PageDown\"");
-		defaultScript.ShouldContain("direction * pageHeight");
+		defaultScript.ShouldContain("moveViewport(direction)");
+		defaultScript.ShouldContain("menees-chords-boundary");
 		defaultScript.ShouldContain("event.preventDefault()");
 		defaultStyles.ShouldContain("--column-min-width: 18em");
 		defaultStyles.ShouldContain("inline-size: max-content");

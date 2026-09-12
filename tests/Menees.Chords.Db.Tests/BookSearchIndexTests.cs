@@ -31,6 +31,43 @@ public sealed class BookSearchIndexTests
 	}
 
 	[TestMethod]
+	public void SearchSupportsPhrasesFieldsAndFilePredicatesWithoutReReadingMutableEntities()
+	{
+		ChordDatabase database = CreateGeneratedDatabase(3);
+		Song song = database.Songs[0];
+		song.Title = "Blue Moon Tonight";
+		song.Artists = ["Renée Jones"];
+		song.DurationSeconds = 268;
+		song.DisplayOverride = new() { FontSize = 20 };
+		song.MetronomeOverride = new() { BeatsPerMinute = 90 };
+		song.SourceMetadata["key"] = [new() { Value = "C" }];
+		song.SourceMetadata["capo"] = [new() { Value = "2" }];
+		song.SourceMetadata["genre"] = [new() { Value = "Folk Rock" }];
+		database.SongFiles.Add(new() { Id = Guid.NewGuid(), SongId = song.Id });
+		database.SongFiles.Add(new() { Id = Guid.NewGuid(), SongId = song.Id });
+		BookSearchIndex index = new(database);
+		string query = "\"blue moon\" artist:\"renee jones\" key:c genre:folk capo:2 duration:4:28 display:true metronome:true multiple:true archived:false";
+		index.Search(query).Single().SongId.ShouldBe(song.Id);
+		index.Search("duration:268").Single().SongId.ShouldBe(song.Id);
+		index.Search("\"moon blue\"").ShouldBeEmpty();
+		index.Search("key:cm").ShouldBeEmpty();
+		index.Search("duration:26").ShouldBeEmpty();
+		index.Search("artist:blue").ShouldBeEmpty();
+		index.Search("title:").ShouldBeEmpty();
+		index.Search("recovery:true").ShouldBeEmpty();
+		index.Search("display:false").Count.ShouldBe(2);
+		index.Search("\"blue moon").Single().SongId.ShouldBe(song.Id);
+		song.Artists.Clear();
+		song.SourceMetadata.Clear();
+		index.Search(query).Single().Artists.ShouldBe(["Renée Jones"]);
+		song.IsArchived = true;
+		song.MetronomeOverride = null;
+		index.RefreshSongPredicates(song);
+		index.Search("archived:true metronome:false artist:renee").Single().SongId.ShouldBe(song.Id);
+		index.Search("key:c").Single().SongId.ShouldBe(song.Id);
+	}
+
+	[TestMethod]
 	public void TenThousandSongSearchMeetsBudget()
 	{
 		ChordDatabase database = CreateGeneratedDatabase(GeneratedSongCount);

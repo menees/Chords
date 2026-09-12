@@ -22,6 +22,50 @@ public sealed class SongManagementTests
 	#region Public Methods
 
 	[TestMethod]
+	[DataRow("{title: Source title}\r\n[C]A new song\n", SourceFormat.ChordPro)]
+	[DataRow("C        G\r\nA new song\r\n", SourceFormat.ChordOverText)]
+	[DataRow("{title: Source title}\r\nC        G\r\nA new song\r\n", SourceFormat.Mixed)]
+	public async Task NewSongPreservesPastedSyntaxAndIndependentCatalogMetadata(string text, SourceFormat format)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		var (session, store, location, device, existingSong) = await CreateAsync(token);
+		SongFile existingFile = session.Database!.SongFiles.Single();
+		Guid id = await session.CreateSongAsync("  Catalog title  ", [" Composer "], [" Practice "], text, device, token);
+		session.Search("Catalog title").Single().Id.ShouldBe(id);
+		await session.ActivateAsync(store, location, token);
+		Song song = session.Database!.Songs.Single(item => item.Id == id);
+		song.Title.ShouldBe("Catalog title");
+		song.Artists.ShouldBe(["Composer"]);
+		song.Tags.ShouldBe(["Practice"]);
+		SongFile file = session.Database.SongFiles.Single(item => item.SongId == id);
+		file.SourceFormat.ShouldBe(format);
+		file.RelativePath.ShouldStartWith("Catalog title");
+		using Stream stream = await store.OpenManagedAssetAsync(location, file.Id, token);
+		using MemoryStream bytes = new();
+		await stream.CopyToAsync(bytes, token);
+		bytes.ToArray().ShouldBe(Encoding.UTF8.GetBytes(text));
+		(await session.GetSongEditAsync(id, token)).Text.ShouldBe(text);
+		(await session.GetPresentationAsync(id, cancellationToken: token)).Html.ShouldNotBeNullOrWhiteSpace();
+		session.Database.SongFiles.Single(item => item.SongId == existingSong).ContentHash.ShouldBe(existingFile.ContentHash);
+		DatabaseValidation.Validate(session.Database).ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public async Task NewSongRejectsUnsupportedOrEmptyTextWithoutSaving()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		var (session, store, location, device, _) = await CreateAsync(token);
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		await Should.ThrowAsync<ArgumentException>(() => session.CreateSongAsync(" ", [], [], "[C]Song", device, token));
+		await Should.ThrowAsync<ArgumentException>(() => session.CreateSongAsync("Song", [], [], " ", device, token));
+		await Should.ThrowAsync<InvalidOperationException>(() => session.CreateSongAsync("PDF", [], [], "%PDF-1.4", device, token));
+		await Should.ThrowAsync<InvalidOperationException>(() => session.CreateSongAsync(
+			"XML", [], [], "<song><title>XML</title><lyrics>.C\n Song</lyrics></song>", device, token));
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		DatabaseJson.Serialize(session.Database!).ShouldBe(before);
+	}
+
+	[TestMethod]
 	public async Task MetadataFailuresRestoreSessionAndConcurrentEditsSerialize()
 	{
 		var token = this.TestContext.CancellationToken;
@@ -135,7 +179,7 @@ public sealed class SongManagementTests
 	public async Task MetadataOnlySaveDoesNotRewriteSourceBytes()
 	{
 		CancellationToken token = this.TestContext.CancellationToken;
-		var (session, store, location, device, song) = await CreateAsync(token);
+		var (session, _, _, device, song) = await CreateAsync(token);
 		SongEditDocument original = await session.GetSongEditAsync(song, token);
 		SongFile file = session.Database!.SongFiles.Single();
 		long contentRevision = file.ContentRevision;
@@ -152,12 +196,20 @@ public sealed class SongManagementTests
 		var (session, store, location, device, song) = await CreateAsync(token);
 		MetronomeSettings defaults = session.GetMetronomeSettings(song);
 		await session.SaveSongMetronomeAsync(song, new() { BeatsPerMinute = 87, BeatsPerMeasure = 3, AudioEnabled = false }, device, token);
+		session.Search("metronome:true").Single().Id.ShouldBe(song);
 		await session.ActivateAsync(store, location, token);
 		session.GetMetronomeSettings(song).BeatsPerMinute.ShouldBe(87);
 		session.GetMetronomeSettings(song).AudioEnabled.ShouldBeFalse();
 		await session.SaveSongMetronomeAsync(song, null, device, token);
+		session.Search("metronome:true").ShouldBeEmpty();
 		session.GetMetronomeSettings(song).BeatsPerMinute.ShouldBe(defaults.BeatsPerMinute);
 		session.Database!.Songs.Single().MetronomeOverride.ShouldBeNull();
+		MetronomeSettings bookDefaults = new() { BeatsPerMinute = 96 };
+		await session.SaveBookMetronomeAsync(bookDefaults, device, token);
+		bookDefaults.BeatsPerMinute = 100;
+		session.GetMetronomeSettings(song).BeatsPerMinute.ShouldBe(96);
+		await session.ReloadAsync(token);
+		BookApplicationSession.MetronomeSettingsEqual(session.GetMetronomeSettings(), session.GetMetronomeSettings(song)).ShouldBeTrue();
 		Should.Throw<ArgumentException>(() => BookApplicationSession.ValidateMetronome(new() { BeatsPerMinute = 0 }));
 		Should.Throw<ArgumentException>(() => BookApplicationSession.ValidateMetronome(new() { AudioEnabled = false, VisualEnabled = false }));
 	}

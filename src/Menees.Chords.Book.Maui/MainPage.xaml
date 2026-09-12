@@ -18,24 +18,25 @@
 					SelectedIndexChanged="HandleRecentBookSelected" />
 				<Button x:Name="NewBookButton" Grid.Column="3" Text="New Book…" Clicked="HandleNewBookClicked" />
 				<Button x:Name="OpenBookButton" Grid.Column="4" Text="Open Book…" Clicked="HandleOpenBookClicked" />
-				<Button x:Name="RenameBookButton" Grid.Column="5" Text="Rename…" Clicked="HandleRenameBookClicked" />
+				<Button x:Name="RenameBookButton" Grid.Column="5" Text="Book…" Clicked="HandleBookActionsClicked" />
 				<Button x:Name="ImportButton" Grid.Column="6" Text="Import…" Clicked="HandleImportClicked" />
 			</Grid>
 
 			<local:BookTabs x:Name="ManagementTabs" Grid.Row="1" HeightRequest="48" SelectionChanged="HandleManagementTabChanged" />
 
-			<Grid x:Name="SongToolbar" Grid.Row="2" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#F8F7FA">
-				<Label Text="Songs" FontAttributes="Bold" FontSize="20" VerticalOptions="Center" />
+			<Grid x:Name="SongToolbar" Grid.Row="2" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#F8F7FA">
+				<Button Text="Views…" Clicked="HandleViewActionsClicked" />
 				<SearchBar x:Name="SongSearch" Grid.Column="1" Placeholder="Search titles, artists, tags, and metadata" TextChanged="HandleSearchTextChanged" />
 				<Label Grid.Column="2" Text="Show archived" VerticalOptions="Center" />
 				<CheckBox x:Name="ShowArchived" Grid.Column="3" CheckedChanged="HandleShowArchivedChanged" />
 				<Button Grid.Column="4" Text="Select" Clicked="HandleSelectSongsClicked" />
+				<Button Grid.Column="5" Text="New Song…" Clicked="HandleNewSongClicked" />
 			</Grid>
 
 			<Grid x:Name="SongSelectionToolbar" Grid.Row="2" IsVisible="False" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="#E4DEEB">
 				<Label x:Name="SelectedSongCount" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
 				<Button Grid.Column="2" Text="Add to Setlist…" Clicked="HandleAddSelectedSongsClicked" />
-				<Button x:Name="EditSelectedSongButton" Grid.Column="3" Text="Edit…" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
+				<Button x:Name="EditSelectedSongButton" Grid.Column="3" Text="Song…" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
                 <Button x:Name="ArchiveSelectedSongsButton" Grid.Column="4" Text="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
                 <Button x:Name="RestoreSelectedSongsButton" Grid.Column="5" Text="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
                 <Button x:Name="DeleteSelectedSongsButton" Grid.Column="6" Text="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
@@ -137,7 +138,7 @@
 						</CollectionView.EmptyView>
 						<CollectionView.ItemTemplate>
 							<DataTemplate x:DataType="local:SetlistEntryRow">
-								<Grid ColumnDefinitions="64,*,Auto,Auto,Auto" Padding="8,3" ColumnSpacing="5">
+								<Grid ColumnDefinitions="64,*,Auto,Auto,Auto,Auto" Padding="8,3" ColumnSpacing="5">
 
 									<Label Text="{Binding Position}" IsVisible="{Binding IsViewing}" HorizontalTextAlignment="Center" VerticalOptions="Center" />
                                     <local:PositionEntry Text="{Binding Position, Mode=OneWay}" IsVisible="{Binding IsEditing}" Keyboard="Numeric" HorizontalTextAlignment="Center" PositionSubmitted="HandleSetlistPositionCompleted" Unfocused="HandleSetlistPositionUnfocused" SemanticProperties.Description="Song position, starting at 1. Press Enter to move." />
@@ -145,6 +146,7 @@
 									<Button Grid.Column="2" Text="↑" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveUp}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryUpClicked" />
 									<Button Grid.Column="3" Text="↓" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveDown}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryDownClicked" />
 									<Button Grid.Column="4" Text="Remove" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleRemoveSetlistEntryClicked" />
+									<Button Grid.Column="5" Text="Settings…" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleEntrySettingsClicked" />
 								</Grid>
 							</DataTemplate>
 						</CollectionView.ItemTemplate>
@@ -169,10 +171,10 @@
 		</Grid>
 
 		<Grid x:Name="PerformanceSurface" IsVisible="False" RowDefinitions="Auto,*" BackgroundColor="Black">
-			<Grid Padding="8" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6" BackgroundColor="#25232A">
+			<Grid Padding="8" ColumnDefinitions="Auto,Auto,Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6" BackgroundColor="#25232A">
 				<Button Text="← Back" Clicked="HandleBackClicked" />
 				<Button x:Name="PreviousSongButton" Grid.Column="1" Text="← Previous" Clicked="HandlePreviousSongClicked" />
-				<Button Grid.Column="2" Text="Add to Setlist…" Clicked="HandleAddToSetlistClicked" />
+				<Button x:Name="PerformanceAddButton" Grid.Column="2" Text="Add to Setlist…" Clicked="HandleAddToSetlistClicked" />
 				<Label
 					x:Name="PerformanceTitle"
 					Grid.Column="3"
@@ -184,8 +186,9 @@
 					LineBreakMode="TailTruncation" />
 				<Label x:Name="PerformancePosition" Grid.Column="4" TextColor="#D7CAE9" VerticalOptions="Center" />
 				<Button x:Name="NextSongButton" Grid.Column="5" Text="Next →" Clicked="HandleNextSongClicked" />
-                <Button Grid.Column="6" Text="Edit…" Clicked="HandleEditCurrentSongClicked" />
-                <Button Grid.Column="7" Text="Metronome…" Clicked="HandleMetronomeClicked" />
+                <Button x:Name="PerformanceSongButton" Grid.Column="6" Text="Song…" Clicked="HandleEditCurrentSongClicked" />
+                <Button x:Name="PerformanceMetronomeButton" Grid.Column="7" Text="Metronome…" Clicked="HandleMetronomeClicked" />
+				<Button x:Name="PerformanceLockButton" Grid.Column="8" Text="Lock" Clicked="HandlePerformanceLockClicked" />
 			</Grid>
 			<WebView
 				x:Name="SongViewer"

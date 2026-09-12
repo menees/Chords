@@ -14,6 +14,30 @@ public sealed partial class BookApplicationSession
 {
 	#region Public API
 
+	/// <summary>Creates a song through the shared atomic import pipeline, then refreshes the active catalog.</summary>
+	public async Task<Guid> CreateSongAsync(
+		string title,
+		IReadOnlyList<string> artists,
+		IReadOnlyList<string> tags,
+		string text,
+		Guid deviceId,
+		CancellationToken cancellationToken = default)
+	{
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+			BookImportResult result = await BookImportService.CreateSongAsync(
+				activeStore, activeLocation, title, artists, tags, text, deviceId, cancellationToken).ConfigureAwait(false);
+			await this.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+			return result.SongId;
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
+	}
+
 	/// <summary>Moves an occurrence to an absolute one-based position, preserving every entry identity.</summary>
 	public Task SetSetlistEntryPositionAsync(Guid setlistId, Guid entryId, int position, Guid deviceId, CancellationToken cancellationToken = default)
 		=> this.MutateMetadataAsync(
@@ -165,28 +189,12 @@ public sealed partial class BookApplicationSession
 	}
 
 	/// <summary>Loads song metadata and an optional editable text file with an optimistic concurrency revision.</summary>
-	public async Task<SongEditDocument> GetSongEditAsync(Guid songId, CancellationToken cancellationToken = default)
-	{
-		(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
-		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
-		Song song = database.Songs.Single(item => item.Id == songId);
-		SongFile? file = database.SongFiles.Where(item => item.SongId == songId && !item.IsArchived)
-			.OrderByDescending(item => item.DisplayPriority).ThenBy(item => item.MediaKind).ThenBy(item => item.Id).FirstOrDefault();
-		string? text = null;
-		string? hash = null;
-		if (file is { MediaKind: MediaKind.Text } && file.SourceFormat != SourceFormat.OpenSongXml)
-		{
-			using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
-			using MemoryStream bytes = new();
-			await stream.CopyToAsync(bytes, cancellationToken).ConfigureAwait(false);
-			hash = SongFileAnalyzer.Hash(bytes.ToArray());
-			bytes.Position = 0;
-			using StreamReader reader = new(bytes, GetTextEncoding(file), detectEncodingFromByteOrderMarks: true);
-			text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
-		}
+	public Task<SongEditDocument> GetSongEditAsync(Guid songId, CancellationToken cancellationToken = default)
+		=> this.GetSongEditCoreAsync(songId, null, cancellationToken);
 
-		return new(song.Id, song.Revision.Revision, song.Title, [.. song.Artists], [.. song.Tags], file?.Id, hash, text);
-	}
+	/// <summary>Loads a selected active sheet without changing the song's default display order.</summary>
+	public Task<SongEditDocument> GetSongFileEditAsync(Guid songId, Guid fileId, CancellationToken cancellationToken = default)
+		=> this.GetSongEditCoreAsync(songId, fileId, cancellationToken);
 
 	/// <summary>Saves explicit catalog edits and changed text together, refusing to overwrite a newer edit.</summary>
 	public async Task SaveSongEditAsync(
@@ -299,6 +307,30 @@ public sealed partial class BookApplicationSession
 
 	private static void AddTombstone(ChordDatabase database, Guid id, string type, RevisionStamp revision, Guid deviceId, DateTimeOffset now)
 		=> database.Tombstones.Add(new Tombstone { EntityId = id, EntityType = type, Revision = NextRevision(revision, deviceId, now) });
+
+	private async Task<SongEditDocument> GetSongEditCoreAsync(Guid songId, Guid? fileId, CancellationToken cancellationToken)
+	{
+		(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
+		Song song = database.Songs.Single(item => item.Id == songId);
+		SongFile? file = fileId is Guid selectedId
+			? database.SongFiles.Single(item => item.Id == selectedId && item.SongId == songId && !item.IsArchived)
+			: this.GetOrderedSongFiles(songId).FirstOrDefault(item => !item.IsArchived);
+		string? text = null;
+		string? hash = null;
+		if (file is { MediaKind: MediaKind.Text, RecoveryVersion: null } && file.SourceFormat != SourceFormat.OpenSongXml)
+		{
+			using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
+			using MemoryStream bytes = new();
+			await stream.CopyToAsync(bytes, cancellationToken).ConfigureAwait(false);
+			hash = SongFileAnalyzer.Hash(bytes.ToArray());
+			bytes.Position = 0;
+			using StreamReader reader = new(bytes, GetTextEncoding(file), detectEncodingFromByteOrderMarks: true);
+			text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+		}
+
+		return new(song.Id, song.Revision.Revision, song.Title, [.. song.Artists], [.. song.Tags], file?.Id, hash, text);
+	}
 
 	#endregion
 }

@@ -2,6 +2,7 @@
 
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
 using Menees.Chords.Book.Application;
 using Menees.Chords.Book.Maui.Services;
 using Menees.Chords.Db;
@@ -20,6 +21,7 @@ public sealed partial class WindowsMetronomeEngine : IMetronomeEngine
 
 	private const double WarmupSeconds = 0.1;
 	private const double SecondsPerMinute = 60;
+	private static readonly StrategyBasedComWrappers BufferWrappers = new();
 	private readonly Lock gate = new();
 	private readonly Stopwatch clock = new();
 	private AudioGraph? graph;
@@ -35,10 +37,10 @@ public sealed partial class WindowsMetronomeEngine : IMetronomeEngine
 
 	#region Private Types
 
-	[ComImport]
+	[GeneratedComInterface]
 	[Guid("5B0D3235-4DBA-4D44-865E-8F1D0E4FD04D")]
 	[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-	private interface IMemoryBufferByteAccess
+	internal partial interface IMemoryBufferByteAccess
 	{
 		void GetBuffer(out IntPtr buffer, out uint capacity);
 	}
@@ -53,9 +55,15 @@ public sealed partial class WindowsMetronomeEngine : IMetronomeEngine
 		: 1 + (int)(Math.Floor((this.clock.Elapsed.TotalSeconds - WarmupSeconds)
 			* this.settings.BeatsPerMinute / SecondsPerMinute) % this.settings.BeatsPerMeasure);
 
-	public async Task StartAsync(MetronomeSettings settings)
+	public async Task StartAsync(MetronomeSettings settings, CancellationToken cancellationToken = default)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
 		BookApplicationSession.ValidateMetronome(settings);
+		if (this.IsRunning && BookApplicationSession.MetronomeSettingsEqual(this.settings, settings))
+		{
+			return;
+		}
+
 		this.Stop();
 		int version = this.generation;
 		CreateAudioGraphResult result = await AudioGraph.CreateAsync(new AudioGraphSettings(AudioRenderCategory.Media));
@@ -67,12 +75,14 @@ public sealed partial class WindowsMetronomeEngine : IMetronomeEngine
 		AudioGraph nextGraph = result.Graph;
 		try
 		{
+			cancellationToken.ThrowIfCancellationRequested();
 			CreateAudioDeviceOutputNodeResult output = await nextGraph.CreateDeviceOutputNodeAsync();
 			if (output.Status != AudioDeviceNodeCreationStatus.Success)
 			{
 				throw new InvalidOperationException($"Could not open the audio output: {output.Status}.");
 			}
 
+			cancellationToken.ThrowIfCancellationRequested();
 			if (version == this.generation)
 			{
 				this.graph = nextGraph;
@@ -166,7 +176,9 @@ public sealed partial class WindowsMetronomeEngine : IMetronomeEngine
 				using (AudioBuffer buffer = frame.LockBuffer(AudioBufferAccessMode.Write))
 				using (var reference = buffer.CreateReference())
 				{
-					reference.As<IMemoryBufferByteAccess>().GetBuffer(out IntPtr pointer, out uint capacity);
+					var access = (IMemoryBufferByteAccess)BufferWrappers.GetOrCreateObjectForComInstance(
+						((IWinRTObject)reference).NativeObject.ThisPtr, CreateObjectFlags.None);
+					access.GetBuffer(out IntPtr pointer, out uint capacity);
 					if (capacity >= count * sizeof(float))
 					{
 						Marshal.Copy(this.samples, 0, pointer, count);

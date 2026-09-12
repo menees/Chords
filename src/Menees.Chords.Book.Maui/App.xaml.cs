@@ -22,12 +22,19 @@ public partial class App : global::Microsoft.Maui.Controls.Application
 
 	#region Protected Methods
 
-	protected override Window CreateWindow(IActivationState? activationState) => new(this.mainPage)
+	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		Title = "ChordBook",
-		Width = InitialWindowWidth,
-		Height = InitialWindowHeight,
-	};
+		Window window = new(this.mainPage)
+		{
+			Title = "ChordBook",
+			Width = InitialWindowWidth,
+			Height = InitialWindowHeight,
+		};
+		window.Activated += (_, _) => this.mainPage.SetWindowActive(true);
+		window.Deactivated += (_, _) => this.mainPage.SetWindowActive(false);
+		window.Destroying += (_, _) => this.mainPage.SetWindowActive(false);
+		return window;
+	}
 
 	#endregion
 }

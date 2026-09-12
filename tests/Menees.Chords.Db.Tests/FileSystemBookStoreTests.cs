@@ -387,6 +387,10 @@ public sealed class FileSystemBookStoreTests
 		BookLocation location = await store.CreateBookAsync("Test Book", deviceId, cancellationToken);
 		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken));
 		AddOpenSong(database, deviceId);
+
+		// This fixture models a source-derived title, rather than an independent catalog edit.
+		database.Songs.Single().SourceMetadata["title"] =
+			[new SourceMetadataValue { Value = database.Songs.Single().Title, SourceName = "title" }];
 		await CommitAsync(store, location, database, cancellationToken);
 		SongFile file = database.SongFiles.Single();
 		string filePath = Path.Combine(store.GetDirectory(location), file.RelativePath);

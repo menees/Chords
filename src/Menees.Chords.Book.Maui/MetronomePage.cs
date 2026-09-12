@@ -13,7 +13,7 @@ public sealed partial class MetronomePage : ContentPage
 {
 	#region Private Data
 
-	private readonly Guid songId;
+	private readonly Guid? songId;
 	private readonly BookSession session;
 	private readonly IMetronomeEngine engine;
 	private readonly IDispatcherTimer timer;
@@ -24,12 +24,14 @@ public sealed partial class MetronomePage : ContentPage
 
 	#region Public API
 
-	public MetronomePage(Guid songId, BookSession session, IMetronomeEngine engine)
+	public MetronomePage(Guid? songId, BookSession session, IMetronomeEngine engine)
 	{
 		this.songId = songId;
 		this.session = session;
 		this.engine = engine;
 		this.InitializeComponent();
+		this.saveSettings.Text = songId.HasValue ? "Save for This Song" : "Save Book Defaults";
+		this.resetSettings.IsVisible = songId.HasValue;
 		this.beatUnit.ItemsSource = new[] { "2", "4", "8", "16" };
 		this.LoadSettings();
 		this.timer = this.Dispatcher.CreateTimer();
@@ -104,20 +106,28 @@ public sealed partial class MetronomePage : ContentPage
 		=> await this.RunAsync(async () =>
 		{
 			MetronomeSettings settings = this.ReadSettings();
-			await this.session.SaveSongMetronomeAsync(this.songId, settings).ConfigureAwait(true);
+			if (this.songId is Guid id)
+			{
+				await this.session.SaveSongMetronomeAsync(id, settings).ConfigureAwait(true);
+			}
+			else
+			{
+				await this.session.SaveBookMetronomeAsync(settings).ConfigureAwait(true);
+			}
+
 			if (this.engine.IsRunning)
 			{
 				await this.engine.StartAsync(settings).ConfigureAwait(true);
 			}
 
-			this.status.Text = "Saved metronome settings for this song.";
+			this.status.Text = this.songId.HasValue ? "Saved metronome settings for this song." : "Saved book metronome defaults.";
 		}).ConfigureAwait(true);
 
 	private async void HandleReset(object? sender, EventArgs e)
 		=> await this.RunAsync(async () =>
 		{
 			this.engine.Stop();
-			await this.session.SaveSongMetronomeAsync(this.songId, null).ConfigureAwait(true);
+			await this.session.SaveSongMetronomeAsync(this.songId!.Value, null).ConfigureAwait(true);
 			this.LoadSettings();
 			this.status.Text = "This song now uses the book defaults.";
 		}).ConfigureAwait(true);
@@ -127,6 +137,11 @@ public sealed partial class MetronomePage : ContentPage
 		if (!this.busy)
 		{
 			this.timer.Stop();
+			if (this.songId is null)
+			{
+				this.engine.Stop();
+			}
+
 			await this.Navigation.PopModalAsync().ConfigureAwait(true);
 			this.completion.TrySetResult();
 		}

@@ -158,7 +158,8 @@ public sealed partial class BookSession : IDisposable
 				index + 1,
 				isEditing,
 				index > 0,
-				index + 1 < entries.Count)),
+				index + 1 < entries.Count,
+				entry.DisplayText)),
 		];
 	}
 
@@ -208,9 +209,11 @@ public sealed partial class BookSession : IDisposable
 		this.RememberCurrentBook();
 	}
 
-	public async Task<SongPresentation> GetPresentationAsync(Guid songId, CancellationToken cancellationToken = default)
+	public async Task<SongPresentation> GetPresentationAsync(
+		Guid songId, Guid? setlistId = null, Guid? entryId = null, CancellationToken cancellationToken = default)
 	{
-		BookSongPresentation presentation = await this.application.GetPresentationAsync(songId, cancellationToken).ConfigureAwait(false);
+		BookSongPresentation presentation = await Task.Run(
+			() => this.application.GetPresentationAsync(songId, setlistId, entryId, cancellationToken), cancellationToken).ConfigureAwait(false);
 		string? pdfPath = null;
 		if (presentation.MediaKind == MediaKind.Pdf && presentation.SongFileId is Guid fileId)
 		{

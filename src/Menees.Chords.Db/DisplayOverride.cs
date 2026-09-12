@@ -17,6 +17,9 @@ public sealed class DisplayOverride
 	/// <summary>Gets or sets the column-count override.</summary>
 	public int? Columns { get; set; }
 
+	/// <summary>Gets or sets whether responsive layout automatically fills the available width.</summary>
+	public bool? AutoColumns { get; set; }
+
 	/// <summary>Gets or sets whether chords are shown.</summary>
 	public bool? ShowChords { get; set; }
 
@@ -26,5 +29,5 @@ public sealed class DisplayOverride
 	/// <summary>Gets whether at least one override has a value.</summary>
 	[JsonIgnore]
 	public bool HasValues => this.Theme is not null || this.FontSize is not null || this.LineSpacing is not null
-		|| this.Columns is not null || this.ShowChords is not null || this.NotationSystem is not null;
+		|| this.Columns is not null || this.AutoColumns is not null || this.ShowChords is not null || this.NotationSystem is not null;
 }

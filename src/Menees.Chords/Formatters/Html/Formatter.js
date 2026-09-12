@@ -12,6 +12,37 @@
 	let scheduled = false;
 	let previousWidth = 0;
 	let previousHeight = 0;
+	let renderedPages = [];
+
+	function getState() {
+		const height = renderedPages[0]?.getBoundingClientRect().height || document.documentElement.clientHeight;
+		const count = renderedPages.length;
+		const page = Math.max(0, Math.min(count - 1, Math.floor((window.scrollY + 2) / height)));
+		return { page, pageCount: count, atStart: page === 0, atEnd: page >= count - 1 };
+	}
+
+	function goToPage(index) {
+		const page = renderedPages[Math.max(0, Math.min(renderedPages.length - 1, index))];
+		if (page) {
+			window.scrollTo({ top: page.getBoundingClientRect().top + window.scrollY, left: 0, behavior: "instant" });
+		}
+		return getState();
+	}
+
+	function moveViewport(direction) {
+		const state = getState();
+		if ((direction !== -1 && direction !== 1) || state.pageCount === 0) {
+			return { ...state, moved: false, boundary: false };
+		}
+		const boundary = direction < 0 ? state.atStart : state.atEnd;
+		if (boundary) {
+			window.dispatchEvent(new CustomEvent("menees-chords-boundary", { detail: { direction } }));
+			return { ...state, moved: false, boundary: true };
+		}
+		return { ...goToPage(state.page + direction), moved: true, boundary: false };
+	}
+
+	window.meneesChordsViewer = { getState, goToPage, moveViewport };
 	function collectBlocks(container, sectionPath) {
 		for (const child of Array.from(container.children)) {
 			if (child.matches("section.section")) {
@@ -171,6 +202,8 @@
 	}
 
 	function renderPages(columns, metrics) {
+		const configuredMaximum = Number.parseInt(getComputedStyle(sheet).getPropertyValue("--maximum-columns"), 10);
+		const maximumColumns = configuredMaximum > 0 ? configuredMaximum : Infinity;
 		const fragment = document.createDocumentFragment();
 		let page = null;
 		let usedWidth = 0;
@@ -183,7 +216,7 @@
 			}
 
 			const additionalWidth = page && page.children.length > 0 ? metrics.gap + width : width;
-			if (!page || (page.children.length > 0 && usedWidth + additionalWidth > metrics.width)) {
+			if (!page || page.children.length >= maximumColumns || (page.children.length > 0 && usedWidth + additionalWidth > metrics.width)) {
 				page = createPage();
 				fragment.appendChild(page);
 				usedWidth = 0;
@@ -205,6 +238,7 @@
 		}
 
 		sheet.replaceChildren(fragment);
+		renderedPages = Array.from(sheet.children);
 		sheet.dataset.pageCount = String(pageCount);
 		sheet.dataset.columnCount = String(columns.length);
 	}
@@ -230,9 +264,12 @@
 
 		previousWidth = width;
 		previousHeight = height;
+		const savedPage = getState().page;
 		sheet.replaceChildren();
 		const columns = measureColumns(metrics.height);
 		renderPages(columns, metrics);
+		goToPage(savedPage);
+		window.dispatchEvent(new Event("menees-chords-layout"));
 	}
 
 	function schedule(force = false) {
@@ -247,12 +284,10 @@
 	window.addEventListener("keydown", event => {
 		if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
 			&& (event.key === "PageUp" || event.key === "PageDown")) {
-			const page = sheet.querySelector(".song-page");
-			const pageHeight = page?.getBoundingClientRect().height || document.documentElement.clientHeight;
 			const direction = event.key === "PageDown" ? 1 : -1;
 			event.preventDefault();
 			event.stopPropagation();
-			window.scrollBy({ top: direction * pageHeight, left: 0, behavior: "instant" });
+			moveViewport(direction);
 		}
 	}, true);
 	sheet.addEventListener("menees-chords-repaginate", () => schedule(true));

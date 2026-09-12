@@ -8,7 +8,7 @@ public interface IMetronomeEngine : IDisposable
 
 	int CurrentBeat { get; }
 
-	Task StartAsync(MetronomeSettings settings);
+	Task StartAsync(MetronomeSettings settings, CancellationToken cancellationToken = default);
 
 	void Stop();
 }

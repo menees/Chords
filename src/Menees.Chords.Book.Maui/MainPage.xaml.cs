@@ -3,6 +3,7 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
+using Menees.Chords.Book.Application;
 using Menees.Chords.Book.Maui.Services;
 
 #endregion
@@ -15,6 +16,10 @@ public partial class MainPage : ContentPage
 
 	private const double JumpButtonHeight = 27;
 	private const double JumpButtonFontSize = 12;
+	private const int RecentTabIndex = 2;
+	private const int ArtistsTabIndex = 3;
+	private const int HistoryFlushSeconds = 30;
+	private readonly IDispatcherTimer historyTimer;
 	private readonly BookSession session;
 	private readonly IWindowsPicker picker;
 	private readonly IMetronomeEngine metronome;
@@ -36,6 +41,13 @@ public partial class MainPage : ContentPage
 	private bool selectingSongs;
 	private bool showingHtmlChart;
 	private bool viewerReady;
+	private bool navigatingSong;
+	private Guid? performanceSetlistId;
+	private IReadOnlyList<Guid> performanceEntryIds = [];
+	private bool performanceLocked;
+	private bool confirmingPerformanceExit;
+	private bool? previousKeepScreenOn;
+	private bool windowActive = true;
 	private int viewerGeneration;
 
 	#endregion
@@ -48,9 +60,29 @@ public partial class MainPage : ContentPage
 		this.session = session;
 		this.picker = picker;
 		this.metronome = metronome;
-		this.Unloaded += (_, _) => this.metronome.Stop();
+		this.historyTimer = this.Dispatcher.CreateTimer();
+		this.historyTimer.Interval = TimeSpan.FromSeconds(HistoryFlushSeconds);
+		this.historyTimer.Tick += (_, _) => this.session.FlushRecentHistory();
+		this.Unloaded += (_, _) =>
+		{
+			this.metronome.Stop();
+			this.historyTimer.Stop();
+			this.session.FlushRecentHistory();
+			this.RestoreScreenPolicy();
+		};
+		this.Loaded += (_, _) => this.historyTimer.Start();
 		this.ShowManagementTab(showSetlists: false);
 		this.Loaded += this.HandleLoaded;
+	}
+
+	#endregion
+
+	#region Public Methods
+
+	public void SetWindowActive(bool active)
+	{
+		this.windowActive = active;
+		this.UpdateScreenPolicy();
 	}
 
 	#endregion
@@ -175,24 +207,17 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private async void HandleRenameBookClicked(object? sender, EventArgs e)
+	private async Task RenameCurrentBookAsync()
 	{
-		await this.RunBookMutationAsync(async () =>
+		string? name = await this.DisplayPromptAsync(
+			"Rename Book",
+			"Enter the user-facing name for this chord book.",
+			initialValue: this.session.Database?.Name).ConfigureAwait(true);
+		if (!string.IsNullOrWhiteSpace(name))
 		{
-			string? name = await this.DisplayPromptAsync(
-				"Rename Book",
-				"Enter the user-facing name for this chord book.",
-				initialValue: this.session.Database?.Name).ConfigureAwait(true);
-			if (string.IsNullOrWhiteSpace(name))
-			{
-				this.Status.Text = "Rename Book canceled.";
-			}
-			else
-			{
-				await this.session.RenameAsync(name).ConfigureAwait(true);
-				this.RefreshSongs("Book renamed.");
-			}
-		}).ConfigureAwait(true);
+			await this.session.RenameAsync(name).ConfigureAwait(true);
+			this.RefreshSongs("Book renamed.");
+		}
 	}
 
 	private void HandleSearchTextChanged(object? sender, TextChangedEventArgs e) => this.ApplyFilter(e.NewTextValue);
@@ -214,6 +239,8 @@ public partial class MainPage : ContentPage
 		}
 		else if (e.CurrentSelection.Count > 0 && e.CurrentSelection[0] is SongRow song)
 		{
+			this.performanceSetlistId = null;
+			this.performanceEntryIds = [];
 			await this.ShowSongAsync(song, this.visibleSongs, this.FindVisibleSongIndex(song.Id), null).ConfigureAwait(true);
 		}
 	}
@@ -366,6 +393,8 @@ public partial class MainPage : ContentPage
 			&& this.currentSetlist is SetlistRow setlist)
 		{
 			int index = this.FindSetlistEntryIndex(selected.EntryId);
+			this.performanceSetlistId = setlist.Id;
+			this.performanceEntryIds = [.. this.selectedSetlistEntries.Select(entry => entry.EntryId)];
 			await this.ShowSongAsync(
 				selected.Song,
 				[.. this.selectedSetlistEntries.Select(entry => entry.Song)],
@@ -417,30 +446,49 @@ public partial class MainPage : ContentPage
 	}
 
 	private async void HandleNextSongClicked(object? sender, EventArgs e)
-	{
-		if (this.currentSongIndex >= 0 && this.currentSongIndex + 1 < this.performanceSongs.Count)
-		{
-			await this.ShowSongAsync(
-				this.performanceSongs[this.currentSongIndex + 1],
-				this.performanceSongs,
-				this.currentSongIndex + 1,
-				this.performanceContextName).ConfigureAwait(true);
-		}
-	}
+		=> await this.MovePerformanceAsync(1, false).ConfigureAwait(true);
 
 	private async void HandlePreviousSongClicked(object? sender, EventArgs e)
+		=> await this.MovePerformanceAsync(-1, false).ConfigureAwait(true);
+
+	private async Task MovePerformanceAsync(int direction, bool fromBoundary)
 	{
-		if (this.currentSongIndex > 0)
+		int next = this.currentSongIndex + direction;
+		if (!this.navigatingSong && this.PerformanceSurface.IsVisible && (!fromBoundary || this.viewerReady)
+			&& next >= 0 && next < this.performanceSongs.Count)
 		{
-			await this.ShowSongAsync(
-				this.performanceSongs[this.currentSongIndex - 1],
-				this.performanceSongs,
-				this.currentSongIndex - 1,
-				this.performanceContextName).ConfigureAwait(true);
+			this.navigatingSong = true;
+			try
+			{
+				await this.ShowSongAsync(
+					this.performanceSongs[next],
+					this.performanceSongs,
+					next,
+					this.performanceContextName,
+					startAtEnd: fromBoundary && direction < 0).ConfigureAwait(true);
+			}
+			finally
+			{
+				this.navigatingSong = false;
+			}
 		}
 	}
 
-	private void HandleSongViewerNavigating(object? sender, WebNavigatingEventArgs e) => this.viewerReady = false;
+	private async void HandleSongViewerNavigating(object? sender, WebNavigatingEventArgs e)
+	{
+		if (e.Url.StartsWith("chordbook:", StringComparison.OrdinalIgnoreCase))
+		{
+			e.Cancel = true;
+			if (TextViewerBridge.TryReadBoundary(e.Url, this.viewerGeneration, out int direction))
+			{
+				await this.MovePerformanceAsync(direction, true).ConfigureAwait(true);
+			}
+		}
+		else
+		{
+			this.viewerReady = false;
+		}
+	}
 
 	private void HandleSongViewerUnloaded(object? sender, EventArgs e) => this.viewerReady = false;
 
@@ -468,15 +516,50 @@ public partial class MainPage : ContentPage
 
 	private void ApplyFilter(string? query)
 	{
-		this.visibleSongs = this.session.SearchSongs(query, this.ShowArchived.IsChecked);
-		this.songGroups =
-		[
-			.. this.visibleSongs
+		if (this.CurrentCustomTab is { IsSupported: false })
+		{
+			this.visibleSongs = [];
+			this.songGroups = [];
+			this.SongList.ItemsSource = this.songGroups;
+			this.JumpLetters.Children.Clear();
+			this.Status.Text = "This saved tab uses a filter or grouping not yet supported by this client.";
+		}
+		else
+		{
+			this.ApplySupportedFilter(query);
+		}
+	}
+
+	private void ApplySupportedFilter(string? query)
+	{
+		int tab = this.ManagementTabs.SelectedIndex;
+		this.visibleSongs = tab == RecentTabIndex
+			? this.session.SearchRecentSongs(query, this.ShowArchived.IsChecked)
+			: this.session.SearchSongs(query, this.ShowArchived.IsChecked);
+		if (tab == RecentTabIndex)
+		{
+			this.songGroups = this.visibleSongs.Count == 0 ? [] : [new SongGroup("Recently opened", this.visibleSongs)];
+		}
+		else if (this.GroupSongsByArtist)
+		{
+			var artists = this.session.Database!.Songs.ToDictionary(song => song.Id, song => song.Artists);
+			this.songGroups = [.. this.visibleSongs
+				.SelectMany(row => artists[row.Id].DefaultIfEmpty("Unknown artist").Distinct(StringComparer.CurrentCultureIgnoreCase)
+					.Select(artist => (Artist: artist, Row: row)))
+				.GroupBy(item => item.Artist, StringComparer.CurrentCultureIgnoreCase)
+				.OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
+				.Select(group => new SongGroup(group.Key, group.Select(item => item.Row)
+					.OrderBy(song => song.Title, StringComparer.CurrentCultureIgnoreCase)))];
+			this.visibleSongs = [.. this.songGroups.SelectMany(group => group).DistinctBy(song => song.Id)];
+		}
+		else
+		{
+			this.songGroups = [.. this.visibleSongs
 				.GroupBy(song => GetSectionKey(song.Title), StringComparer.Ordinal)
 				.Select(group => new SongGroup(group.Key, group))
-				.OrderBy(group => group.Key == "#" ? 0 : 1)
-				.ThenBy(group => group.Key, StringComparer.Ordinal),
-		];
+				.OrderBy(group => group.Key == "#" ? 0 : 1).ThenBy(group => group.Key, StringComparer.Ordinal)];
+		}
+
 		this.SongList.ItemsSource = this.songGroups;
 		this.RefreshJumpLetters();
 		this.Status.Text = $"Showing {this.visibleSongs.Count:N0} of {this.allSongs.Count:N0} songs.";
@@ -582,7 +665,10 @@ public partial class MainPage : ContentPage
 
 	private void ExitPerformanceMode()
 	{
+		this.SetPerformanceLocked(false);
+		this.RestoreScreenPolicy();
 		this.metronome.Stop();
+		this.session.FlushRecentHistory();
 
 		// Hiding the native WebView can raise SizeChanged while its browser is being detached.
 		this.viewerGeneration++;
@@ -592,6 +678,11 @@ public partial class MainPage : ContentPage
 		this.ManagementSurface.IsVisible = true;
 		this.SongList.SelectedItem = null;
 		this.SetlistEntries.SelectedItem = null;
+		if (this.ManagementTabs.SelectedIndex == RecentTabIndex && this.session.Database is not null)
+		{
+			this.ApplyFilter(this.SongSearch.Text);
+		}
+
 		this.UpdateBackButton();
 	}
 
@@ -613,12 +704,13 @@ public partial class MainPage : ContentPage
 
 		this.allSongs = this.session.SearchSongs(string.Empty, includeArchived: true);
 		this.BookName.Text = this.session.Database?.Name;
+		this.RefreshCustomTabs();
 		this.BookPath.Text = this.session.DirectoryPath;
 		this.RefreshRecentBooks();
 		this.RefreshSetlists();
 		this.ShowSetlistOverview();
-		this.SongSearch.Text = string.Empty;
-		this.ApplyFilter(string.Empty);
+		this.SongSearch.Text = this.CurrentCustomTab?.Search ?? string.Empty;
+		this.ApplyFilter(this.SongSearch.Text);
 		this.Status.Text = $"{status} {this.allSongs.Count:N0} song(s).";
 	}
 
@@ -685,7 +777,14 @@ public partial class MainPage : ContentPage
 		bool result = true;
 		if (this.PerformanceSurface.IsVisible)
 		{
-			this.ExitPerformanceMode();
+			if (this.performanceLocked)
+			{
+				_ = this.ConfirmPerformanceExitAsync();
+			}
+			else
+			{
+				this.ExitPerformanceMode();
+			}
 		}
 		else if (this.selectingSongs)
 		{
@@ -734,11 +833,13 @@ public partial class MainPage : ContentPage
 	private void RefreshJumpLetters()
 	{
 		this.JumpLetters.Children.Clear();
-		foreach (SongGroup group in this.songGroups)
+		IEnumerable<SongGroup> jumps = this.ManagementTabs.SelectedIndex == RecentTabIndex ? []
+			: this.GroupSongsByArtist ? this.songGroups.DistinctBy(group => GetSectionKey(group.Key)) : this.songGroups;
+		foreach (SongGroup group in jumps)
 		{
 			Button button = new()
 			{
-				Text = group.Key,
+				Text = this.GroupSongsByArtist ? GetSectionKey(group.Key) : group.Key,
 				CommandParameter = group,
 				Padding = 0,
 				HeightRequest = JumpButtonHeight,
@@ -809,13 +910,17 @@ public partial class MainPage : ContentPage
 		SongRow song,
 		IReadOnlyList<SongRow> context,
 		int index,
-		string? contextName)
+		string? contextName,
+		bool startAtEnd = false)
 	{
 		int generation = ++this.viewerGeneration;
-		this.metronome.Stop();
+		this.viewerReady = false;
 		await this.RunUiOperationAsync(async () =>
 		{
-			SongPresentation presentation = await this.session.GetPresentationAsync(song.Id).ConfigureAwait(true);
+			Guid? entryId = this.performanceSetlistId.HasValue && index >= 0 && index < this.performanceEntryIds.Count
+				? this.performanceEntryIds[index] : null;
+			SongPresentation presentation = await this.session.GetPresentationAsync(
+				song.Id, setlistId: this.performanceSetlistId, entryId: entryId).ConfigureAwait(true);
 			if (generation == this.viewerGeneration)
 			{
 				this.viewerReady = false;
@@ -837,14 +942,21 @@ public partial class MainPage : ContentPage
 				else
 				{
 					this.showingHtmlChart = true;
-					this.SongViewer.Source = new HtmlWebViewSource { Html = presentation.Html ?? string.Empty };
+					string html = TextViewerBridge.Attach(presentation.Html ?? string.Empty, generation, startAtEnd);
+					this.SongViewer.Source = new HtmlWebViewSource { Html = html };
 					this.Status.Text = "Rendered the managed text chart.";
 				}
 
 				this.ManagementSurface.IsVisible = false;
 				this.PerformanceSurface.IsVisible = true;
+				this.UpdateScreenPolicy();
 				await Task.Yield();
 				this.FocusSongViewer();
+				this.session.RecordSongAccess(song.Id);
+				if (this.metronome.IsRunning)
+				{
+					await this.metronome.StartAsync(this.session.GetMetronomeSettings(song.Id)).ConfigureAwait(true);
+				}
 			}
 		}).ConfigureAwait(true);
 	}
@@ -953,13 +1065,16 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private void ShowManagementTab(bool showSetlists)
+	private void ShowManagementTab(bool showSetlists, bool preserveSongTab = false)
 	{
 		this.SongToolbar.IsVisible = !showSetlists && !this.selectingSongs;
 		this.SongSelectionToolbar.IsVisible = !showSetlists && this.selectingSongs;
 		this.SongSurface.IsVisible = !showSetlists;
 		this.SetlistSurface.IsVisible = showSetlists;
-		this.ManagementTabs.SelectedIndex = showSetlists ? 1 : 0;
+		if (showSetlists || !preserveSongTab)
+		{
+			this.ManagementTabs.SelectedIndex = showSetlists ? 1 : 0;
+		}
 	}
 
 	#endregion

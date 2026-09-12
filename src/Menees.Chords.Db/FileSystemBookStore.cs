@@ -183,7 +183,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	/// <inheritdoc />
 	public async Task CommitMetadataAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken = default)
 	{
-		string directory = this.GetPath(location);
+		_ = this.GetPath(location);
 		MetadataCommit.Validate(location, expectedJson, updatedJson);
 		await this.CommitReconciledMetadataAsync(location, expectedJson, updatedJson, cancellationToken).ConfigureAwait(false);
 	}
@@ -289,105 +289,26 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		return problems;
 	}
 
-	/// <summary>Adopts unambiguous GUID-preserving renames and content edits, while only reporting missing or unknown files.</summary>
-	public async Task<BookReconcileResult> ReconcileAsync(
-		BookLocation location,
-		Guid deviceId,
+	/// <summary>Reviews external changes without saving metadata or changing source files.</summary>
+	public Task<BookReconcilePreview> PreviewReconcileAsync(BookLocation location, Guid deviceId, CancellationToken cancellationToken = default)
+		=> new FileSystemBookReconciler(this).PreviewAsync(location, deviceId, cancellationToken);
+
+	/// <summary>Applies a reviewed snapshot, retaining catalog conflicts unless explicitly selected.</summary>
+	public Task<BookReconcileResult> ApplyReconcileAsync(
+		BookReconcilePreview preview,
+		IReadOnlySet<string>? useSourceValues = null,
 		CancellationToken cancellationToken = default)
+		=> new FileSystemBookReconciler(this).ApplyAsync(preview, useSourceValues, cancellationToken);
+
+	/// <summary>Adopts external changes while retaining independently edited catalog metadata.</summary>
+	public async Task<BookReconcileResult> ReconcileAsync(BookLocation location, Guid deviceId, CancellationToken cancellationToken = default)
 	{
-		string directory = this.GetPath(location);
-		string expectedJson = await this.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
-		ChordDatabase database = DatabaseJson.Deserialize(expectedJson);
-		Dictionary<Guid, List<string>> observed = [];
-		foreach (string path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly))
-		{
-			string name = Path.GetFileName(path);
-			if (!StringComparer.OrdinalIgnoreCase.Equals(name, DatabaseFileName)
-				&& PortableManagedFileName.TryGetSongFileId(name, out Guid fileId))
-			{
-				if (!observed.TryGetValue(fileId, out List<string>? names))
-				{
-					names = [];
-					observed.Add(fileId, names);
-				}
-
-				names.Add(name);
-			}
-		}
-
-		HashSet<Guid> tracked = [.. database.SongFiles.Select(file => file.Id)];
-		List<ExternalBookProblem> problems = [];
-		foreach ((Guid id, List<string> names) in observed.Where(pair => !tracked.Contains(pair.Key)))
-		{
-			_ = id;
-			problems.AddRange(names.Select(name => new ExternalBookProblem(name, "A GUID-suffixed file is an unaccepted external import candidate.")));
-		}
-
-		bool observationsChanged = false;
-		int renamedCount = 0;
-		int changedCount = 0;
-		DateTimeOffset now = DateTimeOffset.UtcNow;
-		foreach (SongFile file in database.SongFiles)
-		{
-			cancellationToken.ThrowIfCancellationRequested();
-			bool contentChanged = false;
-			bool renamed = false;
-			string expectedPath = GetManagedPath(directory, file.RelativePath);
-			string actualName = file.RelativePath;
-			if (!File.Exists(expectedPath))
-			{
-				if (observed.TryGetValue(file.Id, out List<string>? names) && names.Count == 1)
-				{
-					actualName = names[0];
-					file.RelativePath = actualName;
-					renamed = true;
-					renamedCount++;
-				}
-				else
-				{
-					string message = names?.Count > 1
-						? "Managed file has multiple GUID-matching rename candidates."
-						: "Managed file is missing; no deletion was inferred.";
-					problems.Add(new(file.RelativePath, message));
-					continue;
-				}
-			}
-
-			string actualPath = GetManagedPath(directory, actualName);
-			FileInfo info = new(actualPath);
-			if (file.ObservedLength != info.Length || file.ObservedWriteUtc?.UtcDateTime != info.LastWriteTimeUtc)
-			{
-				byte[] bytes = await File.ReadAllBytesAsync(actualPath, cancellationToken).ConfigureAwait(false);
-				string hash = SongFileAnalyzer.Hash(bytes);
-				if (!StringComparer.OrdinalIgnoreCase.Equals(hash, file.ContentHash))
-				{
-					SongFileAnalysis analysis = SongFileAnalyzer.Analyze(bytes, actualName);
-					ApplyAnalysis(database, file, analysis, deviceId, now);
-					file.ContentHash = hash;
-					file.ContentRevision++;
-					contentChanged = true;
-					changedCount++;
-				}
-
-				observationsChanged = true;
-				file.ObservedLength = info.Length;
-				file.ObservedWriteUtc = info.LastWriteTimeUtc;
-			}
-
-			if (renamed && !contentChanged)
-			{
-				file.Revision = NextRevision(file.Revision, deviceId, now);
-			}
-		}
-
-		if (renamedCount > 0 || changedCount > 0 || observationsChanged)
-		{
-			database.Revision = NextRevision(database.Revision, deviceId, now);
-			await this.CommitReconciledMetadataAsync(location, expectedJson, DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
-		}
-
-		return new(renamedCount, changedCount, problems);
+		BookReconcilePreview preview = await this.PreviewReconcileAsync(location, deviceId, cancellationToken).ConfigureAwait(false);
+		return await this.ApplyReconcileAsync(preview, cancellationToken: cancellationToken).ConfigureAwait(false);
 	}
+
+	internal Task CommitReconciliationAsync(BookLocation location, string expectedJson, string updatedJson, CancellationToken cancellationToken)
+		=> this.CommitReconciledMetadataAsync(location, expectedJson, updatedJson, cancellationToken);
 
 	#endregion
 
@@ -438,38 +359,6 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	private static List<SongFile> GetInstalledFiles(ChordDatabase next, Dictionary<Guid, SongFile> previous, Dictionary<Guid, string> writes)
 		=> [.. next.SongFiles.Where(file => writes.ContainsKey(file.Id)
 			|| !previous.TryGetValue(file.Id, out SongFile? old) || !StringComparer.Ordinal.Equals(file.RelativePath, old.RelativePath))];
-
-	private static void ApplyAnalysis(
-		ChordDatabase database,
-		SongFile file,
-		SongFileAnalysis analysis,
-		Guid deviceId,
-		DateTimeOffset now)
-	{
-		file.MediaKind = analysis.MediaKind;
-		file.SourceFormat = analysis.SourceFormat;
-		file.TextEncoding = analysis.TextEncoding;
-		file.ByteOrderMark = analysis.ByteOrderMark;
-		file.AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion;
-		Song song = database.Songs.Single(item => item.Id == file.SongId);
-		if (analysis.Metadata.ContainsKey("title"))
-		{
-			song.Title = analysis.Title;
-		}
-
-		song.Artists = [.. analysis.Artists];
-		song.SourceMetadata.Clear();
-		foreach ((string key, IReadOnlyList<SourceMetadataValue> values) in analysis.Metadata)
-		{
-			song.SourceMetadata[key] =
-			[
-				.. values.Select(value => new SourceMetadataValue { Value = value.Value, SourceName = value.SourceName }),
-			];
-		}
-
-		song.Revision = NextRevision(song.Revision, deviceId, now);
-		file.Revision = NextRevision(file.Revision, deviceId, now);
-	}
 
 	private static string GetManagedPath(string directory, string relativePath)
 	{

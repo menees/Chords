@@ -4,9 +4,12 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" Title="Edit Song">
     <Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
         <HorizontalStackLayout Spacing="12">
-            <Label Text="Edit Song" FontSize="22" VerticalOptions="Center" />
+            <Label x:Name="heading" Text="Edit Song" FontSize="22" VerticalOptions="Center" />
             <Button Text="Save" Clicked="HandleSave" />
             <Button Text="Cancel" Clicked="HandleCancel" />
+            <HorizontalStackLayout x:Name="newSongActions" IsVisible="False">
+                <Button Text="Preview Metadata" Clicked="HandlePreviewMetadata" />
+            </HorizontalStackLayout>
         </HorizontalStackLayout>
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="Catalog title" />

@@ -1,11 +1,22 @@
+#region Using Directives
+
 using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
+
+#endregion
 
 namespace Menees.Chords.Book.Application;
 
 public sealed partial class BookApplicationSession
 {
+	#region Public Methods
+
+	public static bool MetronomeSettingsEqual(MetronomeSettings left, MetronomeSettings right)
+		=> left.BeatsPerMinute == right.BeatsPerMinute && left.BeatsPerMeasure == right.BeatsPerMeasure && left.BeatUnit == right.BeatUnit
+			&& left.Subdivision == right.Subdivision && left.Sound == right.Sound && left.Volume == right.Volume
+			&& left.AccentFirstBeat == right.AccentFirstBeat && left.AudioEnabled == right.AudioEnabled && left.VisualEnabled == right.VisualEnabled;
+
 	/// <summary>Validates the supported initial click-engine settings.</summary>
 	public static void ValidateMetronome(MetronomeSettings settings)
 	{
@@ -27,24 +38,26 @@ public sealed partial class BookApplicationSession
 		}
 	}
 
+	public Task SaveBookMetronomeAsync(MetronomeSettings settings, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ValidateMetronome(settings);
+		return this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				database.BookSettings.DefaultMetronome = ResolveMetronome(settings, null);
+				database.BookSettings.Revision = NextRevision(database.BookSettings.Revision, deviceId, now);
+			},
+			deviceId,
+			cancellationToken);
+	}
+
 	/// <summary>Resolves explicit song overrides over book defaults without inferring tempo from song text.</summary>
-	public MetronomeSettings GetMetronomeSettings(Guid songId)
+	public MetronomeSettings GetMetronomeSettings(Guid? songId = null)
 	{
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
 		MetronomeSettings defaults = database.BookSettings.DefaultMetronome;
-		SongMetronomeOverride? patch = database.Songs.Single(song => song.Id == songId).MetronomeOverride;
-		return new()
-		{
-			BeatsPerMinute = patch?.BeatsPerMinute ?? defaults.BeatsPerMinute,
-			BeatsPerMeasure = patch?.BeatsPerMeasure ?? defaults.BeatsPerMeasure,
-			BeatUnit = patch?.BeatUnit ?? defaults.BeatUnit,
-			Subdivision = patch?.Subdivision ?? defaults.Subdivision,
-			Sound = patch?.Sound ?? defaults.Sound,
-			Volume = patch?.Volume ?? defaults.Volume,
-			AccentFirstBeat = patch?.AccentFirstBeat ?? defaults.AccentFirstBeat,
-			AudioEnabled = patch?.AudioEnabled ?? defaults.AudioEnabled,
-			VisualEnabled = patch?.VisualEnabled ?? defaults.VisualEnabled,
-		};
+		SongMetronomeOverride? patch = songId is Guid id ? database.Songs.Single(song => song.Id == id).MetronomeOverride : null;
+		return ResolveMetronome(defaults, patch);
 	}
 
 	/// <summary>Saves metronome controls as explicit song settings, or resets the song to book defaults.</summary>
@@ -68,6 +81,26 @@ public sealed partial class BookApplicationSession
 				song.Revision = NextRevision(song.Revision, deviceId, now);
 			},
 			deviceId,
-			cancellationToken);
+			cancellationToken,
+			refreshPredicatesFor: songId);
 	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static MetronomeSettings ResolveMetronome(MetronomeSettings defaults, SongMetronomeOverride? patch) => new()
+	{
+		BeatsPerMinute = patch?.BeatsPerMinute ?? defaults.BeatsPerMinute,
+		BeatsPerMeasure = patch?.BeatsPerMeasure ?? defaults.BeatsPerMeasure,
+		BeatUnit = patch?.BeatUnit ?? defaults.BeatUnit,
+		Subdivision = patch?.Subdivision ?? defaults.Subdivision,
+		Sound = patch?.Sound ?? defaults.Sound,
+		Volume = patch?.Volume ?? defaults.Volume,
+		AccentFirstBeat = patch?.AccentFirstBeat ?? defaults.AccentFirstBeat,
+		AudioEnabled = patch?.AudioEnabled ?? defaults.AudioEnabled,
+		VisualEnabled = patch?.VisualEnabled ?? defaults.VisualEnabled,
+	};
+
+	#endregion
 }

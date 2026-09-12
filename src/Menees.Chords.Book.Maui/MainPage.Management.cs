@@ -11,6 +11,137 @@ public partial class MainPage
 {
 	#region Private Methods
 
+	private void HandlePerformanceLockClicked(object? sender, EventArgs e)
+	{
+		this.SetPerformanceLocked(!this.performanceLocked);
+		this.FocusSongViewer();
+	}
+
+	private void SetPerformanceLocked(bool locked)
+	{
+		this.performanceLocked = locked;
+		this.PerformanceLockButton.Text = locked ? "Unlock" : "Lock";
+		this.PerformanceSongButton.IsEnabled = !locked;
+		this.PerformanceAddButton.IsEnabled = !locked;
+		this.PerformanceMetronomeButton.IsEnabled = !locked;
+	}
+
+	private async Task ConfirmPerformanceExitAsync()
+	{
+		if (!this.confirmingPerformanceExit)
+		{
+			this.confirmingPerformanceExit = true;
+			try
+			{
+				if (await this.DisplayAlertAsync("Leave performance?", "Performance is locked.", "Leave", "Stay").ConfigureAwait(true))
+				{
+					this.ExitPerformanceMode();
+				}
+			}
+			finally
+			{
+				this.confirmingPerformanceExit = false;
+			}
+		}
+	}
+
+	private void UpdateScreenPolicy()
+	{
+		if (this.windowActive && this.PerformanceSurface.IsVisible)
+		{
+			this.previousKeepScreenOn ??= DeviceDisplay.Current.KeepScreenOn;
+			DeviceDisplay.Current.KeepScreenOn = true;
+		}
+		else
+		{
+			this.RestoreScreenPolicy();
+		}
+	}
+
+	private void RestoreScreenPolicy()
+	{
+		if (this.previousKeepScreenOn is bool previous)
+		{
+			DeviceDisplay.Current.KeepScreenOn = previous;
+			this.previousKeepScreenOn = null;
+		}
+	}
+
+	private async void HandleEntrySettingsClicked(object? sender, EventArgs e)
+	{
+		if (sender is Button { CommandParameter: SetlistEntryRow row } && this.currentSetlist is SetlistRow list)
+		{
+			await this.RunBookMutationAsync(async () =>
+			{
+				SetlistEntrySettings original = this.session.GetSetlistEntrySettings(list.Id, row.EntryId);
+				SongFileCatalogItem[] files = [.. this.session.GetSongFiles(row.Song.Id).Where(file => !file.IsArchived && !file.IsRecoveryVersion)];
+				string[] choices = ["Default sheet", .. files.Select((file, index) => $"{index + 1}. {file.Name}")];
+				string? selected = await this.DisplayActionSheetAsync("Sheet for this setlist entry", "Cancel", null, choices).ConfigureAwait(true);
+				int position = Array.IndexOf(choices, selected);
+				if (position >= 0)
+				{
+					string? text = await this.DisplayPromptAsync(
+						"Transpose This Setlist Entry",
+						"Semitones (-24 to +24); blank uses the default. Text sheets only.",
+						initialValue: original.TransposeSemitones?.ToString(CultureInfo.CurrentCulture) ?? string.Empty).ConfigureAwait(true);
+					if (text is not null)
+					{
+						int? transpose = string.IsNullOrWhiteSpace(text) ? null : int.Parse(text, CultureInfo.CurrentCulture);
+						await this.session.SaveSetlistEntrySettingsAsync(original, position == 0 ? null : files[position - 1].Id, transpose)
+							.ConfigureAwait(true);
+						this.RefreshSetlists(list.Id);
+					}
+				}
+			}).ConfigureAwait(true);
+		}
+	}
+
+	private async void HandleBookActionsClicked(object? sender, EventArgs e)
+		=> await this.RunBookMutationAsync(async () =>
+		{
+			string[] actions = ["Rename Book", "Review Folder Changes", "Display Defaults", "Metronome Defaults"];
+			string? action = await this.DisplayActionSheetAsync("Book", "Cancel", null, actions)
+				.ConfigureAwait(true);
+			if (action == "Metronome Defaults")
+			{
+				MetronomePage page = new(null, this.session, this.metronome);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Display Defaults")
+			{
+				DisplaySettingsPage page = new(this.session, null);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Rename Book")
+			{
+				await this.RenameCurrentBookAsync().ConfigureAwait(true);
+			}
+			else if (action == "Review Folder Changes")
+			{
+				this.Status.Text = "Checking the book folder…";
+				var preview = await this.session.PreviewReconcileAsync().ConfigureAwait(true);
+				BookReconciliationPage page = new(this.session, preview);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				if (await page.Completion.ConfigureAwait(true))
+				{
+					this.RefreshCatalogAfterEdit("Reviewed folder changes applied.");
+				}
+			}
+		}).ConfigureAwait(true);
+
+	private async void HandleNewSongClicked(object? sender, EventArgs e)
+		=> await this.RunBookMutationAsync(async () =>
+		{
+			SongEditorPage editor = new(this.session);
+			await this.Navigation.PushModalAsync(editor).ConfigureAwait(true);
+			if (await editor.Completion.ConfigureAwait(true))
+			{
+				this.RefreshCatalogAfterEdit("Song created. Clear the search if it is hidden by the current filter.");
+			}
+		}).ConfigureAwait(true);
+
 	private async void HandleMetronomeClicked(object? sender, EventArgs e)
 	{
 		if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
@@ -21,18 +152,31 @@ public partial class MainPage
 				MetronomePage page = new(id, this.session, this.metronome);
 				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
+				this.RefreshCatalogAfterEdit("Metronome settings updated.");
 			}).ConfigureAwait(true);
 		}
 	}
 
 	private void HandleManagementTabChanged(object? sender, EventArgs e)
 	{
-		if (this.ManagementTabs.SelectedIndex == 1 && this.selectingSongs)
+		if (this.selectingSongs)
 		{
 			this.EndSongSelection();
 		}
 
-		this.ShowManagementTab(this.ManagementTabs.SelectedIndex == 1);
+		bool showSetlists = this.ManagementTabs.SelectedIndex == 1;
+		this.ShowManagementTab(showSetlists, preserveSongTab: true);
+		if (!showSetlists && this.session.Database is not null)
+		{
+			if (this.CurrentCustomTab is CustomTabCatalogItem tab && this.SongSearch.Text != tab.Search)
+			{
+				this.SongSearch.Text = tab.Search;
+			}
+			else
+			{
+				this.ApplyFilter(this.SongSearch.Text);
+			}
+		}
 	}
 
 	private void UpdateSongSelectionActions()
@@ -193,7 +337,7 @@ public partial class MainPage
 		SongRow[] selected = [.. this.visibleSongs.Where(song => song.IsSelected)];
 		if (selected.Length == 1)
 		{
-			await this.EditSongAsync(selected[0].Id).ConfigureAwait(true);
+			await this.ManageSongAsync(selected[0].Id).ConfigureAwait(true);
 		}
 	}
 
@@ -201,18 +345,36 @@ public partial class MainPage
 	{
 		if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
 		{
-			await this.EditSongAsync(this.performanceSongs[this.currentSongIndex].Id).ConfigureAwait(true);
+			await this.ManageSongAsync(this.performanceSongs[this.currentSongIndex].Id).ConfigureAwait(true);
 		}
 	}
 
-	private async Task EditSongAsync(Guid songId)
+	private async Task ManageSongAsync(Guid songId)
 		=> await this.RunBookMutationAsync(async () =>
 		{
-			this.metronome.Stop();
-			SongEditDocument document = await this.session.GetSongEditAsync(songId).ConfigureAwait(true);
-			SongEditorPage editor = new(document, this.session);
-			await this.Navigation.PushModalAsync(editor).ConfigureAwait(true);
-			bool saved = await editor.Completion.ConfigureAwait(true);
+			string? action = await this.DisplayActionSheetAsync("Song", "Cancel", null, "Edit Song", "Manage Sheets", "Display Settings").ConfigureAwait(true);
+			bool saved = false;
+			if (action == "Display Settings")
+			{
+				DisplaySettingsPage page = new(this.session, songId);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				saved = await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Edit Song")
+			{
+				this.metronome.Stop();
+				SongEditDocument document = await this.session.GetSongEditAsync(songId).ConfigureAwait(true);
+				SongEditorPage editor = new(document, this.session);
+				await this.Navigation.PushModalAsync(editor).ConfigureAwait(true);
+				saved = await editor.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Manage Sheets")
+			{
+				SongFilesPage page = new(songId, this.session, this.picker);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				saved = await page.Completion.ConfigureAwait(true);
+			}
+
 			if (saved)
 			{
 				bool performing = this.PerformanceSurface.IsVisible;

@@ -22,6 +22,7 @@ public static class DisplaySettingsResolver
 			FontSize = source.FontSize,
 			LineSpacing = source.LineSpacing,
 			Columns = source.Columns,
+			AutoColumns = source.AutoColumns,
 			ShowChords = source.ShowChords,
 			NotationSystem = source.NotationSystem,
 		};
@@ -38,6 +39,7 @@ public static class DisplaySettingsResolver
 			profile.FontSize = patch.FontSize ?? profile.FontSize;
 			profile.LineSpacing = patch.LineSpacing ?? profile.LineSpacing;
 			profile.Columns = patch.Columns ?? profile.Columns;
+			profile.AutoColumns = patch.AutoColumns ?? profile.AutoColumns;
 			profile.ShowChords = patch.ShowChords ?? profile.ShowChords;
 			profile.NotationSystem = patch.NotationSystem ?? profile.NotationSystem;
 		}

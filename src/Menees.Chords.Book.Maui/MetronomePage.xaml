@@ -22,9 +22,9 @@
             <Label x:Name="pulse" FontSize="44" HorizontalTextAlignment="Center" />
             <Button x:Name="toggle" Text="Start" Clicked="HandleToggle" />
             <HorizontalStackLayout Spacing="8">
-                <Button Text="Save for This Song" Clicked="HandleSave" />
-                <Button Text="Use Book Defaults" Clicked="HandleReset" />
-                <Button Text="Back to Song" Clicked="HandleClose" />
+                <Button x:Name="saveSettings" Text="Save for This Song" Clicked="HandleSave" />
+                <Button x:Name="resetSettings" Text="Use Book Defaults" Clicked="HandleReset" />
+                <Button Text="Close" Clicked="HandleClose" />
             </HorizontalStackLayout>
             <Label x:Name="status" />
         </VerticalStackLayout>

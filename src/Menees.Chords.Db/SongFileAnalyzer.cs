@@ -15,7 +15,7 @@ public static class SongFileAnalyzer
 	#region Public Data
 
 	/// <summary>Gets the current persisted metadata-analysis version.</summary>
-	public const int CurrentAnalysisVersion = 1;
+	public const int CurrentAnalysisVersion = 2;
 
 	#endregion
 
@@ -136,10 +136,27 @@ public static class SongFileAnalyzer
 		return result;
 	}
 
-	private static SourceFormat DetectTextFormat(Document document)
+	private static SourceFormat DetectTextFormat(IEntryContainer container)
 	{
-		bool chordPro = document.Entries.Any(entry => entry is ChordProDirectiveLine or ChordProLyricLine);
-		bool chordOverText = document.Entries.Any(entry => entry is ChordLine);
+		bool chordPro = false;
+		bool chordOverText = false;
+		foreach (Entry entry in container.Entries)
+		{
+			chordPro |= entry is ChordProDirectiveLine or ChordProLyricLine;
+			chordOverText |= entry is ChordLine or ChordLyricPair;
+			if (entry is IEntryContainer child && entry is not ChordLyricPair)
+			{
+				SourceFormat format = DetectTextFormat(child);
+				chordPro |= format is SourceFormat.ChordPro or SourceFormat.Mixed;
+				chordOverText |= format is SourceFormat.ChordOverText or SourceFormat.Mixed;
+			}
+
+			if (chordPro && chordOverText)
+			{
+				break;
+			}
+		}
+
 		return (chordPro, chordOverText) switch
 		{
 			(true, true) => SourceFormat.Mixed,

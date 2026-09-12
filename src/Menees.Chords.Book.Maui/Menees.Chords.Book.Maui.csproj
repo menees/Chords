@@ -8,6 +8,7 @@
 	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
 		<OutputType>WinExe</OutputType>
 		<UseMaui>true</UseMaui>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<SingleProject>true</SingleProject>
 		<SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
 		<TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>

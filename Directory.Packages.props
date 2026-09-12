@@ -6,7 +6,7 @@
 	<ItemGroup>
 		<PackageVersion Include="Blazored.LocalStorage" Version="4.5.0" />
 		<PackageVersion Include="MSTest" Version="4.3.3" />
-		<PackageVersion Include="Menees.Analyzers" Version="4.0.1" />
+		<PackageVersion Include="Menees.Analyzers" Version="4.0.2" />
 		<PackageVersion Include="Menees.Common" Version="5.1.2" />
 		<PackageVersion Include="Meziantou.Polyfill" Version="1.0.160" />
 		<!-- DOTNET_VERSION: AspNetCore versions should match the Blazor version. -->

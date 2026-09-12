@@ -29,6 +29,14 @@ public sealed class SongFileAnalyzerTests
 	#region Public Methods
 
 	[TestMethod]
+	[DataRow("C        G\nA new song\n", SourceFormat.ChordOverText)]
+	[DataRow("{title: Song}\nC        G\nA new song\n", SourceFormat.Mixed)]
+	[DataRow("[Verse]\nC        G\nA new song\n", SourceFormat.ChordOverText)]
+	[DataRow("{start_of_verse}\n[C]A new song\n{end_of_verse}\n", SourceFormat.ChordPro)]
+	public void DetectsGroupedAndNestedSongSyntax(string text, SourceFormat expected)
+		=> SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(text), "Song.txt").SourceFormat.ShouldBe(expected);
+
+	[TestMethod]
 	public void DetectsExtensionlessOpenSong()
 	{
 		SongFileAnalysis analysis = SongFileAnalyzer.Analyze(TestData.OpenSongBytes(), "battle belongs i101115");

@@ -5,7 +5,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
-using Menees.Chords.Formatters;
+using Menees.Chords.Transformers;
 
 #endregion
 
@@ -26,11 +26,12 @@ public sealed partial class BookApplicationSession
 	#region Private Data
 
 	private readonly SemaphoreSlim mutationLock = new(1, 1);
+	private readonly RenderedSongCache renderedSongs = new();
 	private string? committedJson;
 	private IBookStore? store;
 	private BookLocation? location;
 	private BookSearchIndex? searchIndex;
-	private IReadOnlyDictionary<Guid, SongCatalogItem>? catalogItems;
+	private Dictionary<Guid, SongCatalogItem>? catalogItems;
 
 	#endregion
 
@@ -76,7 +77,7 @@ public sealed partial class BookApplicationSession
 	public IReadOnlyList<SongCatalogItem> Search(string? query, bool includeArchived = false)
 	{
 		BookSearchIndex index = this.searchIndex ?? throw new InvalidOperationException("The search index is unavailable.");
-		IReadOnlyDictionary<Guid, SongCatalogItem> items = this.catalogItems
+		Dictionary<Guid, SongCatalogItem> items = this.catalogItems
 			?? throw new InvalidOperationException("The catalog is unavailable.");
 		return
 		[
@@ -90,7 +91,7 @@ public sealed partial class BookApplicationSession
 	public IReadOnlyList<SetlistCatalogItem> GetSetlists(bool includeArchived = false)
 	{
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
-		IReadOnlyDictionary<Guid, int?> durations = database.Songs.ToDictionary(song => song.Id, song => song.DurationSeconds);
+		Dictionary<Guid, int?> durations = database.Songs.ToDictionary(song => song.Id, song => song.DurationSeconds);
 		return
 		[
 			.. database.Setlists
@@ -114,7 +115,7 @@ public sealed partial class BookApplicationSession
 	public IReadOnlyList<SetlistEntryCatalogItem> GetSetlistEntries(Guid setlistId)
 	{
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
-		IReadOnlyDictionary<Guid, SongCatalogItem> items = this.catalogItems
+		Dictionary<Guid, SongCatalogItem> items = this.catalogItems
 			?? throw new InvalidOperationException("The catalog is unavailable.");
 		Setlist setlist = database.Setlists.Single(item => item.Id == setlistId);
 		return
@@ -122,7 +123,18 @@ public sealed partial class BookApplicationSession
 			.. setlist.Entries.Select(entry =>
 			{
 				SongCatalogItem song = items[entry.SongId];
-				return new SetlistEntryCatalogItem(entry.Id, song.Id, song.DisplayText);
+				string display = song.DisplayText;
+				if (entry.PreferredSongFileId is not null)
+				{
+					display += " · Sheet override";
+				}
+
+				if (entry.TransposeSemitones is int transpose)
+				{
+					display += FormattableString.Invariant($" · Transpose {transpose:+0;-0;0}");
+				}
+
+				return new SetlistEntryCatalogItem(entry.Id, song.Id, display);
 			}),
 		];
 	}
@@ -295,20 +307,108 @@ public sealed partial class BookApplicationSession
 			refreshSongs: false);
 	}
 
+	/// <summary>Gets an entry settings snapshot for an optimistic concurrency checked edit.</summary>
+	public SetlistEntrySettings GetSetlistEntrySettings(Guid setlistId, Guid entryId)
+	{
+		Setlist setlist = this.Database!.Setlists.Single(item => item.Id == setlistId);
+		SetlistEntry entry = setlist.Entries.Single(item => item.Id == entryId);
+		return new(setlistId, entryId, entry.SongId, setlist.Revision.Revision, entry.PreferredSongFileId, entry.TransposeSemitones);
+	}
+
+	public Task SaveSetlistEntrySettingsAsync(
+		SetlistEntrySettings original, Guid? preferredFileId, int? transpose, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		const int MaximumTranspose = 24;
+		if (transpose is < -MaximumTranspose or > MaximumTranspose)
+		{
+			throw new ArgumentOutOfRangeException(nameof(transpose), "Use a transposition from -24 to +24 semitones.");
+		}
+
+		return this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				Setlist setlist = database.Setlists.Single(item => item.Id == original.SetlistId);
+				if (setlist.Revision.Revision != original.SetlistRevision)
+				{
+					throw new InvalidOperationException("This setlist changed. Reopen its entry settings before saving.");
+				}
+
+				SetlistEntry entry = setlist.Entries.Single(item => item.Id == original.EntryId);
+				if (preferredFileId is Guid fileId && !database.SongFiles.Any(file => file.Id == fileId && file.SongId == entry.SongId
+					&& !file.IsArchived && file.RecoveryVersion is null))
+				{
+					throw new ArgumentException("Choose an active sheet belonging to this song.", nameof(preferredFileId));
+				}
+
+				entry.PreferredSongFileId = preferredFileId;
+				entry.TransposeSemitones = transpose;
+				setlist.Revision = NextRevision(setlist.Revision, deviceId, now);
+			},
+			deviceId,
+			cancellationToken);
+	}
+
+	/// <summary>Resolves song overrides over book display defaults.</summary>
+	public DisplayProfile GetDisplaySettings(Guid? songId = null)
+	{
+		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
+		DisplayOverride? patch = songId is Guid id ? database.Songs.Single(song => song.Id == id).DisplayOverride : null;
+		return SongDisplaySettings.Resolve(database.BookSettings.DefaultDisplayProfile, patch);
+	}
+
+	public Task SaveDisplaySettingsAsync(Guid? songId, DisplayProfile? profile, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		if (profile is not null)
+		{
+			SongDisplaySettings.Validate(profile);
+		}
+
+		if (songId is null && profile is null)
+		{
+			throw new ArgumentException("Book defaults require a display profile.", nameof(profile));
+		}
+
+		return this.MutateMetadataAsync(
+			(database, now) =>
+			{
+				if (songId is Guid id)
+				{
+					Song song = database.Songs.Single(item => item.Id == id);
+					DisplayOverride? patch = profile is null ? null : SongDisplaySettings.CreatePatch(profile, database.BookSettings.DefaultDisplayProfile);
+					song.DisplayOverride = patch?.HasValues == true ? patch : null;
+					song.Revision = NextRevision(song.Revision, deviceId, now);
+				}
+				else
+				{
+					database.BookSettings.DefaultDisplayProfile = SongDisplaySettings.Resolve(profile!, null);
+					database.BookSettings.Revision = NextRevision(database.BookSettings.Revision, deviceId, now);
+				}
+			},
+			deviceId,
+			cancellationToken,
+			refreshPredicatesFor: songId);
+	}
+
 	/// <summary>Resolves and renders the preferred active file for a song.</summary>
 	public async Task<BookSongPresentation> GetPresentationAsync(
 		Guid songId,
+		Guid? setlistId = null,
+		Guid? entryId = null,
 		CancellationToken cancellationToken = default)
 	{
+		cancellationToken.ThrowIfCancellationRequested();
 		(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
 		Song song = database.Songs.Single(item => item.Id == songId);
-		SongFile? file = database.SongFiles
-			.Where(item => item.SongId == songId && !item.IsArchived)
-			.OrderByDescending(item => item.DisplayPriority)
-			.ThenBy(item => item.MediaKind)
-			.ThenBy(item => item.Id)
-			.FirstOrDefault();
+		SetlistEntry? entry = setlistId is Guid listId && entryId is Guid itemId
+			? database.Setlists.Single(list => list.Id == listId).Entries.Single(item => item.Id == itemId && item.SongId == songId) : null;
+		SongFile? file = this.GetOrderedSongFiles(songId).FirstOrDefault(item => !item.IsArchived);
+		if (entry?.PreferredSongFileId is Guid preferredId)
+		{
+			file = database.SongFiles.FirstOrDefault(item => item.Id == preferredId && item.SongId == songId
+				&& !item.IsArchived && item.RecoveryVersion is null) ?? file;
+		}
+
 		BookSongPresentation result;
 		if (file is null)
 		{
@@ -320,10 +420,28 @@ public sealed partial class BookApplicationSession
 		}
 		else
 		{
-			using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken)
-				.ConfigureAwait(false);
-			Document document = Document.Load(stream);
-			result = new(song.Title, file.Id, file.MediaKind, new HtmlFormatter(document).ToString());
+			DisplayProfile profile = SongDisplaySettings.Resolve(database.BookSettings.DefaultDisplayProfile, song.DisplayOverride);
+			int transpose = entry?.TransposeSemitones ?? 0;
+			string cacheKey = System.Text.Json.JsonSerializer.Serialize(new
+			{
+				Book = database.Id, File = file.Id, file.ContentHash, file.ContentRevision, Profile = profile, Transpose = transpose,
+			});
+			string? html = this.renderedSongs.Get(cacheKey);
+			if (html is null)
+			{
+				using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
+				Document document = Document.Load(stream);
+				if (transpose != 0)
+				{
+					document = new TransposeTransformer(document, checked((sbyte)transpose)).Transform().Document;
+				}
+
+				cancellationToken.ThrowIfCancellationRequested();
+				html = SongDisplaySettings.Render(document, profile);
+				this.renderedSongs.Put(cacheKey, html);
+			}
+
+			result = new(song.Title, file.Id, file.MediaKind, html);
 		}
 
 		return result;
@@ -332,6 +450,50 @@ public sealed partial class BookApplicationSession
 	#endregion
 
 	#region Private Methods
+
+	private static SongCatalogItem CreateCatalogItem(Song song, int active, int archived, int recovery)
+	{
+		List<string> parts = [CreateDisplayText(song)];
+		if (active > 1)
+		{
+			parts.Add($"{active} sheets");
+		}
+
+		if (archived > 0)
+		{
+			parts.Add($"{archived} archived sheets");
+		}
+
+		if (recovery > 0)
+		{
+			parts.Add($"{recovery} recovery sheets");
+		}
+
+		bool display = song.DisplayOverride?.HasValues == true;
+		bool metronome = song.MetronomeOverride is not null;
+		if (display)
+		{
+			parts.Add("Display override");
+		}
+
+		if (metronome)
+		{
+			parts.Add("Metronome override");
+		}
+
+		return new(
+			song.Id,
+			song.Title,
+			[.. song.Artists],
+			string.Join(" · ", parts),
+			song.IsArchived,
+			active,
+			song.LastAccessedUtc,
+			archived,
+			recovery,
+			display,
+			metronome);
+	}
 
 	private static string CreateDisplayText(Song song)
 	{
@@ -452,7 +614,8 @@ public sealed partial class BookApplicationSession
 		Action<ChordDatabase, DateTimeOffset> mutation,
 		Guid deviceId,
 		CancellationToken cancellationToken,
-		bool refreshSongs = false)
+		bool refreshSongs = false,
+		Guid? refreshPredicatesFor = null)
 	{
 		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 		try
@@ -471,6 +634,13 @@ public sealed partial class BookApplicationSession
 				{
 					this.SetDatabase(database);
 				}
+				else if (refreshPredicatesFor is Guid songId)
+				{
+					Song song = database.Songs.Single(item => item.Id == songId);
+					this.searchIndex!.RefreshSongPredicates(song);
+					SongCatalogItem previous = this.catalogItems![songId];
+					this.catalogItems[songId] = CreateCatalogItem(song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount);
+				}
 			}
 			catch
 			{
@@ -487,25 +657,24 @@ public sealed partial class BookApplicationSession
 
 	private void SetDatabase(ChordDatabase database)
 	{
-		Dictionary<Guid, int> activeFileCounts = database.SongFiles
-			.Where(file => !file.IsArchived)
-			.GroupBy(file => file.SongId)
-			.ToDictionary(group => group.Key, group => group.Count());
+		ILookup<Guid, SongFile> files = database.SongFiles.ToLookup(file => file.SongId);
 		this.Database = database;
 		this.searchIndex = new(database);
 		this.catalogItems = database.Songs.ToDictionary(
 			song => song.Id,
 			song =>
 			{
-				int activeFileCount = activeFileCounts.GetValueOrDefault(song.Id);
-				return new SongCatalogItem(
-					song.Id,
-					song.Title,
-					[.. song.Artists],
-					CreateDisplayText(song),
-					song.IsArchived,
-					activeFileCount,
-					song.LastAccessedUtc);
+				int active = 0;
+				int archived = 0;
+				int recovery = 0;
+				foreach (SongFile file in files[song.Id])
+				{
+					active += !file.IsArchived && file.RecoveryVersion is null ? 1 : 0;
+					archived += file.IsArchived ? 1 : 0;
+					recovery += file.RecoveryVersion is not null ? 1 : 0;
+				}
+
+				return CreateCatalogItem(song, active, archived, recovery);
 			});
 	}
 
