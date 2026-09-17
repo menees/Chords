@@ -281,15 +281,17 @@
 
 	window.addEventListener("resize", () => schedule());
 	window.visualViewport?.addEventListener("resize", () => schedule());
-	window.addEventListener("keydown", event => {
-		if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
-			&& (event.key === "PageUp" || event.key === "PageDown")) {
-			const direction = event.key === "PageDown" ? 1 : -1;
-			event.preventDefault();
-			event.stopPropagation();
-			moveViewport(direction);
-		}
-	}, true);
+	if (sheet.dataset.handlePageUpDownKeys === "true") {
+		window.addEventListener("keydown", event => {
+			if (!event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey
+				&& (event.key === "PageUp" || event.key === "PageDown")) {
+				const direction = event.key === "PageDown" ? 1 : -1;
+				event.preventDefault();
+				event.stopPropagation();
+				moveViewport(direction);
+			}
+		}, true);
+	}
 	sheet.addEventListener("menees-chords-repaginate", () => schedule(true));
 	if (window.ResizeObserver) {
 		new ResizeObserver(() => schedule()).observe(document.documentElement);

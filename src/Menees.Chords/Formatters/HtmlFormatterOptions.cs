@@ -9,8 +9,8 @@ using Menees.Chords.Formatters.Html;
 #endregion
 
 /// <summary>
-/// Provides convenient overrides for the formatter's default styles.
-/// Unset properties retain the formatter's default CSS value.
+/// Configures the formatter's behavior and default styles.
+/// Unset style properties retain the formatter's default CSS value.
 /// </summary>
 public sealed class HtmlFormatterOptions
 {
@@ -21,6 +21,9 @@ public sealed class HtmlFormatterOptions
 	#endregion
 
 	#region Public Properties
+
+	/// <summary>Gets or sets whether the rendered sheet handles Page Up and Page Down keys. Defaults to false.</summary>
+	public bool HandlePageUpDownKeys { get; set; }
 
 	/// <summary>Gets the default style inherited by rendered text unless a category has its own default or override.</summary>
 	public TextStyle DefaultTextStyle { get; } = new();

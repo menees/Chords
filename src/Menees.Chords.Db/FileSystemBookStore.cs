@@ -223,6 +223,15 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		return Task.FromResult<IStagedBookWrite>(new StagedWrite(this, location, directory, stageDirectory, json, assets, json));
 	}
 
+	/// <summary>Reads the local recovery generation that invalidates every replica's previous comparison state.</summary>
+	public async Task<Guid> ReadRecoveryEpochAsync(BookLocation location, CancellationToken cancellationToken = default)
+	{
+		string path = Path.Combine(this.GetPath(location), ".recovery-epoch");
+		return File.Exists(path)
+			? Guid.Parse(await File.ReadAllTextAsync(path, cancellationToken).ConfigureAwait(false))
+			: Guid.Empty;
+	}
+
 	/// <inheritdoc />
 	public Task<long?> GetAvailableSpaceAsync(BookLocation location, CancellationToken cancellationToken = default)
 	{
@@ -312,13 +321,31 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 
 	#endregion
 
+	#region Internal Methods
+
+	internal async Task<IStagedBookWrite> StageRecoveryAsync(
+		BookLocation location, string expectedJson, string backupPath, CancellationToken cancellationToken)
+	{
+		StagedWrite write = (StagedWrite)await this.StageWriteAsync(location, expectedJson, cancellationToken).ConfigureAwait(false);
+		write.RecoveryBackupPath = backupPath;
+		return write;
+	}
+
+	#endregion
+
 	#region Private Methods
 
 	private static FileStream AcquireBookLease(string directory)
 	{
 		try
 		{
-			return new FileStream(Path.Combine(directory, ".write-lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+			return new FileStream(
+				Path.Combine(directory, ".write-lock"),
+				FileMode.OpenOrCreate,
+				FileAccess.ReadWrite,
+				FileShare.None,
+				bufferSize: 1,
+				FileOptions.DeleteOnClose);
 		}
 		catch (IOException)
 		{
@@ -477,6 +504,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		Dictionary<Guid, string> assets,
 		Dictionary<Guid, string> writtenHashes,
 		string expectedDatabaseJson,
+		string? recoveryBackupPath,
 		CancellationToken cancellationToken)
 	{
 		ChordDatabase next;
@@ -536,21 +564,26 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				}
 			}
 
+			if (recoveryBackupPath is not null)
+			{
+				// This runs under the same cross-process lease as replacement. Never overwrite an earlier safety copy.
+				await BookBackup.CreateNewFileAsync(this, location, recoveryBackupPath, cancellationToken).ConfigureAwait(false);
+				this.faultInjector?.Invoke(FileSystemCommitStep.RecoveryBackupCreated);
+				if (await File.ReadAllTextAsync(targetJson, Utf8NoBom, cancellationToken).ConfigureAwait(false) != expectedDatabaseJson)
+				{
+					throw new BookStoreConcurrencyException();
+				}
+
+				// Invalidate before publishing: interruption may require an extra comparison, never an unsafe incremental sync.
+				await ReplaceTextAsync(Path.Combine(directory, ".recovery-epoch"), Guid.NewGuid().ToString("D"), cancellationToken).ConfigureAwait(false);
+			}
+
 			string rollback = Directory.CreateDirectory(Path.Combine(stageDirectory, ".rollback")).FullName;
 			using AssetMoveJournal journal = new(directory, stageDirectory, currentJson, databaseJson);
 			bool databaseReplaced = false;
 			try
 			{
-				foreach (SongFile file in affected)
-				{
-					cancellationToken.ThrowIfCancellationRequested();
-					string source = GetManagedPath(directory, file.RelativePath);
-					if (File.Exists(source))
-					{
-						string target = GetManagedPath(rollback, file.RelativePath);
-						journal.Move(source, target);
-					}
-				}
+				await MoveOriginalAssetsAsync(directory, rollback, affected, journal, recoveryBackupPath is not null, cancellationToken).ConfigureAwait(false);
 
 				this.faultInjector?.Invoke(FileSystemCommitStep.RollbackSnapshotCreated);
 				this.InstallAssets(directory, stageDirectory, rollback, installed, previousFiles, writtenHashes, journal, cancellationToken);
@@ -580,6 +613,35 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	}
 
 #pragma warning disable SA1204 // Keeping transaction helpers adjacent makes the commit/rollback flow auditable.
+	private static async Task MoveOriginalAssetsAsync(
+		string directory, string rollback, List<SongFile> affected, AssetMoveJournal journal, bool verifyHashes, CancellationToken cancellationToken)
+	{
+		foreach (SongFile file in affected)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			string source = GetManagedPath(directory, file.RelativePath);
+			if (File.Exists(source))
+			{
+				string target = GetManagedPath(rollback, file.RelativePath);
+				journal.Move(source, target);
+				if (verifyHashes)
+				{
+					// Catch external edits between backup and rename, including same-size/timestamp changes.
+					await using FileStream original = new(target, FileMode.Open, FileAccess.Read, FileShare.Read);
+					string hash = Convert.ToHexString(await SHA256.HashDataAsync(original, cancellationToken).ConfigureAwait(false));
+					if (!StringComparer.OrdinalIgnoreCase.Equals(hash, file.ContentHash))
+					{
+						throw new BookStoreConcurrencyException();
+					}
+				}
+			}
+			else if (verifyHashes)
+			{
+				throw new BookStoreConcurrencyException();
+			}
+		}
+	}
+
 	private static async Task ReplaceTextAsync(string target, string text, CancellationToken cancellationToken)
 	{
 		string temporary = target + $".{Guid.NewGuid():N}.tmp";
@@ -668,6 +730,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			this.expectedDatabaseJson = expectedDatabaseJson;
 		}
 
+		internal string? RecoveryBackupPath { get; set; }
+
 		public Task WriteDatabaseJsonAsync(string json, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
@@ -742,6 +806,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				activeAssets,
 				this.writtenHashes,
 				this.expectedDatabaseJson,
+				this.RecoveryBackupPath,
 				cancellationToken).ConfigureAwait(false);
 			this.assets = null;
 			Directory.Delete(this.stageDirectory, recursive: true);

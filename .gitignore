@@ -346,3 +346,6 @@ healthchecksdb
 # Temporary planning and prototyping artifacts
 /tests/Menees.Chords.Book.*.Phase0
 /eng/plans
+
+# Client libraries restored by LibMan
+/src/Menees.Chords.Book.Maui/Resources/Viewer/pdfjs/

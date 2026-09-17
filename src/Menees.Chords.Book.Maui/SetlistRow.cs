@@ -49,7 +49,5 @@ public sealed record SetlistRow(
 
 	public string SearchText => $"{this.Name} {this.Notes} {this.Date:yyyy-MM-dd}";
 
-	public Color RowTextColor => this.IsArchived ? Colors.Gray : Color.FromArgb("#25232A");
-
 	public FontAttributes RowFontAttributes => this.IsArchived ? FontAttributes.Italic : FontAttributes.None;
 }

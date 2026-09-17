@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' __ASSET_ORIGIN__ 'unsafe-inline' 'wasm-unsafe-eval'; worker-src 'self' __ASSET_ORIGIN__ blob:; connect-src 'self' __ASSET_ORIGIN__; style-src 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' __ASSET_ORIGIN__ blob:;">
+<title>ChordBook sheet</title>
+<style>
+html, body { margin: 0; height: 100%; background: #29272e; color: white; font: 15px system-ui; overflow: hidden; }
+body { display: grid; grid-template-rows: auto 1fr; }
+nav { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 6px; }
+button, input, select { font: inherit; padding: 5px 10px; }
+input { width: 4em; }
+#viewport { overflow: auto; min-height: 0; text-align: center; }
+canvas { display: block; margin: auto; background: white; }
+#message { padding: 20px; }
+</style>
+<script type="module" src="__ASSET_ORIGIN__/viewer.mjs"></script>
+</head>
+<body>
+<nav aria-label="Sheet pages">
+<button id="previous" title="Previous page (Page Up)">← Page</button>
+<label>Page <input id="page" type="number" min="1" value="1" aria-label="Page number"></label>
+<span id="count">/ …</span>
+<button id="next" title="Next page (Page Down)">Page →</button>
+<label>Zoom <select id="zoom"><option value="1">Fit page</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>
+</nav>
+<main id="viewport" tabindex="0" aria-label="PDF sheet"><div id="message" role="status">Loading sheet…</div><canvas id="canvas" hidden></canvas></main>
+</body>
+</html>

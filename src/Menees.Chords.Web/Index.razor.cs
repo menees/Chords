@@ -373,7 +373,7 @@ public sealed partial class Index : IDisposable
 				document = new NotationTransformer(document, this.previewNotation, DetectKey.FirstChord).Transform().Document;
 			}
 
-			HtmlFormatter formatter = new(document);
+			HtmlFormatter formatter = new(document, new() { HandlePageUpDownKeys = true });
 			XDocument html = formatter.ToXDocument();
 			html.Root!.Element("body")!.Add(new XElement("script", new XAttribute("src", "HtmlView.js"), string.Empty));
 			this.previewHtml = HtmlFormatter.Serialize(html);

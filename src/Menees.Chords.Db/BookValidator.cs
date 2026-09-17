@@ -62,6 +62,46 @@ public static class BookValidator
 		return new(database, issues);
 	}
 
+	/// <summary>Also inventories the shallow folder for duplicate identities, renames and unreferenced sheet files.</summary>
+	public static async Task<BookValidationReport> ValidateFolderAsync(
+		FileSystemBookStore store, BookLocation location, CancellationToken cancellationToken = default)
+	{
+		BookValidationReport validated = await ValidateAsync(store, location, cancellationToken).ConfigureAwait(false);
+		List<BookValidationIssue> issues = [.. validated.Issues];
+		if (validated.Database is ChordDatabase database)
+		{
+			Dictionary<Guid, SongFile> tracked = database.SongFiles.ToDictionary(file => file.Id);
+			Dictionary<Guid, string> observed = [];
+			foreach (string path in Directory.EnumerateFiles(store.GetDirectory(location), "*", SearchOption.TopDirectoryOnly))
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				string name = Path.GetFileName(path);
+				if (PortableManagedFileName.TryGetSongFileId(name, out Guid id))
+				{
+					if (!observed.TryAdd(id, name))
+					{
+						issues.Add(new(
+							BookValidationIssueKind.DuplicateAssetIdentity,
+							$"More than one file has this sheet identity; also found '{observed[id]}'.",
+							id,
+							name));
+					}
+
+					if (!tracked.TryGetValue(id, out SongFile? file))
+					{
+						issues.Add(new(BookValidationIssueKind.UnexpectedManagedAsset, "This file is not referenced by the book.", id, name));
+					}
+					else if (!PortableManagedFileName.Comparer.Equals(file.RelativePath, name))
+					{
+						issues.Add(new(BookValidationIssueKind.PathMismatch, $"The book expects '{file.RelativePath}'.", id, name));
+					}
+				}
+			}
+		}
+
+		return new(validated.Database, issues);
+	}
+
 	#endregion
 
 	#region Private Methods
@@ -83,6 +123,14 @@ public static class BookValidator
 			issues.Add(new(BookValidationIssueKind.InvalidDatabase, exception.Message));
 		}
 		catch (BookStoreException exception)
+		{
+			issues.Add(new(BookValidationIssueKind.InvalidDatabase, exception.Message));
+		}
+		catch (IOException exception)
+		{
+			issues.Add(new(BookValidationIssueKind.InvalidDatabase, exception.Message));
+		}
+		catch (UnauthorizedAccessException exception)
 		{
 			issues.Add(new(BookValidationIssueKind.InvalidDatabase, exception.Message));
 		}
@@ -133,6 +181,12 @@ public static class BookValidator
 		try
 		{
 			using Stream content = await store.OpenManagedAssetAsync(location, file.Id, cancellationToken).ConfigureAwait(false);
+			if (content.CanSeek && file.ObservedLength is long recordedLength && recordedLength != content.Length
+				&& descriptor.Length == recordedLength)
+			{
+				issues.Add(new(BookValidationIssueKind.LengthMismatch, "The sheet length differs from recorded metadata.", file.Id, file.RelativePath));
+			}
+
 			byte[] hashBytes = await SHA256.HashDataAsync(content, cancellationToken).ConfigureAwait(false);
 			string actualHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
 			if (!StringComparer.OrdinalIgnoreCase.Equals(actualHash, descriptor.ContentHash)
@@ -140,6 +194,10 @@ public static class BookValidator
 			{
 				issues.Add(new(BookValidationIssueKind.HashMismatch, "The managed asset content hash is inconsistent.", file.Id, file.RelativePath));
 			}
+		}
+		catch (FileNotFoundException exception)
+		{
+			issues.Add(new(BookValidationIssueKind.MissingAsset, exception.Message, file.Id, file.RelativePath));
 		}
 		catch (IOException exception)
 		{

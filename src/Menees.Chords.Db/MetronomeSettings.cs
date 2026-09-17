@@ -3,7 +3,7 @@ namespace Menees.Chords.Db;
 /// <summary>Represents complete metronome settings.</summary>
 public sealed class MetronomeSettings
 {
-	/// <summary>Gets or sets the tempo in beats per minute.</summary>
+	/// <summary>Gets or sets the tempo in beat-unit beats per minute (for example, eighth-note beats in 6/8).</summary>
 	public int BeatsPerMinute { get; set; } = 120;
 
 	/// <summary>Gets or sets the beats per measure.</summary>
@@ -12,11 +12,11 @@ public sealed class MetronomeSettings
 	/// <summary>Gets or sets the note value receiving one beat.</summary>
 	public int BeatUnit { get; set; } = 4;
 
-	/// <summary>Gets or sets the beat subdivision.</summary>
+	/// <summary>Gets or sets the number of clicks per beat: 1, 2, 3 (triplets), or 4.</summary>
 	public int Subdivision { get; set; } = 1;
 
 	/// <summary>Gets or sets the sound name.</summary>
-	public string Sound { get; set; } = "Click";
+	public string Sound { get; set; } = "KickHiHat";
 
 	/// <summary>Gets or sets the volume.</summary>
 	public double Volume { get; set; } = 0.8;

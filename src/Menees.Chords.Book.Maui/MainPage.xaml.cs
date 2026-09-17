@@ -4,7 +4,9 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Text;
 using Menees.Chords.Book.Application;
+using Menees.Chords.Book.Maui.Platforms.Windows;
 using Menees.Chords.Book.Maui.Services;
+using Menees.Chords.Db;
 
 #endregion
 
@@ -20,9 +22,14 @@ public partial class MainPage : ContentPage
 	private const int ArtistsTabIndex = 3;
 	private const int HistoryFlushSeconds = 30;
 	private readonly IDispatcherTimer historyTimer;
+	private readonly IDispatcherTimer metronomeTimer;
 	private readonly BookSession session;
 	private readonly IWindowsPicker picker;
 	private readonly IMetronomeEngine metronome;
+	private readonly WindowsDocumentViewer documentViewer;
+	private readonly DocumentPositionStore positionStore = new();
+	private readonly PerformanceSessionStore performanceStore = new();
+	private DocumentPositionKey? currentPositionKey;
 	private IReadOnlyList<SetlistRow> allSetlists = [];
 	private IReadOnlyList<SongRow> allSongs = [];
 	private Guid? bulkTargetSetlistId;
@@ -36,12 +43,13 @@ public partial class MainPage : ContentPage
 	private bool editingSetlist;
 	private string? performanceContextName;
 	private IReadOnlyList<SongRow> performanceSongs = [];
-	private bool refreshingRecentBooks;
 	private ObservableCollection<SetlistEntryRow> selectedSetlistEntries = [];
 	private bool selectingSongs;
 	private bool showingHtmlChart;
 	private bool viewerReady;
 	private bool navigatingSong;
+	private bool executingInput;
+	private MetronomePanel? metronomePanel;
 	private Guid? performanceSetlistId;
 	private IReadOnlyList<Guid> performanceEntryIds = [];
 	private bool performanceLocked;
@@ -57,20 +65,59 @@ public partial class MainPage : ContentPage
 	public MainPage(BookSession session, IWindowsPicker picker, IMetronomeEngine metronome)
 	{
 		this.InitializeComponent();
+		this.OpenBookButton.RecentBookSelected += async (_, book) => await this.OpenRecentBookAsync(book).ConfigureAwait(true);
+		this.documentViewer = new WindowsDocumentViewer(this.SongViewer);
+		this.QuickNotation.ItemsSource = new[] { "Default", "Letter", "Nashville", "Roman" };
+		this.QuickNotation.SelectedIndex = 0;
+		const int MaximumQuickTranspose = 11;
+		this.QuickTranspose.ItemsSource = Enumerable.Range(-MaximumQuickTranspose, (2 * MaximumQuickTranspose) + 1)
+			.Select(value => value.ToString("+0;-0;0", CultureInfo.InvariantCulture)).ToArray();
+		this.QuickTranspose.SelectedIndex = MaximumQuickTranspose;
 		this.session = session;
 		this.picker = picker;
 		this.metronome = metronome;
+		this.metronomeTimer = this.Dispatcher.CreateTimer();
+		this.metronomeTimer.Interval = TimeSpan.FromMilliseconds(50);
+		this.metronomeTimer.Tick += (_, _) =>
+		{
+			this.PerformanceBeats.IsVisible = this.metronomePanel is null && this.metronome.IsRunning && this.metronome.VisualEnabled;
+			if (this.PerformanceBeats.IsVisible)
+			{
+				this.PerformanceBeats.Update(
+					this.metronome.BeatsPerMeasure,
+					this.metronome.CurrentBeat,
+					this.metronome.AccentFirstBeat && this.metronome.CurrentBeat == 1);
+			}
+		};
 		this.historyTimer = this.Dispatcher.CreateTimer();
 		this.historyTimer.Interval = TimeSpan.FromSeconds(HistoryFlushSeconds);
-		this.historyTimer.Tick += (_, _) => this.session.FlushRecentHistory();
+		this.historyTimer.Tick += (_, _) =>
+		{
+			this.session.FlushRecentHistory();
+			this.positionStore.Flush();
+		};
 		this.Unloaded += (_, _) =>
 		{
 			this.metronome.Stop();
+			this.metronomeTimer.Stop();
 			this.historyTimer.Stop();
 			this.session.FlushRecentHistory();
 			this.RestoreScreenPolicy();
+			this.positionStore.Flush();
 		};
-		this.Loaded += (_, _) => this.historyTimer.Start();
+		this.Loaded += async (_, _) =>
+		{
+			this.historyTimer.Start();
+			if (this.PerformanceSurface.IsVisible && !this.viewerReady && this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+			{
+				await this.ShowSongAsync(
+					this.performanceSongs[this.currentSongIndex],
+					this.performanceSongs,
+					this.currentSongIndex,
+					this.performanceContextName)
+					.ConfigureAwait(true);
+			}
+		};
 		this.ShowManagementTab(showSetlists: false);
 		this.Loaded += this.HandleLoaded;
 	}
@@ -79,9 +126,16 @@ public partial class MainPage : ContentPage
 
 	#region Public Methods
 
+	public void ApplyViewerTheme() => this.documentViewer.ApplyTheme();
+
 	public void SetWindowActive(bool active)
 	{
 		this.windowActive = active;
+		if (!active)
+		{
+			this.metronome.Stop();
+		}
+
 		this.UpdateScreenPolicy();
 	}
 
@@ -99,6 +153,17 @@ public partial class MainPage : ContentPage
 	#endregion
 
 	#region Private Methods
+
+	private static void HandleJumpViewportChanged(object? sender, EventArgs e)
+	{
+		if (sender is Grid grid && grid.Height > 0)
+		{
+			foreach (ScrollView scroll in grid.Children.OfType<ScrollView>())
+			{
+				scroll.HeightRequest = grid.Height;
+			}
+		}
+	}
 
 	private static string GetSectionKey(string title)
 	{
@@ -194,10 +259,9 @@ public partial class MainPage : ContentPage
 		}).ConfigureAwait(true);
 	}
 
-	private async void HandleRecentBookSelected(object? sender, EventArgs e)
+	private async Task OpenRecentBookAsync(RecentBook book)
 	{
-		if (!this.refreshingRecentBooks && this.RecentBooks.SelectedItem is RecentBook book
-			&& !StringComparer.OrdinalIgnoreCase.Equals(book.Path, this.session.DirectoryPath))
+		if (!StringComparer.OrdinalIgnoreCase.Equals(book.Path, this.session.DirectoryPath))
 		{
 			await this.RunBookMutationAsync(async () =>
 			{
@@ -465,11 +529,53 @@ public partial class MainPage : ContentPage
 					this.performanceSongs,
 					next,
 					this.performanceContextName,
-					startAtEnd: fromBoundary && direction < 0).ConfigureAwait(true);
+					startAtEnd: fromBoundary && direction < 0,
+					restorePosition: !fromBoundary).ConfigureAwait(true);
 			}
 			finally
 			{
 				this.navigatingSong = false;
+			}
+		}
+	}
+
+	private async Task ExecutePerformanceCommandAsync(PerformanceCommand command)
+	{
+		if (!this.executingInput && this.viewerReady && this.PerformanceSurface.IsVisible)
+		{
+			this.executingInput = true;
+			try
+			{
+				await this.RunUiOperationAsync(async () =>
+				{
+					switch (command)
+					{
+						case PerformanceCommand.NextViewport:
+						case PerformanceCommand.PreviousViewport:
+							await this.documentViewer.MoveViewportAsync(command == PerformanceCommand.NextViewport ? 1 : -1).ConfigureAwait(true);
+							break;
+						case PerformanceCommand.NextSong:
+						case PerformanceCommand.PreviousSong:
+							await this.MovePerformanceAsync(command == PerformanceCommand.NextSong ? 1 : -1, false).ConfigureAwait(true);
+							break;
+						case PerformanceCommand.ToggleMetronome:
+							if (this.metronome.IsRunning)
+							{
+								this.metronome.Stop();
+							}
+							else if (this.currentSongIndex >= 0)
+							{
+								await this.metronome.StartAsync(this.session.GetMetronomeSettings(this.performanceSongs[this.currentSongIndex].Id))
+									.ConfigureAwait(true);
+							}
+
+							break;
+					}
+				}).ConfigureAwait(true);
+			}
+			finally
+			{
+				this.executingInput = false;
 			}
 		}
 	}
@@ -483,6 +589,20 @@ public partial class MainPage : ContentPage
 			{
 				await this.MovePerformanceAsync(direction, true).ConfigureAwait(true);
 			}
+			else if (PerformanceInputService.TryReadCommand(e.Url, this.viewerGeneration, out PerformanceCommand command))
+			{
+				await this.ExecutePerformanceCommandAsync(command).ConfigureAwait(true);
+			}
+			else if (TextViewerBridge.IsReadyMessage(e.Url, this.viewerGeneration))
+			{
+				this.viewerReady = true;
+				this.FocusSongViewer();
+			}
+			else if (this.currentPositionKey is not null && this.session.Database is not null
+				&& TextViewerBridge.TryReadPosition(e.Url, this.viewerGeneration, out DocumentViewerPosition? position))
+			{
+				this.positionStore.GetHistory(this.session.Database.Id).Record(this.currentPositionKey, position!);
+			}
 		}
 		else
 		{
@@ -494,9 +614,10 @@ public partial class MainPage : ContentPage
 
 	private async void HandleSongViewerNavigated(object? sender, WebNavigatedEventArgs e)
 	{
+		this.ApplyViewerTheme();
 		if (this.PerformanceSurface.IsVisible && e.Result == WebNavigationResult.Success)
 		{
-			this.viewerReady = true;
+			this.viewerReady = this.showingHtmlChart;
 			if (this.showingHtmlChart)
 			{
 				await this.RunUiOperationAsync(this.SyncSongViewerPageHeightAsync).ConfigureAwait(true);
@@ -665,6 +786,7 @@ public partial class MainPage : ContentPage
 
 	private void ExitPerformanceMode()
 	{
+		this.CloseMetronomePanel();
 		this.SetPerformanceLocked(false);
 		this.RestoreScreenPolicy();
 		this.metronome.Stop();
@@ -673,8 +795,12 @@ public partial class MainPage : ContentPage
 		// Hiding the native WebView can raise SizeChanged while its browser is being detached.
 		this.viewerGeneration++;
 		this.viewerReady = false;
+		this.documentViewer.Clear();
+		this.positionStore.Flush();
+		this.currentPositionKey = null;
 		this.showingHtmlChart = false;
 		this.PerformanceSurface.IsVisible = false;
+		this.metronomeTimer.Stop();
 		this.ManagementSurface.IsVisible = true;
 		this.SongList.SelectedItem = null;
 		this.SetlistEntries.SelectedItem = null;
@@ -814,21 +940,7 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private void RefreshRecentBooks()
-	{
-		this.refreshingRecentBooks = true;
-		try
-		{
-			List<RecentBook> books = [.. BookSession.GetRecentBooks()];
-			this.RecentBooks.ItemsSource = books;
-			this.RecentBooks.SelectedItem = books.FirstOrDefault(
-				book => StringComparer.OrdinalIgnoreCase.Equals(book.Path, this.session.DirectoryPath));
-		}
-		finally
-		{
-			this.refreshingRecentBooks = false;
-		}
-	}
+	private void RefreshRecentBooks() => this.OpenBookButton.RecentBooks = BookSession.GetRecentBooks();
 
 	private void RefreshJumpLetters()
 	{
@@ -846,8 +958,8 @@ public partial class MainPage : ContentPage
 				MinimumHeightRequest = JumpButtonHeight,
 				FontSize = JumpButtonFontSize,
 				BackgroundColor = Colors.Transparent,
-				TextColor = Color.FromArgb("#332E38"),
 			};
+			button.SetDynamicResource(Button.TextColorProperty, "AppText");
 			SemanticProperties.SetDescription(button, $"Jump to songs beginning with {group.Key}");
 			button.Clicked += this.HandleJumpLetterClicked;
 			this.JumpLetters.Children.Add(button);
@@ -868,8 +980,8 @@ public partial class MainPage : ContentPage
 				MinimumHeightRequest = JumpButtonHeight,
 				FontSize = JumpButtonFontSize,
 				BackgroundColor = Colors.Transparent,
-				TextColor = Color.FromArgb("#332E38"),
 			};
+			button.SetDynamicResource(Button.TextColorProperty, "AppText");
 			SemanticProperties.SetDescription(button, $"Jump to setlists beginning with {group.Key}");
 			button.Clicked += this.HandleSetlistJumpLetterClicked;
 			this.SetlistJumpLetters.Children.Add(button);
@@ -906,21 +1018,52 @@ public partial class MainPage : ContentPage
 #pragma warning restore CA1031
 	}
 
+	private async void HandleQuickDisplayChanged(object? sender, EventArgs e)
+	{
+		if (this.PerformanceSurface.IsVisible && this.showingHtmlChart && !this.performanceLocked
+			&& this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+		{
+			await this.ShowSongAsync(
+				this.performanceSongs[this.currentSongIndex],
+				this.performanceSongs,
+				this.currentSongIndex,
+				this.performanceContextName,
+				displayOnly: true).ConfigureAwait(true);
+		}
+	}
+
 	private async Task ShowSongAsync(
 		SongRow song,
 		IReadOnlyList<SongRow> context,
 		int index,
 		string? contextName,
-		bool startAtEnd = false)
+		bool startAtEnd = false,
+		bool restorePosition = true,
+		bool displayOnly = false)
 	{
+		if (!displayOnly)
+		{
+			this.CloseMetronomePanel();
+		}
+
 		int generation = ++this.viewerGeneration;
 		this.viewerReady = false;
 		await this.RunUiOperationAsync(async () =>
 		{
 			Guid? entryId = this.performanceSetlistId.HasValue && index >= 0 && index < this.performanceEntryIds.Count
 				? this.performanceEntryIds[index] : null;
+			if (entryId.HasValue && this.currentPositionKey?.EntryId is Guid previousEntry && previousEntry != entryId
+				&& this.session.Database!.BookSettings.StopMetronomeOnSetlistTransition)
+			{
+				this.metronome.Stop();
+			}
+
 			SongPresentation presentation = await this.session.GetPresentationAsync(
-				song.Id, setlistId: this.performanceSetlistId, entryId: entryId).ConfigureAwait(true);
+				song.Id,
+				setlistId: this.performanceSetlistId,
+				entryId: entryId,
+				notationOverride: this.QuickNotation.SelectedIndex > 0 ? (string)this.QuickNotation.SelectedItem : null,
+				transposeOffset: int.Parse((string)this.QuickTranspose.SelectedItem, CultureInfo.InvariantCulture)).ConfigureAwait(true);
 			if (generation == this.viewerGeneration)
 			{
 				this.viewerReady = false;
@@ -933,29 +1076,51 @@ public partial class MainPage : ContentPage
 					: string.Empty;
 				this.PreviousSongButton.IsEnabled = this.currentSongIndex > 0;
 				this.NextSongButton.IsEnabled = this.currentSongIndex >= 0 && this.currentSongIndex + 1 < context.Count;
-				this.showingHtmlChart = false;
-				if (presentation.PdfPath is not null)
-				{
-					this.SongViewer.Source = new UrlWebViewSource { Url = new Uri(presentation.PdfPath).AbsoluteUri };
-					this.Status.Text = "Showing the managed PDF.";
-				}
-				else
-				{
-					this.showingHtmlChart = true;
-					string html = TextViewerBridge.Attach(presentation.Html ?? string.Empty, generation, startAtEnd);
-					this.SongViewer.Source = new HtmlWebViewSource { Html = html };
-					this.Status.Text = "Rendered the managed text chart.";
-				}
-
 				this.ManagementSurface.IsVisible = false;
 				this.PerformanceSurface.IsVisible = true;
+				this.metronomeTimer.Start();
 				this.UpdateScreenPolicy();
 				await Task.Yield();
-				this.FocusSongViewer();
-				this.session.RecordSongAccess(song.Id);
-				if (this.metronome.IsRunning)
+				if (generation == this.viewerGeneration)
 				{
-					await this.metronome.StartAsync(this.session.GetMetronomeSettings(song.Id)).ConfigureAwait(true);
+					this.showingHtmlChart = presentation.PdfPath is null;
+					this.QuickNotation.IsEnabled = this.showingHtmlChart && !this.performanceLocked;
+					this.QuickTranspose.IsEnabled = this.QuickNotation.IsEnabled;
+					Func<Stream>? openPdf = presentation.PdfPath is string path
+						? () => new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, FileOptions.SequentialScan) : null;
+					this.currentPositionKey = new(song.Id, entryId, presentation.FileId);
+					DocumentViewerPosition? savedPosition = restorePosition
+						? this.positionStore.GetHistory(this.session.Database!.Id).Find(this.currentPositionKey) : null;
+					DocumentViewerContent content = new(presentation.Html, openPdf, savedPosition, this.session.Database!.BookSettings.InputBindings);
+					await this.documentViewer.LoadAsync(content, generation, startAtEnd).ConfigureAwait(true);
+					if (generation == this.viewerGeneration)
+					{
+						this.Status.Text = "Showing the selected sheet.";
+						this.FocusSongViewer();
+						if (!displayOnly)
+						{
+							this.session.RecordSongAccess(song.Id);
+						}
+
+						try
+						{
+							if (!displayOnly)
+							{
+								await this.performanceStore.RecordAsync(
+									this.session.Database!.Id, this.performanceSetlistId, context, index, entryId, contextName)
+									.ConfigureAwait(true);
+							}
+						}
+						catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+						{
+							this.Status.Text = "Showing the sheet. The last performance could not be saved on this device.";
+						}
+
+						if (!displayOnly && generation == this.viewerGeneration && this.metronome.IsRunning)
+						{
+							await this.metronome.StartAsync(this.session.GetMetronomeSettings(song.Id)).ConfigureAwait(true);
+						}
+					}
 				}
 			}
 		}).ConfigureAwait(true);
@@ -1013,7 +1178,6 @@ public partial class MainPage : ContentPage
 			this.NewBookButton.IsEnabled = false;
 			this.OpenBookButton.IsEnabled = false;
 			this.RenameBookButton.IsEnabled = false;
-			this.RecentBooks.IsEnabled = false;
 			try
 			{
 				await this.RunUiOperationAsync(operation).ConfigureAwait(true);
@@ -1021,7 +1185,6 @@ public partial class MainPage : ContentPage
 			finally
 			{
 				this.OpenBookButton.IsEnabled = true;
-				this.RecentBooks.IsEnabled = true;
 				this.RenameBookButton.IsEnabled = true;
 				this.NewBookButton.IsEnabled = true;
 				this.ImportButton.IsEnabled = true;

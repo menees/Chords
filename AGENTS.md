@@ -18,6 +18,7 @@
 
 ## Maintainability and boundaries
 
+- `Menees.Chords` is the root library in this repository and a reusable, generic, public NuGet package for chord sheet processing. Its public API must provide only the options and methods needed for generic chord sheet parsing, transforming, and formatting. Do not introduce explicit concerns about downstream libraries or apps into this API; keep product-specific behavior in the owning downstream layer.
 - Avoid code duplication. Use well-factored code that a human can maintain and edit later. Put shared behavior in the owning library/service and keep UI handlers thin. Do not copy an existing implementation into another client or split a large class into partial files as a substitute for coherent responsibilities.
 - Keep musical semantics in `Menees.Chords`, persistence/search in `Menees.Chords.Db`, UI-neutral use cases in `Menees.Chords.Book.Application`, and provider-neutral synchronization in `Menees.Chords.Sync`. Keep Windows APIs in platform adapters/`Platforms/Windows`.
 - Use direct project references for this product family and add related projects to `Chords.slnx`. Preserve reusable library target frameworks and platform-neutral contracts.

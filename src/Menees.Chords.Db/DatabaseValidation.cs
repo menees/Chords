@@ -15,7 +15,7 @@ public static class DatabaseValidation
 	public static IReadOnlyList<ValidationProblem> Validate(ChordDatabase database)
 	{
 		List<ValidationProblem> problems = [];
-		if (database.BookSettings is null || database.Songs is null || database.SongFiles is null
+		if (database.BookSettings is null || database.BookSettings.InputBindings is null || database.Songs is null || database.SongFiles is null
 			|| database.InstrumentProfiles is null || database.SongInstrumentSettings is null
 			|| database.Setlists is null || database.CustomTabs is null || database.Tombstones is null)
 		{
@@ -66,10 +66,16 @@ public static class DatabaseValidation
 				}
 			}
 
+			HashSet<(Guid Song, Guid Instrument)> settingPairs = [];
 			for (int index = 0; index < database.SongInstrumentSettings.Count; index++)
 			{
 				SongInstrumentSetting setting = database.SongInstrumentSettings[index];
 				string path = $"songInstrumentSettings[{index}]";
+				if (!settingPairs.Add((setting.SongId, setting.InstrumentProfileId)))
+				{
+					problems.Add(new(path, "A song can have only one setting for each instrument."));
+				}
+
 				if (!songIds.Contains(setting.SongId))
 				{
 					problems.Add(new(path + ".songId", "The referenced song does not exist."));

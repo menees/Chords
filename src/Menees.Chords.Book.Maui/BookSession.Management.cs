@@ -11,11 +11,26 @@ public sealed partial class BookSession
 {
 	#region Public Methods
 
+	public Task<string> CreateIntegrityReportAsync(CancellationToken cancellationToken = default)
+	{
+		(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+		return Task.Run(
+			async () =>
+			{
+				BookValidationReport report = await BookValidator.ValidateFolderAsync(activeStore, activeLocation, cancellationToken).ConfigureAwait(false);
+				return BookIntegrityReport.Format(report);
+			},
+			cancellationToken);
+	}
+
 	public SetlistEntrySettings GetSetlistEntrySettings(Guid setlistId, Guid entryId)
 		=> this.application.GetSetlistEntrySettings(setlistId, entryId);
 
-	public Task SaveSetlistEntrySettingsAsync(SetlistEntrySettings original, Guid? fileId, int? transpose, CancellationToken cancellationToken = default)
-		=> Task.Run(() => this.application.SaveSetlistEntrySettingsAsync(original, fileId, transpose, this.DeviceId, cancellationToken), cancellationToken);
+	public Task SaveSetlistEntrySettingsAsync(
+		SetlistEntrySettings original, Guid? fileId, int? transpose, Guid? instrumentId, CancellationToken cancellationToken = default)
+		=> Task.Run(
+			() => this.application.SaveSetlistEntrySettingsAsync(original, fileId, transpose, instrumentId, this.DeviceId, cancellationToken),
+			cancellationToken);
 
 	public DisplayProfile GetDisplaySettings(Guid? songId)
 		=> this.application.GetDisplaySettings(songId);
@@ -85,6 +100,9 @@ public sealed partial class BookSession
 
 	public Task SaveBookMetronomeAsync(MetronomeSettings settings, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.SaveBookMetronomeAsync(settings, this.DeviceId, cancellationToken), cancellationToken);
+
+	public Task SaveBookMetronomeAsync(MetronomeSettings settings, bool stopOnTransition, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.SaveBookMetronomeAsync(settings, stopOnTransition, this.DeviceId, cancellationToken), cancellationToken);
 
 	public Task SaveSongMetronomeAsync(Guid id, MetronomeSettings? settings, CancellationToken cancellationToken = default)
 		=> this.application.SaveSongMetronomeAsync(id, settings, this.DeviceId, cancellationToken);

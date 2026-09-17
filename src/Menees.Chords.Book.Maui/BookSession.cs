@@ -38,6 +38,26 @@ public sealed partial class BookSession : IDisposable
 	public BookSession(BookApplicationSession application)
 	{
 		this.application = application;
+		this.Instruments = new(application);
+		this.Input = new(application);
+		this.SettingsTransfer = new(application);
+	}
+
+	public InstrumentSettingsService Instruments { get; }
+
+	public PerformanceInputService Input { get; }
+
+	public SettingsTransferService SettingsTransfer { get; }
+
+	public Guid? ActiveInstrumentId
+	{
+		get
+		{
+			string? saved = Preferences.Default.Get<string?>("ChordBook.Instrument." + this.Database?.Id.ToString("D"), null);
+			return Guid.TryParse(saved, out Guid id) && this.Database!.InstrumentProfiles.Any(profile => profile.Id == id) ? id : null;
+		}
+
+		set => Preferences.Default.Set("ChordBook.Instrument." + this.Database?.Id.ToString("D"), value?.ToString("D") ?? string.Empty);
 	}
 
 	public ChordDatabase? Database => this.application.Database;
@@ -102,6 +122,59 @@ public sealed partial class BookSession : IDisposable
 		}
 
 		await this.SwitchAsync(nextStore, nextLocation, cancellationToken).ConfigureAwait(false);
+	}
+
+	public Task CreateBackupAsync(string outputPath, CancellationToken cancellationToken = default)
+	{
+		if (!string.Equals(Path.GetExtension(outputPath), ".mcbbak", StringComparison.OrdinalIgnoreCase))
+		{
+			throw new ArgumentException("Choose a .mcbbak file for the backup.", nameof(outputPath));
+		}
+
+		return Task.Run(() => this.application.CreateBackupAsync(outputPath, cancellationToken), cancellationToken);
+	}
+
+	public async Task RestoreBackupAsNewAsync(string path, string name, CancellationToken cancellationToken = default)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(name);
+		FileSystemBookStore nextStore = new(this.booksRoot ?? throw new InvalidOperationException("ChordBook has not been initialized."));
+		BookLocation nextLocation;
+		try
+		{
+			nextLocation = await Task.Run(
+				async () =>
+				{
+					await using FileStream input = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, FileOptions.SequentialScan);
+					return await BookBackup.RestoreAsNewAsync(nextStore, input, this.DeviceId, name.Trim(), cancellationToken).ConfigureAwait(false);
+				},
+				cancellationToken).ConfigureAwait(false);
+		}
+		catch
+		{
+			nextStore.Dispose();
+			throw;
+		}
+
+		// The clone is now committed. Finish activating it even if cancellation arrives afterwards.
+		await this.SwitchAsync(nextStore, nextLocation, CancellationToken.None).ConfigureAwait(false);
+	}
+
+	public async Task<string> ReplaceFromBackupAsync(BookBackupReview review, long expectedRevision, CancellationToken cancellationToken = default)
+	{
+		string directory = Path.Combine(
+			Path.GetDirectoryName(this.booksRoot ?? throw new InvalidOperationException("ChordBook has not been initialized."))!,
+			"Backups",
+			review.BookId.ToString("D"));
+		string safetyBackup = Path.Combine(directory, $"BeforeRestore-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}.mcbbak");
+		await Task.Run(
+			async () =>
+			{
+				Directory.CreateDirectory(directory);
+				await this.application.ReplaceFromBackupAsync(review, expectedRevision, safetyBackup, this.DeviceId, cancellationToken).ConfigureAwait(false);
+			},
+			cancellationToken).ConfigureAwait(false);
+		this.RememberCurrentBook();
+		return safetyBackup;
 	}
 
 	public async Task<int> ImportAsync(IReadOnlyList<string> sourcePaths, CancellationToken cancellationToken = default)
@@ -210,10 +283,17 @@ public sealed partial class BookSession : IDisposable
 	}
 
 	public async Task<SongPresentation> GetPresentationAsync(
-		Guid songId, Guid? setlistId = null, Guid? entryId = null, CancellationToken cancellationToken = default)
+		Guid songId,
+		Guid? setlistId = null,
+		Guid? entryId = null,
+		string? notationOverride = null,
+		int transposeOffset = 0,
+		CancellationToken cancellationToken = default)
 	{
 		BookSongPresentation presentation = await Task.Run(
-			() => this.application.GetPresentationAsync(songId, setlistId, entryId, cancellationToken), cancellationToken).ConfigureAwait(false);
+			() => this.application.GetPresentationAsync(
+				songId, setlistId, entryId, this.ActiveInstrumentId, notationOverride, transposeOffset, cancellationToken),
+			cancellationToken).ConfigureAwait(false);
 		string? pdfPath = null;
 		if (presentation.MediaKind == MediaKind.Pdf && presentation.SongFileId is Guid fileId)
 		{
@@ -222,7 +302,8 @@ public sealed partial class BookSession : IDisposable
 			pdfPath = Path.Combine(activeStore.GetDirectory(activeLocation), file.RelativePath);
 		}
 
-		return new(presentation.Title, presentation.Html, pdfPath);
+		string title = presentation.PerformanceDescription is null ? presentation.Title : presentation.Title + " · " + presentation.PerformanceDescription;
+		return new(title, presentation.Html, pdfPath, presentation.SongFileId);
 	}
 
 	#endregion

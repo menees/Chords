@@ -17,34 +17,48 @@ public sealed partial class BookApplicationSession
 			&& left.Subdivision == right.Subdivision && left.Sound == right.Sound && left.Volume == right.Volume
 			&& left.AccentFirstBeat == right.AccentFirstBeat && left.AudioEnabled == right.AudioEnabled && left.VisualEnabled == right.VisualEnabled;
 
-	/// <summary>Validates the supported initial click-engine settings.</summary>
+	/// <summary>Validates the supported metronome settings.</summary>
 	public static void ValidateMetronome(MetronomeSettings settings)
 	{
 		ArgumentNullException.ThrowIfNull(settings);
 		const int MinimumTempo = 20;
 		const int MaximumTempo = 300;
 		const int MaximumBeats = 16;
+		const int MaximumSubdivision = 4;
 		const int QuarterNote = 4;
 		const int EighthNote = 8;
 		const int SixteenthNote = 16;
-		int[] beatUnits = [2, QuarterNote, EighthNote, SixteenthNote];
 		if (settings.BeatsPerMinute is < MinimumTempo or > MaximumTempo || settings.BeatsPerMeasure is < 1 or > MaximumBeats
-			|| !beatUnits.Contains(settings.BeatUnit) || !double.IsFinite(settings.Volume) || settings.Volume is < 0 or > 1
-			|| (!settings.AudioEnabled && !settings.VisualEnabled) || settings.Subdivision != 1 || settings.Sound != "Click")
+			|| settings.BeatUnit is not (2 or QuarterNote or EighthNote or SixteenthNote) || !double.IsFinite(settings.Volume) || settings.Volume is < 0 or > 1
+			|| (!settings.AudioEnabled && !settings.VisualEnabled) || settings.Subdivision is < 1 or > MaximumSubdivision
+			|| settings.Sound is not ("Click" or "KickHiHat" or "Kick" or "HiHat" or "Woodblock" or "Cowbell"))
 		{
 			throw new ArgumentException(
-				"Use 20–300 BPM, 1–16 beats, a beat unit of 2, 4, 8, or 16, and audio or visual feedback. This engine supports one Click per beat.",
+				"Use 20–300 BPM, 1–16 beats, a beat unit of 2, 4, 8, or 16, and audio or visual feedback. "
+					+ "Choose 1–4 clicks per beat and a supported percussion sound.",
 				nameof(settings));
 		}
 	}
 
 	public Task SaveBookMetronomeAsync(MetronomeSettings settings, Guid deviceId, CancellationToken cancellationToken = default)
 	{
+		return this.SaveBookMetronomeAsync(settings, null, deviceId, cancellationToken);
+	}
+
+	public Task SaveBookMetronomeAsync(
+		MetronomeSettings settings, bool? stopOnSetlistTransition, Guid deviceId, CancellationToken cancellationToken = default)
+	{
 		ValidateMetronome(settings);
+		MetronomeSettings snapshot = ResolveMetronome(settings, null);
 		return this.MutateMetadataAsync(
 			(database, now) =>
 			{
-				database.BookSettings.DefaultMetronome = ResolveMetronome(settings, null);
+				database.BookSettings.DefaultMetronome = snapshot;
+				if (stopOnSetlistTransition is bool stop)
+				{
+					database.BookSettings.StopMetronomeOnSetlistTransition = stop;
+				}
+
 				database.BookSettings.Revision = NextRevision(database.BookSettings.Revision, deviceId, now);
 			},
 			deviceId,

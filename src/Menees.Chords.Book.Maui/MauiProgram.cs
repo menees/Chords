@@ -16,8 +16,35 @@ public static class MauiProgram
 	{
 		MauiAppBuilder builder = MauiApp.CreateBuilder();
 		builder.UseMauiApp<App>();
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<FluentIconButton, FluentIconButtonHandler>());
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<ArchiveToggle, ArchiveToggleHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<BookTabs, BookTabsHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<PositionEntry, PositionEntryHandler>());
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<OpenBookSplitButton, OpenBookSplitButtonHandler>());
+		Microsoft.Maui.Handlers.CheckBoxHandler.Mapper.AppendToMapping("CompactCheckBox", (handler, _) =>
+		{
+			handler.PlatformView.MinWidth = 0;
+			handler.PlatformView.MinHeight = 0;
+		});
+		Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping(
+			"CompactEntry", (handler, _) => handler.PlatformView.MinWidth = 0);
+		Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping(
+			"CompactPicker", (handler, _) => handler.PlatformView.MinWidth = 0);
+		Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping("EditorScrollbars", (handler, _) =>
+		{
+			Microsoft.UI.Xaml.Controls.ScrollViewer.SetVerticalScrollBarVisibility(
+				handler.PlatformView, Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Visible);
+			Microsoft.UI.Xaml.Controls.ScrollViewer.SetVerticalScrollMode(
+				handler.PlatformView, Microsoft.UI.Xaml.Controls.ScrollMode.Enabled);
+		});
+		Microsoft.Maui.Handlers.ButtonHandler.Mapper.AppendToMapping("CompactIconButton", (handler, view) =>
+		{
+			if (view is FluentIconButton)
+			{
+				handler.PlatformView.MinWidth = 0;
+				handler.PlatformView.MinHeight = 0;
+			}
+		});
 		builder.Services.AddSingleton<IWindowsPicker, WindowsPicker>();
 		builder.Services.AddSingleton<IMetronomeEngine, WindowsMetronomeEngine>();
 		builder.Services.AddSingleton<BookApplicationSession>();

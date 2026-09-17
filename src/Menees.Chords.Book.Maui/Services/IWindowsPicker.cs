@@ -6,5 +6,9 @@ public interface IWindowsPicker
 
 	Task<string?> PickFolderAsync(CancellationToken cancellationToken);
 
+	Task<string?> PickFileAsync(string extension, CancellationToken cancellationToken);
+
+	Task<string?> SaveFileAsync(string suggestedName, string extension, string description, CancellationToken cancellationToken);
+
 	Task OpenFolderAsync(string path, CancellationToken cancellationToken);
 }

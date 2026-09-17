@@ -51,7 +51,10 @@ public sealed class BookTabsHandler : ViewHandler<BookTabs, TabView>
 			this.PlatformView.TabItems.Clear();
 			foreach (string title in view.Titles)
 			{
-				this.PlatformView.TabItems.Add(new TabViewItem { Header = title, IsClosable = false });
+				TabViewItem item = new() { Header = title, IsClosable = false };
+				ToolTipService.SetToolTip(
+					item, new Microsoft.UI.Xaml.Controls.ToolTip { IsEnabled = false, Visibility = Microsoft.UI.Xaml.Visibility.Collapsed });
+				this.PlatformView.TabItems.Add(item);
 			}
 
 			this.PlatformView.SelectedIndex = Math.Clamp(view.SelectedIndex, 0, Math.Max(0, view.Titles.Count - 1));

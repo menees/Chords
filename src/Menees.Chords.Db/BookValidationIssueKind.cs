@@ -23,4 +23,7 @@ public enum BookValidationIssueKind
 
 	/// <summary>The managed asset could not be read.</summary>
 	UnreadableAsset,
+
+	/// <summary>Multiple files in the book folder claim the same sheet identity.</summary>
+	DuplicateAssetIdentity,
 }

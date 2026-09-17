@@ -22,6 +22,89 @@ public sealed class BookValidatorTests
 	#region Public Methods
 
 	[TestMethod]
+	public async Task FolderReportFindsMissingChangedRenamedDuplicateAndOrphanSheetsWithoutWriting()
+	{
+		var token = this.TestContext.CancellationToken;
+		string root = Path.Combine(Path.GetTempPath(), nameof(BookValidatorTests), Guid.NewGuid().ToString("N"));
+		try
+		{
+			using FileSystemBookStore store = new(root);
+			Guid device = Guid.NewGuid();
+			BookLocation location = await store.CreateBookAsync("Report fixture", device, token);
+			foreach (string title in new[] { "Missing", "Changed", "Renamed" })
+			{
+				byte[] bytes = Encoding.UTF8.GetBytes($"{{title: {title}}}\r\n[C]Original\r\n");
+				await BookImportService.ImportAsync(store, location, title + ".cho", new MemoryStream(bytes), device, token);
+			}
+
+			string baseline = await store.ReadDatabaseJsonAsync(location, token);
+			ChordDatabase database = DatabaseJson.Deserialize(baseline);
+			string directory = store.GetDirectory(location);
+			SongFile missing = database.SongFiles.Single(file => file.RelativePath.StartsWith("Missing", StringComparison.Ordinal));
+			SongFile changed = database.SongFiles.Single(file => file.RelativePath.StartsWith("Changed", StringComparison.Ordinal));
+			SongFile renamed = database.SongFiles.Single(file => file.RelativePath.StartsWith("Renamed", StringComparison.Ordinal));
+			File.Delete(Path.Combine(directory, missing.RelativePath));
+			string changedPath = Path.Combine(directory, changed.RelativePath);
+			DateTime timestamp = File.GetLastWriteTimeUtc(changedPath);
+			string changedText = (await File.ReadAllTextAsync(changedPath, token)).Replace("[C]", "[D]");
+			await File.WriteAllTextAsync(changedPath, changedText, token);
+			File.SetLastWriteTimeUtc(changedPath, timestamp);
+			string renamedPath = Path.Combine(directory, PortableManagedFileName.Create("Moved", renamed.Id, ".cho"));
+			File.Move(Path.Combine(directory, renamed.RelativePath), renamedPath);
+			string duplicate = Path.Combine(directory, PortableManagedFileName.Create("Duplicate", changed.Id, ".cho"));
+			File.Copy(changedPath, duplicate);
+			string orphan = Path.Combine(directory, PortableManagedFileName.Create("Orphan", Guid.NewGuid(), ".cho"));
+			await File.WriteAllTextAsync(orphan, "Untracked contents", token);
+			using FileStream orphanLock = new(orphan, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+			string note = Path.Combine(directory, "README.md");
+			await File.WriteAllTextAsync(note, "Unrelated", token);
+			using FileStream noteLock = new(note, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+			BookValidationReport report = await BookValidator.ValidateFolderAsync(store, location, token);
+
+			report.IsValid.ShouldBeFalse();
+			report.Issues.ShouldContain(issue => issue.Kind == BookValidationIssueKind.MissingAsset && issue.SongFileId == missing.Id);
+			report.Issues.ShouldContain(issue => issue.Kind == BookValidationIssueKind.HashMismatch && issue.SongFileId == changed.Id);
+			report.Issues.ShouldContain(issue => issue.Kind == BookValidationIssueKind.PathMismatch && issue.SongFileId == renamed.Id);
+			report.Issues.ShouldContain(issue => issue.Kind == BookValidationIssueKind.DuplicateAssetIdentity && issue.SongFileId == changed.Id);
+			report.Issues.ShouldContain(issue => issue.Kind == BookValidationIssueKind.UnexpectedManagedAsset
+				&& issue.RelativePath == Path.GetFileName(orphan));
+			report.Issues.ShouldNotContain(issue => issue.RelativePath == "README.md");
+			(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(baseline);
+			(await File.ReadAllTextAsync(changedPath, token)).ShouldBe(changedText);
+			File.Exists(renamedPath).ShouldBeTrue();
+			File.Exists(duplicate).ShouldBeTrue();
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
+	public async Task MissingDatabaseProducesReadableFailureAndCanceledChecksPropagateCancellation()
+	{
+		var token = this.TestContext.CancellationToken;
+		string root = Path.Combine(Path.GetTempPath(), nameof(BookValidatorTests), Guid.NewGuid().ToString("N"));
+		try
+		{
+			using FileSystemBookStore store = new(root);
+			BookLocation location = await store.CreateBookAsync("Missing database", Guid.NewGuid(), token);
+			using CancellationTokenSource cancellation = new();
+			cancellation.Cancel();
+			await Should.ThrowAsync<OperationCanceledException>(() => BookValidator.ValidateFolderAsync(store, location, cancellation.Token));
+			File.Delete(Path.Combine(store.GetDirectory(location), "database.json"));
+			BookValidationReport report = await BookValidator.ValidateFolderAsync(store, location, token);
+			report.IsValid.ShouldBeFalse();
+			report.Issues.Single().Kind.ShouldBe(BookValidationIssueKind.InvalidDatabase);
+		}
+		finally
+		{
+			Directory.Delete(root, recursive: true);
+		}
+	}
+
+	[TestMethod]
 	public async Task ValidBookPassesIndependentValidation()
 	{
 		CancellationToken cancellationToken = this.TestContext.CancellationToken;

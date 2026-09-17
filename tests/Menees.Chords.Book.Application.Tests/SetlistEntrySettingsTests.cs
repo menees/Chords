@@ -38,8 +38,8 @@ public sealed class SetlistEntrySettingsTests
 		SongCatalogItem catalog = session.Search("title:song").Single();
 		await session.SaveSetlistEntrySettingsAsync(original, file, 2, device, token);
 		session.Search("title:song").Single().ShouldBeSameAs(catalog);
-		BookSongPresentation normal = await session.GetPresentationAsync(song, list, first, token);
-		BookSongPresentation shifted = await session.GetPresentationAsync(song, list, second, token);
+		BookSongPresentation normal = await session.GetPresentationAsync(song, list, first, cancellationToken: token);
+		BookSongPresentation shifted = await session.GetPresentationAsync(song, list, second, cancellationToken: token);
 		normal.Html!.ShouldContain(">C</span>");
 		shifted.Html!.ShouldContain(">D</span>");
 		session.GetSetlistEntries(list)[1].DisplayText.ShouldContain("Transpose +2");

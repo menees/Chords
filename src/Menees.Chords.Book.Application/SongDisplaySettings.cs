@@ -52,6 +52,13 @@ public static class SongDisplaySettings
 		NotationSystem = profile.NotationSystem == defaults.NotationSystem ? null : profile.NotationSystem,
 	};
 
+	public static string RenderPreview(DisplayProfile profile)
+	{
+		const string Sample = "{key: C}\n{start_of_verse: Verse}\n[C]Sample words with [F]chords above\n"
+			+ "[G7]Second line shows the [C]spacing\n{end_of_verse}";
+		return Render(Document.Parse(Sample), profile);
+	}
+
 	public static string Render(Document document, DisplayProfile profile)
 	{
 		Validate(profile);

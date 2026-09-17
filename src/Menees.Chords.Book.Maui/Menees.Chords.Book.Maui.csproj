@@ -20,6 +20,11 @@
 	</PropertyGroup>
 	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
 		<PackageReference Include="Microsoft.Maui.Controls" />
+		<PackageReference Include="Microsoft.Web.LibraryManager.Build" PrivateAssets="all" />
+		<UpToDateCheckInput Include="libman.json" />
+		<EmbeddedResource Include="Resources\Fluent\*.svg" />
+		<Content Include="Resources\Fluent\*.txt" Link="FluentIcons\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		<Content Include="Resources\Viewer\**\*" Exclude="Resources\Viewer\pdfjs\**\*" Link="Viewer\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>
 	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
 		<ProjectReference Include="..\Menees.Chords.Book.Application\Menees.Chords.Book.Application.csproj" />
@@ -30,4 +35,14 @@
 		<Compile Remove="**\*.cs" />
 		<Compile Include="NonWindowsPlaceholder.cs" />
 	</ItemGroup>
+	<!-- Re-enumerate after restore: a clean checkout has no PDF.js files at project evaluation time. -->
+	<Target Name="IncludeRestoredViewerAssets" BeforeTargets="AssignTargetPaths" DependsOnTargets="LibraryManagerRestore"
+		Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(DesignTimeBuild)' != 'true'">
+		<ItemGroup>
+			<_RestoredViewerAsset Include="Resources\Viewer\pdfjs\**\*" />
+			<Content Include="@(_RestoredViewerAsset)" Link="Viewer\pdfjs\%(_RestoredViewerAsset.RecursiveDir)%(_RestoredViewerAsset.Filename)%(_RestoredViewerAsset.Extension)"
+				CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+		</ItemGroup>
+		<Error Condition="!Exists('Resources\Viewer\pdfjs\build\pdf.worker.mjs')" Text="PDF.js assets are missing. Restore the pinned libman.json dependencies before building." />
+	</Target>
 </Project>

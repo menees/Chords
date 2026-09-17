@@ -19,6 +19,20 @@ public sealed class DisplaySettingsTests
 	#region Public Methods
 
 	[TestMethod]
+	public void PreviewIncludesSectionAndLinesUsingTheSelectedDisplaySettings()
+	{
+		string html = SongDisplaySettings.RenderPreview(new() { FontSize = 28, LineSpacing = 1.8, Theme = "Dark", NotationSystem = "Roman" });
+		html.ShouldContain("section-header");
+		html.ShouldContain("Verse");
+		html.ShouldContain("Sample");
+		html.ShouldContain("Second line");
+		html.ShouldContain("28px");
+		html.ShouldContain("1.8");
+		html.ShouldContain("color-scheme:dark");
+		html.ShouldContain(">I</span>");
+	}
+
+	[TestMethod]
 	public void LegacyProfilesUseAutomaticColumnsUntilAnExplicitLimitIsSelected()
 	{
 		DisplayProfile legacy = System.Text.Json.JsonSerializer.Deserialize<DisplayProfile>("{\"Columns\":1}")!;

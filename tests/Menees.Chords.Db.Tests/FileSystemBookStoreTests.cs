@@ -43,6 +43,21 @@ public sealed class FileSystemBookStoreTests
 	}
 
 	[TestMethod]
+	public async Task OpeningBookRemovesAnUnheldLegacyLeaseMarker()
+	{
+		var token = this.TestContext.CancellationToken;
+		using FileSystemBookStore store = new(this.directory);
+		BookLocation location = await store.CreateBookAsync("Lease cleanup", Guid.NewGuid(), token);
+		string bookDirectory = store.GetDirectory(location);
+		string marker = Path.Combine(bookDirectory, ".write-lock");
+		await File.WriteAllTextAsync(marker, string.Empty, token);
+		await store.OpenBookAsync(bookDirectory, token);
+		File.Exists(marker).ShouldBeFalse();
+		await store.OpenBookAsync(bookDirectory, token);
+		File.Exists(marker).ShouldBeFalse();
+	}
+
+	[TestMethod]
 	public async Task ActiveWriterLeaseRejectsMetadataAndAssetCommits()
 	{
 		var token = this.TestContext.CancellationToken;

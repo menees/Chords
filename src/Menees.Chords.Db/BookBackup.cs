@@ -33,22 +33,7 @@ public static class BookBackup
 		string outputPath,
 		CancellationToken cancellationToken = default)
 	{
-		ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
-		string fullPath = Path.GetFullPath(outputPath);
-		string temporary = fullPath + $".{Guid.NewGuid():N}.tmp";
-		try
-		{
-			await using (FileStream output = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-			{
-				await CreateAsync(store, location, output, cancellationToken).ConfigureAwait(false);
-			}
-
-			File.Move(temporary, fullPath, overwrite: true);
-		}
-		finally
-		{
-			File.Delete(temporary);
-		}
+		await WriteFileAsync(store, location, outputPath, overwrite: true, cancellationToken).ConfigureAwait(false);
 	}
 
 	/// <summary>Writes a consistent, validated backup to a stream.</summary>
@@ -131,9 +116,102 @@ public static class BookBackup
 		return location;
 	}
 
+	/// <summary>Validates and holds a backup file open for review and subsequent recovery.</summary>
+	public static async Task<BookBackupReview> ReviewFileAsync(string path, CancellationToken cancellationToken = default)
+	{
+		FileStream input = new(path, FileMode.Open, FileAccess.Read, FileShare.Read, bufferSize: 1, FileOptions.SequentialScan);
+		ZipArchive? archive = null;
+		try
+		{
+			archive = new(input, ZipArchiveMode.Read, leaveOpen: true);
+			Dictionary<string, ZipArchiveEntry> entries = await ReadAndValidateAsync(archive, cancellationToken).ConfigureAwait(false);
+			byte[] json = await ReadEntryAsync(entries[DatabaseEntryName], cancellationToken).ConfigureAwait(false);
+			ChordDatabase database = DatabaseJson.Deserialize(Utf8NoBom.GetString(json));
+			return new(input, archive, entries, database);
+		}
+		catch
+		{
+			archive?.Dispose();
+			await input.DisposeAsync().ConfigureAwait(false);
+			throw;
+		}
+	}
+
+	/// <summary>Restores a reviewed matching book through a journaled filesystem transaction with an automatic safety backup.</summary>
+	public static async Task ReplaceCurrentAsync(
+		FileSystemBookStore store,
+		BookLocation location,
+		BookBackupReview review,
+		string expectedJson,
+		string safetyBackupPath,
+		Guid deviceId,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(store);
+		ArgumentNullException.ThrowIfNull(review);
+		ChordDatabase current = DatabaseJson.Deserialize(expectedJson);
+		ChordDatabase restored = review.GetDatabase();
+		if (current.Id != restored.Id || current.Id != location.Token)
+		{
+			throw new BookStoreValidationException("This backup belongs to a different book. Use Restore as New Book.");
+		}
+
+		restored.Revision = new()
+		{
+			Revision = checked(Math.Max(current.Revision.Revision, restored.Revision.Revision) + 1),
+			DeviceId = deviceId,
+			ModifiedUtc = DateTimeOffset.UtcNow,
+		};
+		await using IStagedBookWrite write = await store.StageRecoveryAsync(location, expectedJson, safetyBackupPath, cancellationToken).ConfigureAwait(false);
+		HashSet<Guid> restoredIds = [.. restored.SongFiles.Select(file => file.Id)];
+		foreach (SongFile file in current.SongFiles)
+		{
+			if (!restoredIds.Contains(file.Id))
+			{
+				await write.DeleteManagedAssetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+			}
+		}
+
+		foreach (SongFile file in restored.SongFiles)
+		{
+			await using Stream content = review.OpenAsset(file.RelativePath);
+			await write.WriteManagedAssetAsync(file.Id, file.RelativePath, content, cancellationToken).ConfigureAwait(false);
+		}
+
+		await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(restored), cancellationToken).ConfigureAwait(false);
+		await write.CommitAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	internal static Task CreateNewFileAsync(
+		IBookStore store, BookLocation location, string path, CancellationToken cancellationToken)
+		=> WriteFileAsync(store, location, path, overwrite: false, cancellationToken);
+
 	#endregion
 
 	#region Private Methods
+
+	private static async Task WriteFileAsync(
+		IBookStore store, BookLocation location, string outputPath, bool overwrite, CancellationToken cancellationToken)
+	{
+		ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+		string fullPath = Path.GetFullPath(outputPath);
+		string temporary = fullPath + $".{Guid.NewGuid():N}.tmp";
+		try
+		{
+			await using (FileStream output = new(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+			{
+				await CreateAsync(store, location, output, cancellationToken).ConfigureAwait(false);
+				output.Flush(flushToDisk: true);
+			}
+
+			cancellationToken.ThrowIfCancellationRequested();
+			File.Move(temporary, fullPath, overwrite);
+		}
+		finally
+		{
+			File.Delete(temporary);
+		}
+	}
 
 	private static async Task<Dictionary<string, ZipArchiveEntry>> ReadAndValidateAsync(ZipArchive archive, CancellationToken cancellationToken)
 	{

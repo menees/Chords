@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Preserve the vendored Mozilla PDF.js distribution bytes and licenses.
+src/Menees.Chords.Book.Maui/Resources/Viewer/pdfjs/** -text
+
+# Bundled metronome samples are binary IEEE float PCM.
+*.pcm binary

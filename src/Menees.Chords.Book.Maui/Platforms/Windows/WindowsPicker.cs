@@ -38,6 +38,24 @@ public sealed class WindowsPicker : IWindowsPicker
 		return folder?.Path;
 	}
 
+	public async Task<string?> PickFileAsync(string extension, CancellationToken cancellationToken)
+	{
+		FileOpenPicker picker = new() { SuggestedStartLocation = PickerLocationId.DocumentsLibrary, ViewMode = PickerViewMode.List };
+		picker.FileTypeFilter.Add(extension);
+		InitializeWithWindow.Initialize(picker, GetWindowHandle());
+		global::Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync().AsTask(cancellationToken).ConfigureAwait(true);
+		return file?.Path;
+	}
+
+	public async Task<string?> SaveFileAsync(string suggestedName, string extension, string description, CancellationToken cancellationToken)
+	{
+		FileSavePicker picker = new() { SuggestedStartLocation = PickerLocationId.DocumentsLibrary, SuggestedFileName = suggestedName };
+		picker.FileTypeChoices.Add(description, [extension]);
+		InitializeWithWindow.Initialize(picker, GetWindowHandle());
+		global::Windows.Storage.StorageFile? file = await picker.PickSaveFileAsync().AsTask(cancellationToken).ConfigureAwait(true);
+		return file?.Path;
+	}
+
 	public Task OpenFolderAsync(string path, CancellationToken cancellationToken)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(path);

@@ -68,7 +68,7 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 	/// Creates a new instance.
 	/// </summary>
 	/// <param name="container">The container to format.</param>
-	/// <param name="options">The optional default-style overrides.</param>
+	/// <param name="options">The optional behavior and default-style overrides.</param>
 	public HtmlFormatter(IEntryContainer container, HtmlFormatterOptions? options)
 		: base(container)
 	{
@@ -1464,6 +1464,11 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 	{
 		string title = GetDocumentTitle(container);
 		XElement content = new("article", new XAttribute("class", "chord-sheet"));
+		if (this.options?.HandlePageUpDownKeys == true)
+		{
+			content.SetAttributeValue("data-handle-page-up-down-keys", "true");
+		}
+
 		XElement head = new(
 			"head",
 			new XElement("meta", new XAttribute("charset", "utf-8")),

@@ -227,7 +227,8 @@ body {
 
 .tablature-line,
 .grid-line {
-	overflow-x: auto;
+	/* The containing oversize column owns scrolling, not each text line. */
+	overflow: visible;
 	font-family: var(--monospace-font-family);
 	white-space: pre;
 }

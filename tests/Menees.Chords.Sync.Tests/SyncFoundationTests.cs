@@ -29,6 +29,26 @@ public sealed class SyncFoundationTests
 	#region Public Methods
 
 	[TestMethod]
+	public void RecoveryEpochForcesFullComparisonForEveryReplicaWithoutChangingConfiguration()
+	{
+		Guid book = Guid.NewGuid();
+		Guid device = Guid.NewGuid();
+		Guid recovered = Guid.NewGuid();
+		CloudReplicaState first = new(new(book, device, Target)) { LastLocalRevision = "old", ChangeToken = "delta", MergeBase = "base" };
+		CloudReplicaState second = new(new(book, device, new("Other", "account", "folder"))) { LastLocalRevision = "old" };
+		first.NeedsFullComparison(Guid.Empty).ShouldBeFalse();
+		first.NeedsFullComparison(recovered).ShouldBeTrue();
+		second.NeedsFullComparison(recovered).ShouldBeTrue();
+		first.Key.BookId.ShouldBe(book);
+		first.ChangeToken.ShouldBe("delta");
+		first.MergeBase.ShouldBe("base");
+		first.RecoveryEpoch = recovered;
+		first.NeedsFullComparison(recovered).ShouldBeFalse();
+		second.NeedsFullComparison(recovered).ShouldBeTrue();
+		new CloudReplicaState(first.Key).NeedsFullComparison(Guid.Empty).ShouldBeTrue();
+	}
+
+	[TestMethod]
 	public void PlanOrdersAssetsBeforeDatabaseAndDeletesAfterDatabase()
 	{
 		SyncPlan plan = new(

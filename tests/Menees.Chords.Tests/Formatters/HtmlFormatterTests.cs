@@ -26,6 +26,22 @@ public class HtmlFormatterTests
 	#region Public Methods
 
 	[TestMethod]
+	public void PageUpDownKeyHandlingRequiresExplicitOptIn()
+	{
+		Document document = TestUtility.LoadSwingLowSweetChariot();
+		new HtmlFormatterOptions().HandlePageUpDownKeys.ShouldBeFalse();
+		foreach (HtmlFormatterOptions? options in new HtmlFormatterOptions?[] { null, new(), new() { HandlePageUpDownKeys = true } })
+		{
+			XDocument html = new HtmlFormatter(document, options).ToXDocument();
+			XElement body = html.Root!.Element("body")!;
+			((string?)body.Element("article")!.Attribute("data-handle-page-up-down-keys"))
+				.ShouldBe(options?.HandlePageUpDownKeys == true ? "true" : null);
+			body.Element("script")!.Value.ShouldContain("if (sheet.dataset.handlePageUpDownKeys === \"true\")");
+			body.Element("script")!.Value.ShouldNotContain("chordBookHandlesInput");
+		}
+	}
+
+	[TestMethod]
 	public void ChordLyricPairTest()
 	{
 		Document document = Document.Parse("      G\nhello you");
@@ -744,7 +760,7 @@ public class HtmlFormatterTests
 
 	private static string GetDefaultStyles(XDocument document)
 		=> document.Root!.Element("head")!.Elements("style")
-			.Single(element => (string?)element.Attribute("id") == "menees-chords-defaults").Value;
+			.Single(element => (string?)element.Attribute("id") == "menees-chords-defaults").Value.ReplaceLineEndings("\n");
 
 	private static IEnumerable<XElement> GetClassElements(XContainer container, string className)
 		=> container.Descendants().Where(element => HasClass(element, className));

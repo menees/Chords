@@ -26,8 +26,6 @@ public sealed partial class SongRow : INotifyPropertyChanged
 
 	public bool IsArchived { get; }
 
-	public Color RowTextColor => this.IsArchived ? Colors.Gray : Color.FromArgb("#25232A");
-
 	public FontAttributes RowFontAttributes => this.IsArchived ? FontAttributes.Italic : FontAttributes.None;
 
 	public bool IsSelected

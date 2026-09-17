@@ -20,7 +20,9 @@ public partial class MainPage
 	private void SetPerformanceLocked(bool locked)
 	{
 		this.performanceLocked = locked;
-		this.PerformanceLockButton.Text = locked ? "Unlock" : "Lock";
+		this.PerformanceLockButton.SetIcon(locked ? "LockOpen" : "LockClosed", locked ? "Unlock" : "Lock");
+		this.QuickNotation.IsEnabled = !locked && this.showingHtmlChart;
+		this.QuickTranspose.IsEnabled = this.QuickNotation.IsEnabled;
 		this.PerformanceSongButton.IsEnabled = !locked;
 		this.PerformanceAddButton.IsEnabled = !locked;
 		this.PerformanceMetronomeButton.IsEnabled = !locked;
@@ -74,22 +76,32 @@ public partial class MainPage
 			await this.RunBookMutationAsync(async () =>
 			{
 				SetlistEntrySettings original = this.session.GetSetlistEntrySettings(list.Id, row.EntryId);
-				SongFileCatalogItem[] files = [.. this.session.GetSongFiles(row.Song.Id).Where(file => !file.IsArchived && !file.IsRecoveryVersion)];
-				string[] choices = ["Default sheet", .. files.Select((file, index) => $"{index + 1}. {file.Name}")];
-				string? selected = await this.DisplayActionSheetAsync("Sheet for this setlist entry", "Cancel", null, choices).ConfigureAwait(true);
-				int position = Array.IndexOf(choices, selected);
-				if (position >= 0)
+				InstrumentProfileInfo[] instruments = [.. this.session.Instruments.GetProfiles()];
+				string[] instrumentChoices = ["Use current instrument", .. instruments.Select(item => item.Name)];
+				string? selectedInstrument = await this.DisplayActionSheetAsync(
+					"Instrument for this entry", "Cancel", null, instrumentChoices).ConfigureAwait(true);
+				int instrumentIndex = Array.IndexOf(instrumentChoices, selectedInstrument);
+
+				if (instrumentIndex >= 0)
 				{
-					string? text = await this.DisplayPromptAsync(
-						"Transpose This Setlist Entry",
-						"Semitones (-24 to +24); blank uses the default. Text sheets only.",
-						initialValue: original.TransposeSemitones?.ToString(CultureInfo.CurrentCulture) ?? string.Empty).ConfigureAwait(true);
-					if (text is not null)
+					Guid? instrumentId = instrumentIndex <= 0 ? null : instruments[instrumentIndex - 1].Id;
+					SongFileCatalogItem[] files = [.. this.session.GetSongFiles(row.Song.Id).Where(file => !file.IsArchived && !file.IsRecoveryVersion)];
+					string[] choices = ["Default sheet", .. files.Select((file, index) => $"{index + 1}. {file.Name}")];
+					string? selected = await this.DisplayActionSheetAsync("Sheet for this setlist entry", "Cancel", null, choices).ConfigureAwait(true);
+					int position = Array.IndexOf(choices, selected);
+					if (position >= 0 && instrumentIndex >= 0)
 					{
-						int? transpose = string.IsNullOrWhiteSpace(text) ? null : int.Parse(text, CultureInfo.CurrentCulture);
-						await this.session.SaveSetlistEntrySettingsAsync(original, position == 0 ? null : files[position - 1].Id, transpose)
-							.ConfigureAwait(true);
-						this.RefreshSetlists(list.Id);
+						string? text = await this.DisplayPromptAsync(
+							"Transpose This Setlist Entry",
+							"Semitones (-24 to +24); blank uses the default. Text sheets only.",
+							initialValue: original.TransposeSemitones?.ToString(CultureInfo.CurrentCulture) ?? string.Empty).ConfigureAwait(true);
+						if (text is not null)
+						{
+							int? transpose = string.IsNullOrWhiteSpace(text) ? null : int.Parse(text, CultureInfo.CurrentCulture);
+							await this.session.SaveSetlistEntrySettingsAsync(original, position == 0 ? null : files[position - 1].Id, transpose, instrumentId)
+								.ConfigureAwait(true);
+							this.RefreshSetlists(list.Id);
+						}
 					}
 				}
 			}).ConfigureAwait(true);
@@ -99,10 +111,63 @@ public partial class MainPage
 	private async void HandleBookActionsClicked(object? sender, EventArgs e)
 		=> await this.RunBookMutationAsync(async () =>
 		{
-			string[] actions = ["Rename Book", "Review Folder Changes", "Display Defaults", "Metronome Defaults"];
-			string? action = await this.DisplayActionSheetAsync("Book", "Cancel", null, actions)
+			string[] actions = ["Resume Last Performance", "Rename Book", "Review Folder Changes", "Display Defaults",
+				"Metronome Defaults", "Instruments", "Keyboard and Pedals", "Backup and Restore", "Check Book", "Appearance"];
+			string? action = await this.DisplayActionSheetAsync("Options", "Cancel", null, actions)
 				.ConfigureAwait(true);
-			if (action == "Metronome Defaults")
+			if (action == "Appearance")
+			{
+				string? theme = await this.DisplayActionSheetAsync("App appearance", "Cancel", null, "System", "Light", "Dark").ConfigureAwait(true);
+				if (global::Microsoft.Maui.Controls.Application.Current is App app && theme is "System" or "Light" or "Dark")
+				{
+					app.SetTheme(theme switch { "Light" => AppTheme.Light, "Dark" => AppTheme.Dark, _ => AppTheme.Unspecified });
+				}
+			}
+			else if (action == "Backup and Restore")
+			{
+				BookBackupPage page = new(this.session, this.picker);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				if (await page.Completion.ConfigureAwait(true))
+				{
+					this.RefreshSongs("Restored book opened.");
+				}
+			}
+			else if (action == "Check Book")
+			{
+				BookIntegrityPage page = new(this.session, this.picker);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Resume Last Performance")
+			{
+				PerformanceResume? resume = await this.performanceStore.LoadAsync(this.session.Database!).ConfigureAwait(true);
+				if (resume is null)
+				{
+					this.Status.Text = "No saved performance is available for the current songs and setlists.";
+				}
+				else
+				{
+					Dictionary<Guid, SongRow> rows = this.allSongs.ToDictionary(song => song.Id);
+					SongRow[] songs = [.. resume.SongIds.Select(id => rows[id])];
+					this.metronome.Stop();
+					this.performanceSetlistId = resume.SetlistId;
+					this.performanceEntryIds = resume.EntryIds;
+					await this.ShowSongAsync(songs[resume.Index], songs, resume.Index, resume.Name).ConfigureAwait(true);
+				}
+			}
+			else if (action == "Keyboard and Pedals")
+			{
+				PerformanceInputPage page = new(this.session);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Instruments")
+			{
+				InstrumentSettingsPage page = new(this.session);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Metronome Defaults")
 			{
 				MetronomePage page = new(null, this.session, this.metronome);
 				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
@@ -142,19 +207,30 @@ public partial class MainPage
 			}
 		}).ConfigureAwait(true);
 
-	private async void HandleMetronomeClicked(object? sender, EventArgs e)
+	private void HandleMetronomeClicked(object? sender, EventArgs e)
 	{
-		if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+		if (this.metronomePanel is not null)
 		{
-			await this.RunBookMutationAsync(async () =>
+			if (!this.metronomePanel.IsBusy)
 			{
-				Guid id = this.performanceSongs[this.currentSongIndex].Id;
-				MetronomePage page = new(id, this.session, this.metronome);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
-				await page.Completion.ConfigureAwait(true);
-				this.RefreshCatalogAfterEdit("Metronome settings updated.");
-			}).ConfigureAwait(true);
+				this.CloseMetronomePanel();
+			}
 		}
+		else if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+		{
+			this.metronomePanel = new(this.performanceSongs[this.currentSongIndex].Id, this.session, this.metronome);
+			this.metronomePanel.Closed += (_, _) => this.CloseMetronomePanel();
+			this.metronomePanel.SettingsSaved += (_, _) => this.RefreshCatalogAfterEdit("Metronome settings updated.");
+			this.MetronomeHost.Content = this.metronomePanel;
+		}
+	}
+
+	private void CloseMetronomePanel()
+	{
+		this.metronomePanel?.Detach();
+		this.MetronomeHost.Content = null;
+		this.metronomePanel = null;
+		this.FocusSongViewer();
 	}
 
 	private void HandleManagementTabChanged(object? sender, EventArgs e)
@@ -352,9 +428,19 @@ public partial class MainPage
 	private async Task ManageSongAsync(Guid songId)
 		=> await this.RunBookMutationAsync(async () =>
 		{
-			string? action = await this.DisplayActionSheetAsync("Song", "Cancel", null, "Edit Song", "Manage Sheets", "Display Settings").ConfigureAwait(true);
+			string? action = await this.DisplayActionSheetAsync("Song", "Cancel", null, "Edit Song", "Manage Sheets", "Display Settings", "Instrument Settings")
+				.ConfigureAwait(true);
 			bool saved = false;
-			if (action == "Display Settings")
+			if (action == "Instrument Settings")
+			{
+				SetlistEntrySettings? entry = this.performanceSetlistId is Guid listId && this.currentSongIndex >= 0
+					&& this.currentSongIndex < this.performanceEntryIds.Count
+					? this.session.GetSetlistEntrySettings(listId, this.performanceEntryIds[this.currentSongIndex]) : null;
+				InstrumentSettingsPage page = new(this.session, songId, entry);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				saved = await page.Completion.ConfigureAwait(true);
+			}
+			else if (action == "Display Settings")
 			{
 				DisplaySettingsPage page = new(this.session, songId);
 				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);

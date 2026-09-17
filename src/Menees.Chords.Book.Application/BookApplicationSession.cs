@@ -27,6 +27,7 @@ public sealed partial class BookApplicationSession
 
 	private readonly SemaphoreSlim mutationLock = new(1, 1);
 	private readonly RenderedSongCache renderedSongs = new();
+	private Dictionary<(Guid Song, Guid Instrument), SongInstrumentSetting> instrumentSettings = [];
 	private string? committedJson;
 	private IBookStore? store;
 	private BookLocation? location;
@@ -71,6 +72,52 @@ public sealed partial class BookApplicationSession
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		await this.MutateMetadataAsync(
 			(database, now) => database.Name = name.Trim(), deviceId, cancellationToken).ConfigureAwait(false);
+	}
+
+	/// <summary>Streams a validated backup while serializing application mutations.</summary>
+	public async Task CreateBackupAsync(string outputPath, CancellationToken cancellationToken = default)
+	{
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			var (activeStore, activeLocation) = this.GetActiveBook();
+			await BookBackup.CreateFileAsync(activeStore, activeLocation, outputPath, cancellationToken).ConfigureAwait(false);
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
+	}
+
+	/// <summary>Replaces a reviewed filesystem book, then refreshes all derived application state.</summary>
+	public async Task ReplaceFromBackupAsync(
+		BookBackupReview review, long expectedRevision, string safetyBackupPath, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(review);
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			var (activeStore, activeLocation) = this.GetActiveBook();
+			if (activeStore is not FileSystemBookStore fileStore)
+			{
+				throw new NotSupportedException("Book replacement requires a filesystem recovery transaction.");
+			}
+
+			if (this.Database!.Id != review.BookId || this.Database.Revision.Revision != expectedRevision)
+			{
+				throw new BookStoreConcurrencyException();
+			}
+
+			await BookBackup.ReplaceCurrentAsync(
+				fileStore, activeLocation, review, this.committedJson!, safetyBackupPath, deviceId, cancellationToken).ConfigureAwait(false);
+
+			// Replacement is committed. Finish rebuilding catalog/render state even if cancellation arrives now.
+			await this.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
 	}
 
 	/// <summary>Searches the current catalog using the shared normalized metadata index.</summary>
@@ -118,12 +165,18 @@ public sealed partial class BookApplicationSession
 		Dictionary<Guid, SongCatalogItem> items = this.catalogItems
 			?? throw new InvalidOperationException("The catalog is unavailable.");
 		Setlist setlist = database.Setlists.Single(item => item.Id == setlistId);
+		Dictionary<Guid, string> instruments = database.InstrumentProfiles.ToDictionary(profile => profile.Id, profile => profile.Name);
 		return
 		[
 			.. setlist.Entries.Select(entry =>
 			{
 				SongCatalogItem song = items[entry.SongId];
 				string display = song.DisplayText;
+				if (entry.InstrumentProfileId is Guid profileId && instruments.TryGetValue(profileId, out string? name))
+				{
+					display += " · " + name;
+				}
+
 				if (entry.PreferredSongFileId is not null)
 				{
 					display += " · Sheet override";
@@ -312,11 +365,20 @@ public sealed partial class BookApplicationSession
 	{
 		Setlist setlist = this.Database!.Setlists.Single(item => item.Id == setlistId);
 		SetlistEntry entry = setlist.Entries.Single(item => item.Id == entryId);
-		return new(setlistId, entryId, entry.SongId, setlist.Revision.Revision, entry.PreferredSongFileId, entry.TransposeSemitones);
+		return new(setlistId, entryId, entry.SongId, setlist.Revision.Revision, entry.PreferredSongFileId, entry.TransposeSemitones, entry.InstrumentProfileId);
 	}
 
 	public Task SaveSetlistEntrySettingsAsync(
 		SetlistEntrySettings original, Guid? preferredFileId, int? transpose, Guid deviceId, CancellationToken cancellationToken = default)
+		=> this.SaveSetlistEntrySettingsAsync(original, preferredFileId, transpose, original.InstrumentProfileId, deviceId, cancellationToken);
+
+	public Task SaveSetlistEntrySettingsAsync(
+		SetlistEntrySettings original,
+		Guid? preferredFileId,
+		int? transpose,
+		Guid? instrumentId,
+		Guid deviceId,
+		CancellationToken cancellationToken = default)
 	{
 		const int MaximumTranspose = 24;
 		if (transpose is < -MaximumTranspose or > MaximumTranspose)
@@ -340,6 +402,12 @@ public sealed partial class BookApplicationSession
 					throw new ArgumentException("Choose an active sheet belonging to this song.", nameof(preferredFileId));
 				}
 
+				if (instrumentId is Guid profileId && !database.InstrumentProfiles.Any(profile => profile.Id == profileId))
+				{
+					throw new ArgumentException("Choose an instrument from this book.", nameof(instrumentId));
+				}
+
+				entry.InstrumentProfileId = instrumentId;
 				entry.PreferredSongFileId = preferredFileId;
 				entry.TransposeSemitones = transpose;
 				setlist.Revision = NextRevision(setlist.Revision, deviceId, now);
@@ -389,24 +457,42 @@ public sealed partial class BookApplicationSession
 			refreshPredicatesFor: songId);
 	}
 
+	public Task<BookSongPresentation> GetPresentationAsync(
+		Guid songId, Guid? setlistId, Guid? entryId, Guid? activeInstrumentId, CancellationToken cancellationToken)
+		=> this.GetPresentationAsync(songId, setlistId, entryId, activeInstrumentId, null, 0, cancellationToken);
+
 	/// <summary>Resolves and renders the preferred active file for a song.</summary>
 	public async Task<BookSongPresentation> GetPresentationAsync(
 		Guid songId,
 		Guid? setlistId = null,
 		Guid? entryId = null,
+		Guid? activeInstrumentId = null,
+		string? notationOverride = null,
+		int transposeOffset = 0,
 		CancellationToken cancellationToken = default)
 	{
+		const int MaximumQuickTranspose = 11;
+		ArgumentOutOfRangeException.ThrowIfLessThan(transposeOffset, -MaximumQuickTranspose);
+		ArgumentOutOfRangeException.ThrowIfGreaterThan(transposeOffset, MaximumQuickTranspose);
 		cancellationToken.ThrowIfCancellationRequested();
 		(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
 		Song song = database.Songs.Single(item => item.Id == songId);
 		SetlistEntry? entry = setlistId is Guid listId && entryId is Guid itemId
 			? database.Setlists.Single(list => list.Id == listId).Entries.Single(item => item.Id == itemId && item.SongId == songId) : null;
-		SongFile? file = this.GetOrderedSongFiles(songId).FirstOrDefault(item => !item.IsArchived);
-		if (entry?.PreferredSongFileId is Guid preferredId)
+		SongFile[] activeFiles = [.. this.GetOrderedSongFiles(songId).Where(item => !item.IsArchived && item.RecoveryVersion is null)];
+		SongFile? file = activeFiles.FirstOrDefault();
+		Guid? instrumentId = entry?.InstrumentProfileId ?? activeInstrumentId;
+		InstrumentProfile? instrument = instrumentId is Guid profileId ? database.InstrumentProfiles.Single(item => item.Id == profileId) : null;
+		SongInstrumentSetting? setting = instrumentId is Guid selectedId ? this.GetInstrumentSetting(songId, selectedId) : null;
+		if (setting?.PreferredSongFileId is Guid instrumentFileId)
 		{
-			file = database.SongFiles.FirstOrDefault(item => item.Id == preferredId && item.SongId == songId
-				&& !item.IsArchived && item.RecoveryVersion is null) ?? file;
+			file = activeFiles.FirstOrDefault(item => item.Id == instrumentFileId) ?? file;
+		}
+
+		if (entry?.PreferredSongFileId is Guid entryFileId)
+		{
+			file = activeFiles.FirstOrDefault(item => item.Id == entryFileId) ?? file;
 		}
 
 		BookSongPresentation result;
@@ -421,19 +507,30 @@ public sealed partial class BookApplicationSession
 		else
 		{
 			DisplayProfile profile = SongDisplaySettings.Resolve(database.BookSettings.DefaultDisplayProfile, song.DisplayOverride);
-			int transpose = entry?.TransposeSemitones ?? 0;
+			if (notationOverride is not null)
+			{
+				profile.NotationSystem = notationOverride;
+			}
+
+			SongDisplaySettings.Validate(profile);
+			int transpose = transposeOffset + PerformanceTranspose.GetShownSemitones(
+				entry?.TransposeSemitones ?? setting?.TransposeSemitones ?? 0,
+				setting?.CapoFret,
+				setting?.CapoBehavior == CapoBehavior.AffectsShownChords);
+			AccidentalPreference spelling = InstrumentSettingsService.ParseSpelling(setting?.ChordSpellingPreference);
 			string cacheKey = System.Text.Json.JsonSerializer.Serialize(new
 			{
-				Book = database.Id, File = file.Id, file.ContentHash, file.ContentRevision, Profile = profile, Transpose = transpose,
+				Book = database.Id, File = file.Id, file.ContentHash, file.ContentRevision, Profile = profile, Transpose = transpose, Spelling = spelling,
 			});
 			string? html = this.renderedSongs.Get(cacheKey);
 			if (html is null)
 			{
 				using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
 				Document document = Document.Load(stream);
-				if (transpose != 0)
+				Key? key = Key.Find(document, DetectKey.FirstChord);
+				if (key is not null && (transpose != 0 || spelling != AccidentalPreference.Default))
 				{
-					document = new TransposeTransformer(document, checked((sbyte)transpose)).Transform().Document;
+					document = new TransposeTransformer(document, checked((sbyte)transpose), key, spelling).Transform().Document;
 				}
 
 				cancellationToken.ThrowIfCancellationRequested();
@@ -444,7 +541,90 @@ public sealed partial class BookApplicationSession
 			result = new(song.Title, file.Id, file.MediaKind, html);
 		}
 
-		return result;
+		string? description = instrument?.Name;
+		if (instrument is not null)
+		{
+			int soundingTranspose = entry?.TransposeSemitones ?? setting?.TransposeSemitones ?? 0;
+			description += FormattableString.Invariant($" · Transpose {soundingTranspose:+0;-0;0}");
+			if (setting?.CapoFret is int capo)
+			{
+				description += $" · Capo {capo} ({(setting.CapoBehavior == CapoBehavior.AffectsShownChords ? "chord shapes" : "display only")})";
+			}
+
+			if (file?.MediaKind == MediaKind.Pdf)
+			{
+				description += " · PDF chords unchanged";
+			}
+		}
+
+		return result with { PerformanceDescription = description };
+	}
+
+	internal static RevisionStamp NextRevision(RevisionStamp current, Guid deviceId, DateTimeOffset now) => new()
+	{
+		Revision = current.Revision + 1,
+		ModifiedUtc = now,
+		DeviceId = deviceId,
+	};
+
+	internal async Task MutateMetadataAsync(
+		Action<ChordDatabase, DateTimeOffset> mutation,
+		Guid deviceId,
+		CancellationToken cancellationToken,
+		bool refreshSongs = false,
+		Guid? refreshPredicatesFor = null)
+	{
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+			ChordDatabase database = this.Database!;
+			string expectedJson = this.committedJson!;
+			try
+			{
+				DateTimeOffset now = DateTimeOffset.UtcNow;
+				mutation(database, now);
+				database.Revision = NextRevision(database.Revision, deviceId, now);
+				string updatedJson = await activeStore.CommitMetadataAsync(activeLocation, expectedJson, database, cancellationToken).ConfigureAwait(false);
+				this.committedJson = updatedJson;
+				if (refreshSongs)
+				{
+					this.SetDatabase(database);
+				}
+				else if (refreshPredicatesFor is Guid songId)
+				{
+					Song song = database.Songs.Single(item => item.Id == songId);
+					this.searchIndex!.RefreshSongPredicates(song);
+					SongCatalogItem previous = this.catalogItems![songId];
+					this.catalogItems[songId] = CreateCatalogItem(song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount);
+				}
+			}
+			catch
+			{
+				// Reconstruct only on failure; normal edits mutate the active objects without cloning.
+				this.SetDatabase(DatabaseJson.Deserialize(expectedJson));
+				throw;
+			}
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
+	}
+
+	internal SongInstrumentSetting? GetInstrumentSetting(Guid songId, Guid instrumentId)
+		=> this.instrumentSettings.GetValueOrDefault((songId, instrumentId));
+
+	internal void SetInstrumentSetting(Guid songId, Guid instrumentId, SongInstrumentSetting? setting)
+	{
+		if (setting is null)
+		{
+			this.instrumentSettings.Remove((songId, instrumentId));
+		}
+		else
+		{
+			this.instrumentSettings[(songId, instrumentId)] = setting;
+		}
 	}
 
 	#endregion
@@ -599,66 +779,15 @@ public sealed partial class BookApplicationSession
 			|| name.Equals("artists", StringComparison.OrdinalIgnoreCase)
 			|| name.Equals("author", StringComparison.OrdinalIgnoreCase);
 
-	private static RevisionStamp NextRevision(RevisionStamp current, Guid deviceId, DateTimeOffset now) => new()
-	{
-		Revision = current.Revision + 1,
-		ModifiedUtc = now,
-		DeviceId = deviceId,
-	};
-
 	private (IBookStore Store, BookLocation Location) GetActiveBook()
 		=> (this.store ?? throw new InvalidOperationException("No book is open."),
 			this.location ?? throw new InvalidOperationException("No book is open."));
-
-	private async Task MutateMetadataAsync(
-		Action<ChordDatabase, DateTimeOffset> mutation,
-		Guid deviceId,
-		CancellationToken cancellationToken,
-		bool refreshSongs = false,
-		Guid? refreshPredicatesFor = null)
-	{
-		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
-		try
-		{
-			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
-			ChordDatabase database = this.Database!;
-			string expectedJson = this.committedJson!;
-			try
-			{
-				DateTimeOffset now = DateTimeOffset.UtcNow;
-				mutation(database, now);
-				database.Revision = NextRevision(database.Revision, deviceId, now);
-				string updatedJson = await activeStore.CommitMetadataAsync(activeLocation, expectedJson, database, cancellationToken).ConfigureAwait(false);
-				this.committedJson = updatedJson;
-				if (refreshSongs)
-				{
-					this.SetDatabase(database);
-				}
-				else if (refreshPredicatesFor is Guid songId)
-				{
-					Song song = database.Songs.Single(item => item.Id == songId);
-					this.searchIndex!.RefreshSongPredicates(song);
-					SongCatalogItem previous = this.catalogItems![songId];
-					this.catalogItems[songId] = CreateCatalogItem(song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount);
-				}
-			}
-			catch
-			{
-				// Reconstruct only on failure; normal edits mutate the active objects without cloning.
-				this.SetDatabase(DatabaseJson.Deserialize(expectedJson));
-				throw;
-			}
-		}
-		finally
-		{
-			this.mutationLock.Release();
-		}
-	}
 
 	private void SetDatabase(ChordDatabase database)
 	{
 		ILookup<Guid, SongFile> files = database.SongFiles.ToLookup(file => file.SongId);
 		this.Database = database;
+		this.instrumentSettings = database.SongInstrumentSettings.ToDictionary(item => (item.SongId, item.InstrumentProfileId));
 		this.searchIndex = new(database);
 		this.catalogItems = database.Songs.ToDictionary(
 			song => song.Id,
