@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage x:Class="Menees.Chords.Book.Maui.SongEditorPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:local="clr-namespace:Menees.Chords.Book.Maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" Title="Edit Song">
     <Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
-        <HorizontalStackLayout Spacing="12">
+        <FlexLayout Wrap="Wrap" AlignItems="Center">
             <Label x:Name="heading" Text="Edit Song" FontSize="22" VerticalOptions="Center" />
-            <Button Text="Save" Clicked="HandleSave" />
-            <Button Text="Cancel" Clicked="HandleCancel" />
+            <local:FluentIconButton Icon="Save" Description="Save" Clicked="HandleSave" />
+            <local:FluentIconButton Icon="Dismiss" Description="Cancel" Clicked="HandleCancel" />
             <HorizontalStackLayout x:Name="newSongActions" IsVisible="False">
                 <Button Text="Preview Metadata" Clicked="HandlePreviewMetadata" />
             </HorizontalStackLayout>
-        </HorizontalStackLayout>
+        </FlexLayout>
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Label Text="Catalog title" />
             <Entry x:Name="songTitle" Placeholder="Title" />
@@ -20,7 +21,17 @@
             <Entry x:Name="tags" />
             <Label x:Name="editingHint" />
         </VerticalStackLayout>
-        <Editor x:Name="text" Grid.Row="2" FontFamily="Consolas" FontSize="15" />
+        <Grid x:Name="editorArea" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" RowDefinitions="Auto,*" RowSpacing="4">
+            <HorizontalStackLayout x:Name="editorToolbar" Grid.ColumnSpan="2" Spacing="4" IsEnabled="False">
+                <local:FluentIconButton Icon="Search" Description="Find (Ctrl+F)" Clicked="HandleFind" />
+                <local:FluentIconButton Icon="SearchSparkle" Description="Replace (Ctrl+H)" Clicked="HandleReplace" />
+                <local:FluentIconButton Icon="ArrowUndo" Description="Undo (Ctrl+Z)" Clicked="HandleUndo" />
+                <local:FluentIconButton x:Name="revertButton" Icon="ArrowReset" Description="Revert Text" Clicked="HandleRevert" />
+                <local:FluentIconToggle x:Name="showPreview" Icon="PreviewLink" Description="Preview current section" CheckedChanged="HandlePreviewChanged" />
+            </HorizontalStackLayout>
+            <WebView Grid.Row="1" x:Name="text" Grid.ColumnSpan="2" />
+            <WebView Grid.Row="1" x:Name="preview" Grid.Column="1" IsVisible="False" />
+        </Grid>
         <Label x:Name="status" Grid.Row="3" TextColor="DarkRed" />
     </Grid>
 </ContentPage>

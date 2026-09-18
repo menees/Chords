@@ -1,0 +1,17 @@
+:root { color-scheme: light dark; }
+html, body, #editor { height: 100%; margin: 0; overflow: hidden; }
+body { background: Canvas; color: CanvasText; }
+.cm-editor { height: 100%; font-size: 15px; }
+.cm-scroller { overflow: auto; font-family: Consolas, monospace; }
+.cm-content { white-space: pre; }
+.cm-editor.cm-focused { outline: none; }
+.cm-chord { color: light-dark(#005ea6, #85caff); font-weight: bold; }
+.cm-directive { color: light-dark(#753ba3, #d4a8ff); }
+.cm-comment { color: light-dark(#53703a, #a1bd87); font-style: italic; }
+.cm-section { color: light-dark(#824600, #f5bc72); font-weight: bold; }
+
+/* Search widgets use the native window font; only the source uses a monospace font. */
+#editor .cm-panels, #editor .cm-panels input, #editor .cm-panels button, #editor .cm-panels label {
+	font-family: var(--editor-ui-font-family, system-ui);
+	font-size: var(--editor-ui-font-size, 14px);
+}

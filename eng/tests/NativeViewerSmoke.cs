@@ -30,6 +30,7 @@ internal static class Program
 				var core = browser.CoreWebView2;
 				var assets = Environment.GetEnvironmentVariable("CHORDBOOK_TEST_ASSETS")!;
 				core.SetVirtualHostNameToFolderMapping("assets.chordbook.invalid", assets, CoreWebView2HostResourceAccessKind.Allow);
+				core.SetVirtualHostNameToFolderMapping("editor.chordbook.invalid", Path.Combine(Path.GetDirectoryName(assets)!, "Editor"), CoreWebView2HostResourceAccessKind.DenyCors);
 				core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
 				core.WebMessageReceived += (_, e) =>
 				{
@@ -48,7 +49,7 @@ internal static class Program
 				core.WebResourceRequested += (_, e) =>
 				{
 					var uri = new Uri(e.Request.Uri);
-					if (uri.Host == "assets.chordbook.invalid" || uri.Scheme == "blob" || uri.Scheme == "data") return;
+					if (uri.Host is "assets.chordbook.invalid" or "editor.chordbook.invalid" || uri.Scheme == "blob" || uri.Scheme == "data") return;
 					requests.Add(e.Request.Uri);
 					Stream? stream = null;
 					string type = "application/pdf";
@@ -130,7 +131,15 @@ internal static class Program
 				core.NavigateToString("<html><head><style>" + css + "</style></head><body id='tablature-test'></body></html>");
 				await Wait("document.body?.id === 'tablature-test'");
 				await CheckScript("HtmlTablatureChecks.js");
-				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity). No Node.js.");
+				core.Navigate("https://editor.chordbook.invalid/editor.html");
+				await Wait("typeof window.chordBookEditor === 'object'");
+				await CheckScript("SongEditorChecks.js");
+				File.WriteAllText(Path.Combine(output, "editor-performance.txt"), await core.ExecuteScriptAsync("window.editorLoadMilliseconds"));
+				if (requests.Any(url => !url.StartsWith("https://chordbook.invalid/") && !url.StartsWith("about:")))
+					throw new Exception("The viewer/editor attempted an external request: " + string.Join(", ", requests));
+				using (var capture = File.Create(Path.Combine(output, "native-editor.png")))
+					await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, capture);
+				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. No Node.js.");
 			}
 			catch (Exception ex) { File.WriteAllText(log, ex.ToString()); Environment.ExitCode = 1; }
 			finally { browser.Dispose(); foreach (var stream in streams) stream.Dispose(); window.Close(); app.Shutdown(); }

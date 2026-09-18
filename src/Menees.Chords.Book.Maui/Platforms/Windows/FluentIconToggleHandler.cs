@@ -5,15 +5,17 @@ using Microsoft.UI.Xaml.Controls.Primitives;
 
 namespace Menees.Chords.Book.Maui.Platforms.Windows;
 
-public sealed class ArchiveToggleHandler : ViewHandler<ArchiveToggle, ToggleButton>
+public sealed class FluentIconToggleHandler : ViewHandler<FluentIconToggle, ToggleButton>
 {
-	private static readonly IPropertyMapper<ArchiveToggle, ArchiveToggleHandler> ToggleMapper =
-		new PropertyMapper<ArchiveToggle, ArchiveToggleHandler>(ViewMapper)
+	private static readonly IPropertyMapper<FluentIconToggle, FluentIconToggleHandler> ToggleMapper =
+		new PropertyMapper<FluentIconToggle, FluentIconToggleHandler>(ViewMapper)
 		{
-			[nameof(ArchiveToggle.IsChecked)] = (handler, view) => handler.PlatformView.IsChecked = view.IsChecked,
+			[nameof(FluentIconToggle.Icon)] = (handler, view) => handler.PlatformView.Content = FluentIconSource.Create(view.Icon),
+			[nameof(FluentIconToggle.Description)] = (handler, view) => ToolTipService.SetToolTip(handler.PlatformView, view.Description),
+			[nameof(FluentIconToggle.IsChecked)] = (handler, view) => handler.PlatformView.IsChecked = view.IsChecked,
 		};
 
-	public ArchiveToggleHandler()
+	public FluentIconToggleHandler()
 		: base(ToggleMapper)
 	{
 	}
@@ -23,9 +25,9 @@ public sealed class ArchiveToggleHandler : ViewHandler<ArchiveToggle, ToggleButt
 		const int IconPadding = 4;
 		ToggleButton button = new()
 		{
-			Content = FluentIconSource.Create("Archive"), MinWidth = 0, MinHeight = 0, Padding = new Microsoft.UI.Xaml.Thickness(IconPadding),
+			MinWidth = 0, MinHeight = 0, Padding = new Microsoft.UI.Xaml.Thickness(IconPadding),
 		};
-		ToolTipService.SetToolTip(button, "Show Archived");
+		ToolTipService.SetToolTip(button, this.VirtualView.Description);
 		return button;
 	}
 

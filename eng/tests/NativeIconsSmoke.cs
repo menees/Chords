@@ -18,13 +18,13 @@ sealed class SmokeApp : Microsoft.UI.Xaml.Application
 			{
 				string[] names = ["ArrowLeft", "Previous", "LayerDiagonalAdd", "ArrowRight", "EditLineHorizontal3",
 					"SoundWaveCircleSparkle", "LockClosed", "LockOpen", "BookAdd", "Book", "Settings", "ArrowImport",
-					"Filter", "MultiselectLtr", "DocumentOnePageAdd", "LayerDiagonal", "ArrowReset", "Archive", "Play", "Stop", "Save", "Dismiss"];
+					"Filter", "MultiselectLtr", "DocumentOnePageAdd", "LayerDiagonal", "ArrowReset", "Archive", "Play", "Stop", "Save", "Dismiss", "Search", "SearchSparkle", "ArrowUndo", "PreviewLink"];
 				foreach (string name in names)
 				{
 					var icon = FluentIconSource.Create(name);
 					if (icon.Data is null || icon.Width != 20 || icon.Height != 20) throw new Exception(name);
 				}
-				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "result.txt"), "PASS: All 22 embedded Fluent SVG geometries loaded as native WinUI PathIcons.");
+				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "result.txt"), "PASS: All 26 embedded Fluent SVG geometries loaded as native WinUI PathIcons.");
 			}
 			catch (Exception error)
 			{

@@ -22,6 +22,8 @@
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="Microsoft.Web.LibraryManager.Build" PrivateAssets="all" />
 		<UpToDateCheckInput Include="libman.json" />
+		<MauiCss Remove="Resources\Editor\**\*.css" />
+		<Content Include="Resources\Editor\**\*" Exclude="Resources\Editor\vendor\**\*" Link="Editor\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<EmbeddedResource Include="Resources\Fluent\*.svg" />
 		<Content Include="Resources\Fluent\*.txt" Link="FluentIcons\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<Content Include="Resources\Viewer\**\*" Exclude="Resources\Viewer\pdfjs\**\*" Link="Viewer\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -40,9 +42,13 @@
 		Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(DesignTimeBuild)' != 'true'">
 		<ItemGroup>
 			<_RestoredViewerAsset Include="Resources\Viewer\pdfjs\**\*" />
+			<_RestoredEditorAsset Include="Resources\Editor\vendor\**\*" />
+			<Content Include="@(_RestoredEditorAsset)" Link="Editor\vendor\%(_RestoredEditorAsset.RecursiveDir)%(_RestoredEditorAsset.Filename)%(_RestoredEditorAsset.Extension)"
+				CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 			<Content Include="@(_RestoredViewerAsset)" Link="Viewer\pdfjs\%(_RestoredViewerAsset.RecursiveDir)%(_RestoredViewerAsset.Filename)%(_RestoredViewerAsset.Extension)"
 				CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		</ItemGroup>
 		<Error Condition="!Exists('Resources\Viewer\pdfjs\build\pdf.worker.mjs')" Text="PDF.js assets are missing. Restore the pinned libman.json dependencies before building." />
+		<Error Condition="!Exists('Resources\Editor\vendor\view\dist\index.js')" Text="CodeMirror assets are missing. Restore the pinned libman.json dependencies before building." />
 	</Target>
 </Project>

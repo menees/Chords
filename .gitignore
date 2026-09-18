@@ -349,3 +349,4 @@ healthchecksdb
 
 # Client libraries restored by LibMan
 /src/Menees.Chords.Book.Maui/Resources/Viewer/pdfjs/
+/src/Menees.Chords.Book.Maui/Resources/Editor/vendor/

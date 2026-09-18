@@ -69,3 +69,6 @@ and a foreign backup's Restore as New Book offer. Check Book should report
 intentionally missing/changed/duplicate fixture sheets, allow cancellation and
 save a readable report. It must not alter files. Provider sync has not yet been
 implemented; its future comparison path must honor the persisted recovery epoch.
+The native viewer harness also checks the bundled CodeMirror 6 editor: exact unchanged text, mixed newlines, undo/redo, highlighting, search/replace, read-only state and virtualization of 10,000 lines. All editor modules load locally from app output; no Node or runtime CDN is used.
+
+Editor checks also cover native UI font overrides, Find/Replace input focus, current-section selection (including nested/abbreviated ChordPro environments), musical context, paragraph fallback, range invalidation and preview-safe undo. The editor capture leaves Find/Replace open for visual inspection.

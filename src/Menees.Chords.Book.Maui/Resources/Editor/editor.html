@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; img-src 'none'; object-src 'none'; base-uri 'none'">
+	<title>Song text editor</title>
+	<link rel="stylesheet" href="editor.css">
+	<script type="importmap">
+	{"imports": {
+		"@codemirror/state": "./vendor/state/dist/index.js",
+		"@codemirror/view": "./vendor/view/dist/index.js",
+		"@codemirror/commands": "./vendor/commands/dist/index.js",
+		"@codemirror/search": "./vendor/search/dist/index.js",
+		"@codemirror/language": "./vendor/language/dist/index.js",
+		"@lezer/common": "./vendor/common/dist/index.js",
+		"@lezer/highlight": "./vendor/highlight/dist/index.js",
+		"@lezer/lr": "./vendor/lr/dist/index.js",
+		"style-mod": "./vendor/style-mod/src/style-mod.js",
+		"w3c-keyname": "./vendor/w3c-keyname/index.js",
+		"crelt": "./vendor/crelt/index.js",
+		"@marijn/find-cluster-break": "./vendor/find-cluster-break/src/index.js"
+	}}
+	</script>
+	<script type="module" src="editor.mjs"></script>
+</head>
+<body><div id="editor" aria-label="Song source"></div></body>
+</html>

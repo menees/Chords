@@ -17,7 +17,8 @@ public static class MauiProgram
 		MauiAppBuilder builder = MauiApp.CreateBuilder();
 		builder.UseMauiApp<App>();
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<FluentIconButton, FluentIconButtonHandler>());
-		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<ArchiveToggle, ArchiveToggleHandler>());
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<ArchiveToggle, FluentIconToggleHandler>()
+			.AddHandler<FluentIconToggle, FluentIconToggleHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<BookTabs, BookTabsHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<PositionEntry, PositionEntryHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<OpenBookSplitButton, OpenBookSplitButtonHandler>());
