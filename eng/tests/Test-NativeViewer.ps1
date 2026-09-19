@@ -5,17 +5,11 @@ $fixture = Join-Path ([IO.Path]::GetTempPath()) ("ChordBookNativeViewer-" + [Gui
 New-Item -ItemType Directory -Path $fixture | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'NativeViewerSmoke.cs') -Destination (Join-Path $fixture 'Program.cs')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'SyntheticPdf.cs') -Destination (Join-Path $fixture 'SyntheticPdf.cs')
-$links = @(
- 'src/Menees.Chords.Book.Application/TextViewerBridge.cs',
- 'src/Menees.Chords.Book.Application/DocumentViewerPosition.cs',
- 'src/Menees.Chords.Db/PerformanceCommand.cs',
- 'src/Menees.Chords.Db/PerformanceKeyGesture.cs',
- 'src/Menees.Chords.Db/PerformanceKeyBinding.cs'
-) | ForEach-Object { '<Compile Include="' + [Security.SecurityElement]::Escape((Join-Path $repo $_)) + '" />' }
+$application = [Security.SecurityElement]::Escape((Join-Path $repo 'src/Menees.Chords.Book.Application/Menees.Chords.Book.Application.csproj'))
 $project = @"
 <Project Sdk="Microsoft.NET.Sdk">
 <PropertyGroup><OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework><UseWPF>true</UseWPF><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable></PropertyGroup>
-<ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" />$($links -join '')</ItemGroup>
+<ItemGroup><PackageReference Include="Microsoft.Web.WebView2" Version="1.0.3179.45" /><ProjectReference Include="$application" /></ItemGroup>
 </Project>
 "@
 [IO.File]::WriteAllText((Join-Path $fixture 'Smoke.csproj'), $project)

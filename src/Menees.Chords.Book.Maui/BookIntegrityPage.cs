@@ -14,16 +14,15 @@ public sealed partial class BookIntegrityPage : ContentPage
 	private const int PagePadding = 16;
 	private const int ControlSpacing = 8;
 	private const int ReportFontSize = 14;
-	private const int HeadingFontSize = 24;
 	private const int FooterRow = 3;
 	private readonly BookSession session;
 	private readonly IWindowsPicker picker;
 	private readonly Editor report = new() { IsReadOnly = true, AutoSize = EditorAutoSizeOption.Disabled, FontSize = ReportFontSize };
 	private readonly Label status = new();
-	private readonly Button scan = new() { Text = "Check Again" };
+	private readonly Button scan = new() { Text = "Validate Again" };
 	private readonly Button save = new() { Text = "Save Report…", IsEnabled = false };
-	private readonly Button cancel = new() { Text = "Cancel Check", IsVisible = false };
-	private readonly Button close = new() { Text = "Close" };
+	private readonly Button cancel = new() { Text = "Cancel Validation", IsVisible = false };
+	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
 	private readonly TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private CancellationTokenSource? operation;
 	private bool started;
@@ -36,18 +35,18 @@ public sealed partial class BookIntegrityPage : ContentPage
 	{
 		this.session = session;
 		this.picker = picker;
-		this.Title = "Check Book";
+		this.Title = "Validate Book";
 		Grid layout = new()
 		{
 			Padding = PagePadding,
 			RowSpacing = ControlSpacing,
 			RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) },
 		};
-		layout.Add(new Label { Text = "Check Book", FontSize = HeadingFontSize }, 0, 0);
+		layout.Add(DialogLayout.Header("Validate Book", this.close), 0, 0);
 		layout.Add(new Label { Text = "Checks every recorded sheet and looks for duplicate or unreferenced files. Your files are kept unchanged." }, 0, 1);
 		layout.Add(this.report, 0, 2);
 		VerticalStackLayout footer = new() { Spacing = ControlSpacing };
-		HorizontalStackLayout buttons = new() { Spacing = ControlSpacing, Children = { this.scan, this.save, this.cancel, this.close } };
+		HorizontalStackLayout buttons = new() { Spacing = ControlSpacing, Children = { this.scan, this.save, this.cancel } };
 		footer.Children.Add(this.status);
 		footer.Children.Add(buttons);
 		layout.Add(footer, 0, FooterRow);

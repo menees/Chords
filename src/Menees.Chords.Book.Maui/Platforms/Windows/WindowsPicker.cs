@@ -28,15 +28,8 @@ public sealed class WindowsPicker : IWindowsPicker
 		return [.. files.Select(file => file.Path)];
 	}
 
-	public async Task<string?> PickFolderAsync(CancellationToken cancellationToken)
-	{
-		FolderPicker picker = new();
-		picker.FileTypeFilter.Add("*");
-		InitializeWithWindow.Initialize(picker, GetWindowHandle());
-		global::Windows.Storage.StorageFolder? folder = await picker.PickSingleFolderAsync()
-			.AsTask(cancellationToken).ConfigureAwait(true);
-		return folder?.Path;
-	}
+	public Task<string?> PickFolderAsync(CancellationToken cancellationToken)
+		=> Task.FromResult(WindowsBookFolderDialog.Show(GetWindowHandle(), cancellationToken));
 
 	public async Task<string?> PickFileAsync(string extension, CancellationToken cancellationToken)
 	{

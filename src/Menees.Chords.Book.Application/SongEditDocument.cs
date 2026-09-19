@@ -9,4 +9,9 @@ public sealed record SongEditDocument(
 	IReadOnlyList<string> Tags,
 	Guid? FileId,
 	string? ContentHash,
-	string? Text);
+	string? Text)
+{
+	/// <summary>Gets detached effective scalar metadata for authoring and explicit directive import.</summary>
+	public IReadOnlyDictionary<string, IReadOnlyList<string>> Metadata { get; init; }
+		= new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+}

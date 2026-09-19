@@ -177,15 +177,14 @@
 					VerticalOptions="Center"
 					LineBreakMode="TailTruncation" />
 				<Label x:Name="PerformancePosition" TextColor="{DynamicResource AppMuted}" VerticalOptions="Center" />
-				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="NextSongButton" Icon="ArrowRight" Description="Next" Clicked="HandleNextSongClicked" />
-                <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceSongButton" Icon="EditLineHorizontal3" Description="Song" Clicked="HandleEditCurrentSongClicked" />
+				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="NextSongButton" Icon="Next" Description="Next" Clicked="HandleNextSongClicked" />
+                <local:FluentIconSplitButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceSongButton" Icon="EditLineHorizontal3" Description="Edit Song" Clicked="HandleEditCurrentSongClicked" />
                 <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceMetronomeButton" Icon="SoundWaveCircleSparkle" Description="Metronome" Clicked="HandleMetronomeClicked" />
 				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceLockButton" Icon="LockClosed" Description="Lock" Clicked="HandlePerformanceLockClicked" />
 				<HorizontalStackLayout Spacing="4" Margin="6,0">
-					<Label Text="Notation" VerticalOptions="Center" />
-					<Picker x:Name="QuickNotation" WidthRequest="125" SelectedIndexChanged="HandleQuickDisplayChanged" />
-					<Label Text="Transpose" VerticalOptions="Center" />
-					<Picker x:Name="QuickTranspose" WidthRequest="72" SelectedIndexChanged="HandleQuickDisplayChanged" ToolTipProperties.Text="Semitones relative to the current song/entry settings" />
+
+					<local:TransposePicker x:Name="QuickTranspose" Changed="HandleQuickDisplayChanged" />
+					<Picker ToolTipProperties.Text="Notation" x:Name="QuickNotation" WidthRequest="125" SelectedIndexChanged="HandleQuickDisplayChanged" />
 				</HorizontalStackLayout>
 				<local:MetronomeBeatView x:Name="PerformanceBeats" Margin="6,0" FlexLayout.Shrink="0" IsVisible="False" />
 			</FlexLayout>

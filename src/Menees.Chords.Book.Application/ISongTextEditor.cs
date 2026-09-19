@@ -20,6 +20,8 @@ public interface ISongTextEditor : IDisposable
 
 	Task UndoAsync(CancellationToken cancellationToken = default);
 
+	Task RedoAsync(CancellationToken cancellationToken = default);
+
 	Task LoadAsync(string text, CancellationToken cancellationToken = default);
 
 	Task<string> GetTextAsync(CancellationToken cancellationToken = default);

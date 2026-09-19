@@ -521,9 +521,10 @@ public sealed partial class BookApplicationSession
 			string cacheKey = System.Text.Json.JsonSerializer.Serialize(new
 			{
 				Book = database.Id, File = file.Id, file.ContentHash, file.ContentRevision, Profile = profile, Transpose = transpose, Spelling = spelling,
+				BaseTranspose = transpose - transposeOffset,
 			});
-			string? html = this.renderedSongs.Get(cacheKey);
-			if (html is null)
+			RenderedSong? rendered = this.renderedSongs.Get(cacheKey);
+			if (rendered is null)
 			{
 				using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
 				Document document = Document.Load(stream);
@@ -534,11 +535,17 @@ public sealed partial class BookApplicationSession
 				}
 
 				cancellationToken.ThrowIfCancellationRequested();
-				html = SongDisplaySettings.Render(document, profile);
-				this.renderedSongs.Put(cacheKey, html);
+				string html = SongDisplaySettings.Render(document, profile);
+				string? baseKey = key is null ? null
+					: Chord.Parse(key.Name).Transpose(checked((sbyte)(transpose - transposeOffset)), spelling).Name;
+				rendered = new(html, baseKey);
+				this.renderedSongs.Put(cacheKey, rendered);
 			}
 
-			result = new(song.Title, file.Id, file.MediaKind, html);
+			result = new(song.Title, file.Id, file.MediaKind, rendered.Html)
+			{
+				OriginalKey = rendered.OriginalKey,
+			};
 		}
 
 		string? description = instrument?.Name;
@@ -685,12 +692,12 @@ public sealed partial class BookApplicationSession
 
 		List<(string Name, string Value)> displayMetadata = [];
 		HashSet<string> metadataNames = new(StringComparer.OrdinalIgnoreCase);
-		foreach ((string name, List<SourceMetadataValue> metadata) in song.SourceMetadata)
+		foreach ((string name, IReadOnlyList<string> metadata) in SongMetadata.Enumerate(song))
 		{
 			metadataNames.Add(name);
 			if (!IsIdentityMetadata(name))
 			{
-				string[] values = [.. metadata.Select(value => value.Value).Where(value => !string.IsNullOrWhiteSpace(value))];
+				string[] values = [.. metadata.Where(value => !string.IsNullOrWhiteSpace(value))];
 				if (values.Length > 0)
 				{
 					displayMetadata.Add((name, string.Join(", ", values)));

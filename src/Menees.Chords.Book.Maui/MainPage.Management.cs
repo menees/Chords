@@ -112,7 +112,7 @@ public partial class MainPage
 		=> await this.RunBookMutationAsync(async () =>
 		{
 			string[] actions = ["Resume Last Performance", "Rename Book", "Review Folder Changes", "Display Defaults",
-				"Metronome Defaults", "Instruments", "Keyboard and Pedals", "Backup and Restore", "Check Book", "Appearance"];
+				"Metronome Defaults", "Instruments", "Keyboard and Pedals", "Backup and Restore", "Validate Book", "Appearance"];
 			string? action = await this.DisplayActionSheetAsync("Options", "Cancel", null, actions)
 				.ConfigureAwait(true);
 			if (action == "Appearance")
@@ -132,7 +132,7 @@ public partial class MainPage
 					this.RefreshSongs("Restored book opened.");
 				}
 			}
-			else if (action == "Check Book")
+			else if (action == "Validate Book")
 			{
 				BookIntegrityPage page = new(this.session, this.picker);
 				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
@@ -421,14 +421,15 @@ public partial class MainPage
 	{
 		if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
 		{
-			await this.ManageSongAsync(this.performanceSongs[this.currentSongIndex].Id).ConfigureAwait(true);
+			await this.ManageSongAsync(this.performanceSongs[this.currentSongIndex].Id, "Edit Song").ConfigureAwait(true);
 		}
 	}
 
-	private async Task ManageSongAsync(Guid songId)
+	private async Task ManageSongAsync(Guid songId, string? requestedAction = null)
 		=> await this.RunBookMutationAsync(async () =>
 		{
-			string? action = await this.DisplayActionSheetAsync("Song", "Cancel", null, "Edit Song", "Manage Sheets", "Display Settings", "Instrument Settings")
+			string? action = requestedAction ?? await this.DisplayActionSheetAsync(
+				"Song", "Cancel", null, "Edit Song", "Manage Sheets", "Display Settings", "Instrument Settings")
 				.ConfigureAwait(true);
 			bool saved = false;
 			if (action == "Instrument Settings")

@@ -25,6 +25,9 @@ public sealed class HtmlFormatterOptions
 	/// <summary>Gets or sets whether the rendered sheet handles Page Up and Page Down keys. Defaults to false.</summary>
 	public bool HandlePageUpDownKeys { get; set; }
 
+	/// <summary>Gets or sets whether the sheet is arranged into viewport-sized pages. Defaults to true.</summary>
+	public bool ResponsivePages { get; set; } = true;
+
 	/// <summary>Gets the default style inherited by rendered text unless a category has its own default or override.</summary>
 	public TextStyle DefaultTextStyle { get; } = new();
 

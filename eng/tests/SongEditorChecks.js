@@ -28,6 +28,20 @@
 			'Directive, section or comment highlighting is missing');
 		editor.search();
 		check(document.querySelector('.cm-search input'), 'Search/replace panel did not open');
+		for (const element of document.querySelectorAll('.cm-search button:not([name=close]), .cm-search label')) {
+			const text = element.textContent.trim();
+			check(!/^[a-z]/.test(text), 'Search UI caption is not capitalized: ' + text);
+		}
+		editor.load('Before redo');
+		editor.replaceText('After redo');
+		editor.undo();
+		editor.focus();
+		document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'y', code:'KeyY', ctrlKey:true, bubbles:true, cancelable:true}));
+		check(editor.getText() === 'After redo', 'Ctrl+Y did not redo');
+		editor.undo();
+		document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'Z', code:'KeyZ', keyCode:90, ctrlKey:true, shiftKey:true, bubbles:true, cancelable:true}));
+		check(editor.getText() === 'After redo', 'Ctrl+Shift+Z did not redo');
+		editor.search();
 		editor.setUiFont('Segoe UI', 14);
 		for (const element of document.querySelectorAll('.cm-search, .cm-search input, .cm-search button, .cm-search label')) {
 			const font = getComputedStyle(element);

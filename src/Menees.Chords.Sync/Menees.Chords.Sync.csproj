@@ -6,4 +6,7 @@
 		<Description>Provider-neutral synchronization contracts and planning for ChordBook.</Description>
 		<NoWarn>$(NoWarn);1591</NoWarn>
 	</PropertyGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\Menees.Chords.Db\Menees.Chords.Db.csproj" />
+	</ItemGroup>
 </Project>

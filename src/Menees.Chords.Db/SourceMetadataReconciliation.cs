@@ -1,8 +1,9 @@
 namespace Menees.Chords.Db;
 
 /// <summary>Updates source observations while preserving catalog values that no longer match their previous source.</summary>
-internal static class SourceMetadataReconciliation
+public static class SourceMetadataReconciliation
 {
+	/// <summary>Reconciles new source observations and reports independent catalog title/artist conflicts.</summary>
 	public static IReadOnlyList<BookMetadataConflict> Apply(Song song, SongFileAnalysis analysis)
 	{
 		List<BookMetadataConflict> conflicts = [];
@@ -20,7 +21,7 @@ internal static class SourceMetadataReconciliation
 		}
 
 		string[] oldArtists = [.. Values(song, "artist", "author").Distinct(StringComparer.OrdinalIgnoreCase)];
-		if (!song.Artists.SequenceEqual(analysis.Artists, StringComparer.Ordinal))
+		if (analysis.Artists.Count > 0 && !song.Artists.SequenceEqual(analysis.Artists, StringComparer.Ordinal))
 		{
 			if (song.Artists.SequenceEqual(oldArtists, StringComparer.Ordinal))
 			{
@@ -37,6 +38,14 @@ internal static class SourceMetadataReconciliation
 		foreach ((string name, IReadOnlyList<SourceMetadataValue> values) in analysis.Metadata)
 		{
 			song.SourceMetadata[name] = [.. values.Select(value => new SourceMetadataValue { Value = value.Value, SourceName = value.SourceName })];
+		}
+
+		IReadOnlyList<string> durations = SongMetadata.GetValues(song, "duration");
+		int[] parsed = [.. durations.Select(value => SongMetadata.TryParseDuration(value, out int seconds) ? (int?)seconds : null)
+			.Where(value => value.HasValue).Select(value => value!.Value).Distinct()];
+		if (durations.Count > 0)
+		{
+			song.DurationSeconds = parsed.Length == 1 && durations.All(value => SongMetadata.TryParseDuration(value, out _)) ? parsed[0] : null;
 		}
 
 		return conflicts;

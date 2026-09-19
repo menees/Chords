@@ -32,11 +32,15 @@ public sealed class RenderedSongCacheTests
 			BookApplicationSession session = new();
 			await session.ActivateAsync(store, location, token);
 			Guid song = await session.CreateSongAsync("Song", [], [], "[C]Words", device, token);
-			string? first = (await session.GetPresentationAsync(song, cancellationToken: token)).Html;
+			BookSongPresentation original = await session.GetPresentationAsync(song, cancellationToken: token);
+			original.OriginalKey.ShouldBe("C");
+			string? first = original.Html;
 			SongFile file = session.Database!.SongFiles.Single();
 			using (FileStream held = File.Open(Path.Combine(store.GetDirectory(location), file.RelativePath), FileMode.Open, FileAccess.Read, FileShare.None))
 			{
-				(await session.GetPresentationAsync(song, cancellationToken: token)).Html.ShouldBeSameAs(first);
+				BookSongPresentation cached = await session.GetPresentationAsync(song, cancellationToken: token);
+				cached.Html.ShouldBeSameAs(first);
+				cached.OriginalKey.ShouldBe("C");
 				await session.SaveDisplaySettingsAsync(song, new() { FontSize = 24 }, device, token);
 				await Should.ThrowAsync<IOException>(() => session.GetPresentationAsync(song, cancellationToken: token));
 			}

@@ -156,6 +156,51 @@ public sealed class SongManagementTests
 	}
 
 	[TestMethod]
+	public async Task MetadataImportStaysInBufferUntilSaveAndRetainsIndependentCatalogFields()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		var (session, _, _, device, songId) = await CreateAsync(token);
+		SongEditDocument original = await session.GetSongEditAsync(songId, token);
+		SongEditMetadata metadata = new(original.Title, original.Artists, original.Tags)
+		{
+			Scalars = new Dictionary<string, IReadOnlyList<string>> { ["tempo"] = ["110"], ["album"] = ["Catalog only"], ["duration"] = ["4:28"] },
+		};
+		await session.SaveSongEditAsync(original, metadata, original.Text, device, token);
+		(await session.GetSongEditAsync(songId, token)).Text.ShouldBe(original.Text);
+		session.Database!.Songs.Single().SourceMetadata.ContainsKey("tempo").ShouldBeFalse();
+		await session.ReloadAsync(token);
+		original = await session.GetSongEditAsync(songId, token);
+		original.Metadata["tempo"].Single().ShouldBe("110");
+		MetadataDirectiveImport import = new(original.Text!, metadata);
+		string updated = import.Apply([new("tempo", null), new("duration", null)]);
+		(await session.GetSongEditAsync(songId, token)).Text.ShouldBe(original.Text);
+		await session.SaveSongEditAsync(original, metadata, updated, device, token);
+		await session.ReloadAsync(token);
+		Song saved = session.Database!.Songs.Single();
+		saved.SourceMetadata["tempo"].Single().Value.ShouldBe("110");
+		saved.DurationSeconds.ShouldBe(268);
+		SongMetadata.GetValues(saved, "album").Single().ShouldBe("Catalog only");
+		(await session.GetSongEditAsync(songId, token)).Text.ShouldBe(updated);
+	}
+
+	[TestMethod]
+	public async Task EditorReconcilesSourceIdentityAndReportsInvalidMetadataWithoutChangingIt()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		var (session, _, _, device, songId) = await CreateAsync(token);
+		SongEditDocument original = await session.GetSongEditAsync(songId, token);
+		const string Updated = "{title: Changed source}\r\n{artist: New artist}\r\n{duration: invalid}\r\n[C]Words";
+		IReadOnlyList<string> warnings = await session.SaveSongEditAsync(
+			original, new SongEditMetadata(original.Title, original.Artists, original.Tags), Updated, device, token);
+		warnings.Any(warning => warning.Contains("Duration", StringComparison.Ordinal)).ShouldBeTrue();
+		SongEditDocument saved = await session.GetSongEditAsync(songId, token);
+		saved.Title.ShouldBe("Changed source");
+		saved.Artists.Single().ShouldBe("New artist");
+		saved.Text.ShouldBe(Updated);
+		session.Database!.Songs.Single().DurationSeconds.ShouldBeNull();
+	}
+
+	[TestMethod]
 	public async Task EditorPreservesEncodingAndRejectsStaleMetadata()
 	{
 		CancellationToken token = this.TestContext.CancellationToken;

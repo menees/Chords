@@ -65,14 +65,19 @@ public partial class MainPage : ContentPage
 	public MainPage(BookSession session, IWindowsPicker picker, IMetronomeEngine metronome)
 	{
 		this.InitializeComponent();
+		string[] songActions = ["Manage Sheets", "Display Settings", "Instrument Settings"];
+		this.PerformanceSongButton.MenuItems = [.. songActions
+			.Select(action => new FluentMenuItem(action, async () =>
+			{
+				if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+				{
+					await this.ManageSongAsync(this.performanceSongs[this.currentSongIndex].Id, action).ConfigureAwait(true);
+				}
+			}))];
 		this.OpenBookButton.RecentBookSelected += async (_, book) => await this.OpenRecentBookAsync(book).ConfigureAwait(true);
 		this.documentViewer = new WindowsDocumentViewer(this.SongViewer);
 		this.QuickNotation.ItemsSource = new[] { "Default", "Letter", "Nashville", "Roman" };
 		this.QuickNotation.SelectedIndex = 0;
-		const int MaximumQuickTranspose = 11;
-		this.QuickTranspose.ItemsSource = Enumerable.Range(-MaximumQuickTranspose, (2 * MaximumQuickTranspose) + 1)
-			.Select(value => value.ToString("+0;-0;0", CultureInfo.InvariantCulture)).ToArray();
-		this.QuickTranspose.SelectedIndex = MaximumQuickTranspose;
 		this.session = session;
 		this.picker = picker;
 		this.metronome = metronome;
@@ -1063,7 +1068,7 @@ public partial class MainPage : ContentPage
 				setlistId: this.performanceSetlistId,
 				entryId: entryId,
 				notationOverride: this.QuickNotation.SelectedIndex > 0 ? (string)this.QuickNotation.SelectedItem : null,
-				transposeOffset: int.Parse((string)this.QuickTranspose.SelectedItem, CultureInfo.InvariantCulture)).ConfigureAwait(true);
+				transposeOffset: this.QuickTranspose.Offset).ConfigureAwait(true);
 			if (generation == this.viewerGeneration)
 			{
 				this.viewerReady = false;
@@ -1071,6 +1076,7 @@ public partial class MainPage : ContentPage
 				this.currentSongIndex = index;
 				this.performanceContextName = contextName;
 				this.PerformanceTitle.Text = presentation.Title;
+				this.QuickTranspose.OriginalKey = presentation.OriginalKey;
 				this.PerformancePosition.Text = this.currentSongIndex >= 0
 					? $"{(contextName is null ? string.Empty : contextName + " · ")}{this.currentSongIndex + 1:N0} / {context.Count:N0}"
 					: string.Empty;

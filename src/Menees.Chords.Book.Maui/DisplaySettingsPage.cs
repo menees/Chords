@@ -12,10 +12,9 @@ public sealed partial class DisplaySettingsPage : ContentPage
 {
 	#region Private Data
 
-	private const int PagePadding = 24;
+	private const int PagePadding = 16;
 	private const int PreviewHeight = 240;
 	private const int ControlSpacing = 12;
-	private const int HeadingSize = 24;
 
 	private readonly BookSession session;
 	private readonly Guid? songId;
@@ -46,13 +45,13 @@ public sealed partial class DisplaySettingsPage : ContentPage
 		this.columns.SelectedIndex = profile.AutoColumns ? 0 : profile.Columns;
 		this.chords.IsChecked = profile.ShowChords;
 		this.notation.SelectedItem = profile.NotationSystem;
-		Button save = new() { Text = "Save" };
+		FluentIconButton save = new() { Icon = "Save", Description = "Save" };
 		save.Clicked += async (_, _) => await this.SaveAsync(false).ConfigureAwait(true);
-		Button reset = new() { Text = "Reset to Book Defaults", IsVisible = songId.HasValue };
+		FluentIconButton reset = new() { Icon = "ArrowReset", Description = "Reset to Book Defaults", IsVisible = songId.HasValue };
 		reset.Clicked += async (_, _) => await this.SaveAsync(true).ConfigureAwait(true);
-		Button cancel = new() { Text = "Cancel" };
+		FluentIconButton cancel = new() { Icon = "Dismiss", Description = "Cancel" };
 		cancel.Clicked += async (_, _) => await this.CloseAsync(false).ConfigureAwait(true);
-		this.Content = new ScrollView
+		ScrollView body = new()
 		{
 			Content = new VerticalStackLayout
 			{
@@ -60,7 +59,6 @@ public sealed partial class DisplaySettingsPage : ContentPage
 				Spacing = ControlSpacing,
 				Children =
 				{
-					new Label { Text = songId.HasValue ? "Song Display" : "Book Display Defaults", FontSize = HeadingSize },
 					new Label { Text = "Text sheets only. PDF appearance is unchanged. Default theme follows the device theme." },
 					this.theme, new Label { Text = "Text size (8–72 px)" }, this.size,
 					new Label { Text = "Line spacing (0.5–3)" }, this.spacing, this.columns,
@@ -68,10 +66,11 @@ public sealed partial class DisplaySettingsPage : ContentPage
 					{
 						Children = { this.chords, new Label { Text = "Show chord symbols and diagrams", VerticalOptions = LayoutOptions.Center } },
 					},
-					this.notation, new Label { Text = "Live preview" }, this.preview, this.status, save, reset, cancel,
+					this.notation, new Label { Text = "Live preview" }, this.preview, this.status,
 				},
 			},
 		};
+		this.Content = DialogLayout.Create(songId.HasValue ? "Song Display" : "Book Display Defaults", body, save, cancel, reset);
 		this.previewTimer = this.Dispatcher.CreateTimer();
 		this.previewTimer.Interval = TimeSpan.FromMilliseconds(200);
 		this.previewTimer.Tick += (_, _) =>

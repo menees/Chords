@@ -41,6 +41,15 @@ public static class DatabaseValidation
 			ValidateUniqueIds(database.Setlists.Select(item => item.Id), "setlists", problems);
 			ValidateUniqueIds(database.CustomTabs.Select(item => item.Id), "customTabs", problems);
 
+			foreach (Song song in database.Songs)
+			{
+				if (song.MetadataOverrides is null || song.MetadataOverrides.Any(pair => string.IsNullOrWhiteSpace(pair.Key)
+					|| pair.Key != pair.Key.ToLowerInvariant() || pair.Value is null || pair.Value.Any(value => value is null)))
+				{
+					problems.Add(new($"songs[{song.Id}].metadataOverrides", "Catalog metadata requires normalized names and non-null value lists."));
+				}
+			}
+
 			HashSet<Guid> songIds = [.. database.Songs.Select(item => item.Id)];
 			Dictionary<Guid, SongFile> filesById = database.SongFiles.DistinctBy(file => file.Id).ToDictionary(file => file.Id);
 			HashSet<Guid> profileIds = [.. database.InstrumentProfiles.Select(item => item.Id)];

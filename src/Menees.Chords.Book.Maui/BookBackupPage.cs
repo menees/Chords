@@ -12,10 +12,9 @@ public sealed partial class BookBackupPage : ContentPage
 {
 	#region Private Data
 
-	private const int PagePadding = 24;
+	private const int PagePadding = 16;
 	private const int ControlSpacing = 12;
 	private const int PageWidth = 660;
-	private const int HeadingSize = 24;
 	private readonly BookSession session;
 	private readonly IWindowsPicker picker;
 	private readonly Button backup = new() { Text = "Backup Current Book…" };
@@ -24,7 +23,7 @@ public sealed partial class BookBackupPage : ContentPage
 	private readonly Button backupSettings = new() { Text = "Backup Settings…" };
 	private readonly Button restoreSettings = new() { Text = "Restore Settings…" };
 	private readonly Button cancel = new() { Text = "Cancel Operation", IsVisible = false };
-	private readonly Button close = new() { Text = "Close" };
+	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
 	private readonly Label status = new();
 	private readonly ActivityIndicator progress = new();
 	private readonly TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -40,14 +39,13 @@ public sealed partial class BookBackupPage : ContentPage
 		this.session = session;
 		this.picker = picker;
 		this.Title = "Backup and Restore";
-		this.Content = new ScrollView
+		ScrollView body = new()
 		{
 			Content = new VerticalStackLayout
 			{
 				Padding = PagePadding, Spacing = ControlSpacing, MaximumWidthRequest = PageWidth,
 				Children =
 				{
-					new Label { Text = "Backup and Restore", FontSize = HeadingSize },
 					new Label { Text = "A book backup includes its songs, sheets, setlists and book settings. Keep a copy on another drive for recovery." },
 					this.backup,
 					new Label { Text = "Restore validates the backup and creates a separate book. Your current book remains available in Recent books." },
@@ -55,10 +53,11 @@ public sealed partial class BookBackupPage : ContentPage
 					new Label { Text = "Recover this book from an earlier backup. A safety backup is saved automatically before replacement." },
 					this.replace,
 					new Label { Text = "Transfer display, metronome, keyboard/pedal and title settings independently of your songs using a settings backup." },
-					this.backupSettings, this.restoreSettings, this.progress, this.cancel, this.status, this.close,
+					this.backupSettings, this.restoreSettings, this.progress, this.cancel, this.status,
 				},
 			},
 		};
+		this.Content = DialogLayout.Create(this.Title, body, this.close);
 		this.backup.Clicked += this.HandleBackup;
 		this.restore.Clicked += this.HandleRestore;
 		this.replace.Clicked += this.HandleReplace;

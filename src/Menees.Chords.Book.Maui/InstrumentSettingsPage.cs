@@ -12,7 +12,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 {
 	#region Private Data
 
-	private const int PagePadding = 20;
+	private const int PagePadding = 16;
 	private const int ControlSpacing = 8;
 	private readonly BookSession session;
 	private readonly Guid? songId;
@@ -48,11 +48,11 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 		rename.Clicked += async (_, _) => await this.EditProfileAsync(false).ConfigureAwait(true);
 		Button delete = new() { Text = "Delete…" };
 		delete.Clicked += async (_, _) => await this.DeleteProfileAsync().ConfigureAwait(true);
-		Button save = new() { Text = songId.HasValue ? "Save Song Settings" : "Use Selected Instrument" };
+		FluentIconButton save = new() { Icon = "Save", Description = "Save" };
 		save.Clicked += async (_, _) => await this.SaveAsync(false).ConfigureAwait(true);
-		Button reset = new() { Text = "Reset Song Settings", IsVisible = songId.HasValue };
+		FluentIconButton reset = new() { Icon = "ArrowReset", Description = "Reset Song Settings", IsVisible = songId.HasValue };
 		reset.Clicked += async (_, _) => await this.SaveAsync(true).ConfigureAwait(true);
-		Button close = new() { Text = "Close" };
+		FluentIconButton close = new() { Icon = "Dismiss", Description = songId.HasValue ? "Cancel" : "Close" };
 		close.Clicked += async (_, _) => await this.CloseAsync().ConfigureAwait(true);
 		VerticalStackLayout options = new()
 		{
@@ -65,7 +65,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 				new Label { Text = "Capo fret (blank or 0–24)" }, this.capo, this.behavior, this.spelling, this.files,
 			},
 		};
-		this.Content = new ScrollView
+		ScrollView body = new()
 		{
 			Content = new VerticalStackLayout
 			{
@@ -73,13 +73,13 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 				Spacing = ControlSpacing,
 				Children =
 				{
-					new Label { Text = this.Title, FontAttributes = FontAttributes.Bold },
 					new Label { Text = "Profiles and song settings belong to this book. The selected instrument is remembered on this device." },
 					this.profiles, new HorizontalStackLayout { Spacing = ControlSpacing, Children = { create, rename, delete } },
-					options, this.status, save, reset, close,
+					options, this.status,
 				},
 			},
 		};
+		this.Content = DialogLayout.Create(this.Title, body, save, close, reset);
 		this.RefreshProfiles(entry?.InstrumentProfileId ?? session.ActiveInstrumentId);
 	}
 

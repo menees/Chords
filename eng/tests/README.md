@@ -65,10 +65,21 @@ returning requires an explicit restart. Never use the personal library for
 replacement or destructive recovery experiments.
 For replacement recovery, use a disposable book and a matching earlier backup.
 Verify the count preview, Cancel, automatic safety-backup path, restored catalog,
-and a foreign backup's Restore as New Book offer. Check Book should report
+and a foreign backup's Restore as New Book offer. Validate Book should report
 intentionally missing/changed/duplicate fixture sheets, allow cancellation and
-save a readable report. It must not alter files. Provider sync has not yet been
-implemented; its future comparison path must honor the persisted recovery epoch.
+save a readable report. It must not alter files. Provider transport and read-only
+comparison have mocked tests; end-to-end sync is not yet implemented. The future executor must honor the persisted recovery epoch.
 The native viewer harness also checks the bundled CodeMirror 6 editor: exact unchanged text, mixed newlines, undo/redo, highlighting, search/replace, read-only state and virtualization of 10,000 lines. All editor modules load locally from app output; no Node or runtime CDN is used.
 
-Editor checks also cover native UI font overrides, Find/Replace input focus, current-section selection (including nested/abbreviated ChordPro environments), musical context, paragraph fallback, range invalidation and preview-safe undo. The editor capture leaves Find/Replace open for visual inspection.
+Editor checks also cover Ctrl+Y/Ctrl+Shift+Z redo, capitalized search captions, native UI font overrides, Find/Replace input focus, current-section selection (including nested/abbreviated ChordPro environments), musical context, paragraph fallback, range invalidation and preview-safe undo. The editor capture leaves Find/Replace open for visual inspection.
+
+## OneDrive authentication without a live account
+
+    powershell -ExecutionPolicy Bypass -File eng/tests/Test-OneDriveAuthentication.ps1
+
+This links the production Windows authentication adapter into a disposable console
+fixture and checks protected-cache verification, signed-out silent-token refusal,
+disconnect, cancellation and public client-ID validation. It opens no browser and
+uses no live account or book. The MSAL package versions come from the central
+package file; no Node installation is needed. See [OneDrive development](../ONEDRIVE.md)
+for registration requirements, limitations and remaining live acceptance.

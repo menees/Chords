@@ -128,6 +128,13 @@ public sealed partial class BookSession
 	public Task<SongEditDocument> GetSongFileEditAsync(Guid songId, Guid fileId, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.GetSongFileEditAsync(songId, fileId, cancellationToken), cancellationToken);
 
+	public Task<Guid> CreateSongAsync(SongEditMetadata metadata, string text, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.CreateSongAsync(metadata, text, this.DeviceId, cancellationToken), cancellationToken);
+
+	public Task<IReadOnlyList<string>> SaveSongEditAsync(
+		SongEditDocument original, SongEditMetadata metadata, string? text, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.SaveSongEditAsync(original, metadata, text, this.DeviceId, cancellationToken), cancellationToken);
+
 	public Task SaveSongEditAsync(
 		SongEditDocument original,
 		string title,

@@ -131,6 +131,12 @@ internal static class Program
 				core.NavigateToString("<html><head><style>" + css + "</style></head><body id='tablature-test'></body></html>");
 				await Wait("document.body?.id === 'tablature-test'");
 				await CheckScript("HtmlTablatureChecks.js");
+				string longSection = "{key: G}\n{start_of_verse: Verse 1}\n" + string.Join("\n", Enumerable.Repeat("[G]" + new string('x', 180), 80)) + "\n{end_of_verse}";
+				core.NavigateToString(SongDisplaySettings.Render(Menees.Chords.Document.Parse(longSection), new(), responsivePages: false));
+				await Wait("document.querySelector('.chord-sheet')?.dataset.responsivePages === 'off'");
+				await Task.Delay(150);
+				if (await core.ExecuteScriptAsync("document.querySelectorAll('.song-page,.song-column').length === 0 && [...document.querySelectorAll('.chord-sheet *')].every(e => !['auto','scroll'].includes(getComputedStyle(e).overflowY))") != "true")
+					throw new Exception("Continuous section preview created a nested scrolling container.");
 				core.Navigate("https://editor.chordbook.invalid/editor.html");
 				await Wait("typeof window.chordBookEditor === 'object'");
 				await CheckScript("SongEditorChecks.js");
@@ -139,7 +145,7 @@ internal static class Program
 					throw new Exception("The viewer/editor attempted an external request: " + string.Join(", ", requests));
 				using (var capture = File.Create(Path.Combine(output, "native-editor.png")))
 					await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, capture);
-				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. No Node.js.");
+				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), continuous section preview without nested scrollers, offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. No Node.js.");
 			}
 			catch (Exception ex) { File.WriteAllText(log, ex.ToString()); Environment.ExitCode = 1; }
 			finally { browser.Dispose(); foreach (var stream in streams) stream.Dispose(); window.Close(); app.Shutdown(); }

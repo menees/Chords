@@ -15,6 +15,9 @@ public sealed class Song
 	/// <summary>Gets or sets metadata extracted from source files.</summary>
 	public SortedDictionary<string, List<SourceMetadataValue>> SourceMetadata { get; set; } = new(StringComparer.Ordinal);
 
+	/// <summary>Gets or sets explicit catalog scalar values, independently of source observations.</summary>
+	public SortedDictionary<string, List<string>> MetadataOverrides { get; set; } = new(StringComparer.Ordinal);
+
 	/// <summary>Gets or sets the duration in seconds.</summary>
 	public int? DurationSeconds { get; set; }
 

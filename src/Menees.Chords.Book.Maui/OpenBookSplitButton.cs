@@ -1,11 +1,20 @@
 namespace Menees.Chords.Book.Maui;
 
-public sealed partial class OpenBookSplitButton : View
+public sealed partial class OpenBookSplitButton : FluentIconSplitButton
 {
 	public static readonly BindableProperty RecentBooksProperty = BindableProperty.Create(
-		nameof(RecentBooks), typeof(IReadOnlyList<RecentBook>), typeof(OpenBookSplitButton), Array.Empty<RecentBook>());
+		nameof(RecentBooks),
+		typeof(IReadOnlyList<RecentBook>),
+		typeof(OpenBookSplitButton),
+		Array.Empty<RecentBook>(),
+		propertyChanged: (view, _, _) => ((OpenBookSplitButton)view).UpdateMenu());
 
-	public event EventHandler? Clicked;
+	public OpenBookSplitButton()
+	{
+		this.Icon = "Book";
+		this.Description = "Open Book";
+		this.UpdateMenu();
+	}
 
 	public event EventHandler<RecentBook>? RecentBookSelected;
 
@@ -15,7 +24,10 @@ public sealed partial class OpenBookSplitButton : View
 		set => this.SetValue(RecentBooksProperty, value);
 	}
 
-	internal void Open() => this.Clicked?.Invoke(this, EventArgs.Empty);
-
-	internal void OpenRecent(RecentBook book) => this.RecentBookSelected?.Invoke(this, book);
+	private void UpdateMenu()
+	{
+		this.MenuItems = this.RecentBooks.Count == 0
+			? [new("No recent books", () => { }, IsEnabled: false)]
+			: [.. this.RecentBooks.Select(book => new FluentMenuItem(book.Name, () => this.RecentBookSelected?.Invoke(this, book), book.Path))];
+	}
 }

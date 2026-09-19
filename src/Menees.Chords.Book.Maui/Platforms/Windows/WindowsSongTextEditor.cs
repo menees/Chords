@@ -46,6 +46,12 @@ public sealed partial class WindowsSongTextEditor(WebView view) : ISongTextEdito
 		_ = await this.ExecuteAsync("undo()", cancellationToken).ConfigureAwait(true);
 	}
 
+	public async Task RedoAsync(CancellationToken cancellationToken = default)
+	{
+		view.Focus();
+		_ = await this.ExecuteAsync("redo()", cancellationToken).ConfigureAwait(true);
+	}
+
 	public async Task MatchUiFontAsync(View reference, CancellationToken cancellationToken = default)
 	{
 		if (reference.Handler?.PlatformView is Microsoft.UI.Xaml.Controls.Control control)

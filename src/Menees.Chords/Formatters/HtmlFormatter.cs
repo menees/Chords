@@ -1464,6 +1464,11 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 	{
 		string title = GetDocumentTitle(container);
 		XElement content = new("article", new XAttribute("class", "chord-sheet"));
+		if (this.options?.ResponsivePages == false)
+		{
+			content.SetAttributeValue("data-responsive-pages", "off");
+		}
+
 		if (this.options?.HandlePageUpDownKeys == true)
 		{
 			content.SetAttributeValue("data-handle-page-up-down-keys", "true");

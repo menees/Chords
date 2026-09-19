@@ -15,6 +15,18 @@ public static class BookImportService
 	#region Public API
 
 	/// <summary>Creates a song from explicitly authored text and catalog metadata without converting its syntax.</summary>
+	public static Task<BookImportResult> CreateSongAsync(
+		IBookStore store,
+		BookLocation location,
+		string title,
+		IReadOnlyList<string> artists,
+		IReadOnlyList<string> tags,
+		string text,
+		Guid deviceId,
+		CancellationToken cancellationToken = default)
+		=> CreateSongAsync(store, location, title, artists, tags, text, deviceId, null, cancellationToken);
+
+	/// <summary>Creates authored text and independent scalar catalog metadata in one atomic import.</summary>
 	public static async Task<BookImportResult> CreateSongAsync(
 		IBookStore store,
 		BookLocation location,
@@ -23,6 +35,7 @@ public static class BookImportService
 		IReadOnlyList<string> tags,
 		string text,
 		Guid deviceId,
+		IReadOnlyDictionary<string, IReadOnlyList<string>>? metadata,
 		CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(store);
@@ -44,6 +57,15 @@ public static class BookImportService
 			song.Title = title.Trim();
 			song.Artists = [.. artists.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())];
 			song.Tags = [.. tags.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())];
+			if (metadata is not null)
+			{
+				foreach ((string name, IReadOnlyList<string> values) in metadata)
+				{
+					song.MetadataOverrides[name] = [.. values];
+				}
+			}
+
+			_ = SourceMetadataReconciliation.Apply(song, analysis);
 		}
 
 		IReadOnlyList<BookImportResult> results = await ImportAsync(

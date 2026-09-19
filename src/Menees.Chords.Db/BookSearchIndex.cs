@@ -117,8 +117,7 @@ public sealed class BookSearchIndex
 		result["archivedfiles"] = [archived ? "true" : "false"];
 		foreach (string field in SourceFields)
 		{
-			result[field] = song.SourceMetadata.TryGetValue(field, out List<SourceMetadataValue>? values)
-				? [.. values.Select(item => Normalize(item.Value))] : [];
+			result[field] = [.. SongMetadata.GetValues(song, field).Select(Normalize)];
 		}
 
 		return result;
@@ -139,7 +138,7 @@ public sealed class BookSearchIndex
 			song.Title,
 			.. song.Artists,
 			.. song.Tags,
-			.. song.SourceMetadata.Values.SelectMany(items => items).Select(item => item.Value),
+			.. SongMetadata.Enumerate(song).SelectMany(pair => pair.Value),
 		];
 		return Normalize(string.Join(' ', values));
 	}

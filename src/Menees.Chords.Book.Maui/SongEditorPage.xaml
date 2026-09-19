@@ -13,22 +13,28 @@
             </HorizontalStackLayout>
         </FlexLayout>
         <VerticalStackLayout Grid.Row="1" Spacing="4">
-            <Label Text="Catalog title" />
-            <Entry x:Name="songTitle" Placeholder="Title" />
-            <Label Text="Artists (semicolon separated)" />
-            <Entry x:Name="artists" />
-            <Label Text="Tags (semicolon separated)" />
-            <Entry x:Name="tags" />
+            <Grid ColumnDefinitions="2*,3*" ColumnSpacing="16">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="Catalog title" />
+                    <Entry x:Name="songTitle" Placeholder="Title" />
+                    <Label Text="Artists (semicolon separated)" />
+                    <Entry x:Name="artists" />
+                    <Label Text="Tags (semicolon separated)" />
+                    <Entry x:Name="tags" />
+                </VerticalStackLayout>
+                <local:ScalarMetadataEditor x:Name="scalarMetadata" Grid.Column="1" />
+            </Grid>
             <Label x:Name="editingHint" />
         </VerticalStackLayout>
         <Grid x:Name="editorArea" Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8" RowDefinitions="Auto,*" RowSpacing="4">
-            <HorizontalStackLayout x:Name="editorToolbar" Grid.ColumnSpan="2" Spacing="4" IsEnabled="False">
-                <local:FluentIconButton Icon="Search" Description="Find (Ctrl+F)" Clicked="HandleFind" />
-                <local:FluentIconButton Icon="SearchSparkle" Description="Replace (Ctrl+H)" Clicked="HandleReplace" />
+            <FlexLayout x:Name="editorToolbar" Grid.ColumnSpan="2" Wrap="Wrap" AlignItems="Center" IsEnabled="False">
+                <local:FluentIconButton Icon="Search" Description="Find/Replace (Ctrl+F or Ctrl+H)" Clicked="HandleFind" />
                 <local:FluentIconButton Icon="ArrowUndo" Description="Undo (Ctrl+Z)" Clicked="HandleUndo" />
+                <local:FluentIconButton Icon="ArrowRedo" Description="Redo (Ctrl+Y or Ctrl+Shift+Z)" Clicked="HandleRedo" />
                 <local:FluentIconButton x:Name="revertButton" Icon="ArrowReset" Description="Revert Text" Clicked="HandleRevert" />
                 <local:FluentIconToggle x:Name="showPreview" Icon="PreviewLink" Description="Preview current section" CheckedChanged="HandlePreviewChanged" />
-            </HorizontalStackLayout>
+                <Button Text="Import Metadata as Directives…" Clicked="HandleImportMetadata" Margin="8,0,0,0" />
+            </FlexLayout>
             <WebView Grid.Row="1" x:Name="text" Grid.ColumnSpan="2" />
             <WebView Grid.Row="1" x:Name="preview" Grid.Column="1" IsVisible="False" />
         </Grid>

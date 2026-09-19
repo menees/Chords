@@ -48,13 +48,15 @@ public sealed partial class SongEditorPage : ContentPage
 		this.songTitle.Text = original.Title;
 		this.artists.Text = string.Join("; ", original.Artists);
 		this.tags.Text = string.Join("; ", original.Tags);
+		this.scalarMetadata.Load(original);
 		this.editorArea.IsVisible = original.Text is not null;
 		this.showPreview.IsEnabled = original.Text is not null;
 		this.revertButton.IsVisible = original.Text is not null;
 		this.text.IsEnabled = false;
 		this.editingHint.Text = original.Text is null
 			? "Metadata editing only. PDF and OpenSong source files are preserved."
-			: "Song text — Ctrl+F to search, Ctrl+H to replace, Ctrl+Z to undo. Save preserves the original encoding.";
+			: string.Empty;
+		this.editingHint.IsVisible = original.Text is null;
 		this.editor = new WindowsSongTextEditor(this.text);
 		this.editor.PreviewChanged += (_, _) => this.QueuePreview();
 		this.previewTimer = this.Dispatcher.CreateTimer();
@@ -163,7 +165,7 @@ public sealed partial class SongEditorPage : ContentPage
 					int version = this.editVersion;
 					string source = await this.editor.GetPreviewTextAsync(this.lifetime.Token).ConfigureAwait(true);
 					DisplayProfile profile = this.session.GetDisplaySettings(this.original.SongId == Guid.Empty ? null : this.original.SongId);
-					string html = await Task.Run(() => SongDisplaySettings.Render(Document.Parse(source), profile), this.lifetime.Token)
+					string html = await Task.Run(() => SongDisplaySettings.Render(Document.Parse(source), profile, responsivePages: false), this.lifetime.Token)
 						.ConfigureAwait(true);
 					if (!this.closed && version == this.editVersion && this.showPreview.IsChecked)
 					{
@@ -194,8 +196,8 @@ public sealed partial class SongEditorPage : ContentPage
 	private async void HandleFind(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(() => this.editor.FindAsync(false, this.lifetime.Token), disablePage: false).ConfigureAwait(true);
 
-	private async void HandleReplace(object? sender, EventArgs e)
-		=> await this.RunOperationAsync(() => this.editor.FindAsync(true, this.lifetime.Token), disablePage: false).ConfigureAwait(true);
+	private async void HandleRedo(object? sender, EventArgs e)
+		=> await this.RunOperationAsync(() => this.editor.RedoAsync(this.lifetime.Token), disablePage: false).ConfigureAwait(true);
 
 	private async void HandleUndo(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(() => this.editor.UndoAsync(this.lifetime.Token), disablePage: false).ConfigureAwait(true);
@@ -236,6 +238,32 @@ public sealed partial class SongEditorPage : ContentPage
 			}
 		}).ConfigureAwait(true);
 
+	private SongEditMetadata GetMetadata() => new(this.songTitle.Text, Split(this.artists.Text), Split(this.tags.Text))
+	{
+		Scalars = this.scalarMetadata.GetValues(),
+	};
+
+	private async void HandleImportMetadata(object? sender, EventArgs e)
+		=> await this.RunOperationAsync(async () =>
+		{
+			string source = await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true);
+			SongEditMetadata metadata = this.GetMetadata();
+			MetadataDirectiveImport import = await Task.Run(() => new MetadataDirectiveImport(source, metadata), this.lifetime.Token).ConfigureAwait(true);
+			MetadataImportPage page = new(import);
+			await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+			string? updated = await page.Completion.ConfigureAwait(true);
+			if (updated is not null)
+			{
+				if (source != await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true))
+				{
+					throw new InvalidOperationException("The editor text changed during review. Preview the metadata import again.");
+				}
+
+				await this.editor.ReplaceTextAsync(updated, this.lifetime.Token).ConfigureAwait(true);
+				this.status.Text = "Metadata imported into the buffer. Undo is available; Save commits the text.";
+			}
+		}).ConfigureAwait(true);
+
 	private async void HandleSave(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(async () =>
 		{
@@ -243,13 +271,17 @@ public sealed partial class SongEditorPage : ContentPage
 			if (this.original.SongId == Guid.Empty)
 			{
 				this.SavedSongId = await this.session.CreateSongAsync(
-					this.songTitle.Text, Split(this.artists.Text), Split(this.tags.Text), source ?? string.Empty).ConfigureAwait(true);
+					this.GetMetadata(), source ?? string.Empty).ConfigureAwait(true);
 			}
 			else
 			{
-				await this.session.SaveSongEditAsync(this.original, this.songTitle.Text, Split(this.artists.Text), Split(this.tags.Text), source)
+				IReadOnlyList<string> warnings = await this.session.SaveSongEditAsync(this.original, this.GetMetadata(), source)
 					.ConfigureAwait(true);
 				this.SavedSongId = this.original.SongId;
+				if (warnings.Count > 0)
+				{
+					await this.DisplayAlertAsync("Saved with metadata warnings", string.Join(Environment.NewLine, warnings), "OK").ConfigureAwait(true);
+				}
 			}
 
 			await this.CloseAsync(true).ConfigureAwait(true);
@@ -261,7 +293,7 @@ public sealed partial class SongEditorPage : ContentPage
 		{
 			string? source = this.ready ? await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true) : this.original.Text;
 			bool changed = this.songTitle.Text != this.original.Title || !Split(this.artists.Text).SequenceEqual(this.original.Artists)
-				|| !Split(this.tags.Text).SequenceEqual(this.original.Tags) || source != this.original.Text;
+				|| !Split(this.tags.Text).SequenceEqual(this.original.Tags) || source != this.original.Text || this.scalarMetadata.HasChanges;
 			if (!changed || await this.DisplayAlertAsync("Discard changes?", "Your unsaved song edits will be lost.", "Discard", "Keep Editing")
 				.ConfigureAwait(true))
 			{

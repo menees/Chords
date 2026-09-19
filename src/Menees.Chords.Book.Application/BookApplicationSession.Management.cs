@@ -15,20 +15,27 @@ public sealed partial class BookApplicationSession
 	#region Public API
 
 	/// <summary>Creates a song through the shared atomic import pipeline, then refreshes the active catalog.</summary>
-	public async Task<Guid> CreateSongAsync(
+	public Task<Guid> CreateSongAsync(
 		string title,
 		IReadOnlyList<string> artists,
 		IReadOnlyList<string> tags,
 		string text,
 		Guid deviceId,
 		CancellationToken cancellationToken = default)
+		=> this.CreateSongAsync(new SongEditMetadata(title, artists, tags), text, deviceId, cancellationToken);
+
+	/// <summary>Creates text and explicitly edited catalog metadata in a single import transaction.</summary>
+	public async Task<Guid> CreateSongAsync(
+		SongEditMetadata metadata, string text, Guid deviceId, CancellationToken cancellationToken = default)
 	{
+		SongMetadataValidation.Validate(metadata.Scalars);
 		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 		try
 		{
 			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
 			BookImportResult result = await BookImportService.CreateSongAsync(
-				activeStore, activeLocation, title, artists, tags, text, deviceId, cancellationToken).ConfigureAwait(false);
+				activeStore, activeLocation, metadata.Title, metadata.Artists, metadata.Tags, text, deviceId, metadata.Scalars, cancellationToken)
+				.ConfigureAwait(false);
 			await this.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
 			return result.SongId;
 		}
@@ -197,7 +204,7 @@ public sealed partial class BookApplicationSession
 		=> this.GetSongEditCoreAsync(songId, fileId, cancellationToken);
 
 	/// <summary>Saves explicit catalog edits and changed text together, refusing to overwrite a newer edit.</summary>
-	public async Task SaveSongEditAsync(
+	public Task SaveSongEditAsync(
 		SongEditDocument original,
 		string title,
 		IReadOnlyList<string> artists,
@@ -205,11 +212,22 @@ public sealed partial class BookApplicationSession
 		string? text,
 		Guid deviceId,
 		CancellationToken cancellationToken = default)
+		=> this.SaveSongEditAsync(original, new SongEditMetadata(title, artists, tags), text, deviceId, cancellationToken);
+
+	/// <summary>Saves explicit catalog fields and the exact editor buffer in one transaction.</summary>
+	public async Task<IReadOnlyList<string>> SaveSongEditAsync(
+		SongEditDocument original,
+		SongEditMetadata metadata,
+		string? text,
+		Guid deviceId,
+		CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(original);
-		ArgumentException.ThrowIfNullOrWhiteSpace(title);
-		ArgumentNullException.ThrowIfNull(artists);
-		ArgumentNullException.ThrowIfNull(tags);
+		ArgumentNullException.ThrowIfNull(metadata);
+		SongMetadataValidation.Validate(metadata.Scalars, original.Metadata);
+		ArgumentException.ThrowIfNullOrWhiteSpace(metadata.Title);
+		ArgumentNullException.ThrowIfNull(metadata.Artists);
+		ArgumentNullException.ThrowIfNull(metadata.Tags);
 		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
 		string expectedJson = this.committedJson!;
 		try
@@ -223,6 +241,26 @@ public sealed partial class BookApplicationSession
 			}
 
 			DateTimeOffset now = DateTimeOffset.UtcNow;
+			List<string> warnings = [];
+			SongFile? editedFile = original.Text is not null && text is not null ? database.SongFiles.Single(item => item.Id == original.FileId) : null;
+			byte[] bytes = [];
+			SongFileAnalysis? analysis = null;
+			if (editedFile is not null)
+			{
+				Encoding encoding = GetTextEncoding(editedFile);
+				byte[] preamble = editedFile.ByteOrderMark == ByteOrderMarkKind.None ? [] : encoding.GetPreamble();
+				bytes = [.. preamble, .. encoding.GetBytes(text!)];
+				analysis = SongFileAnalyzer.Analyze(bytes, editedFile.RelativePath);
+				if (analysis.MediaKind != MediaKind.Text || analysis.SourceFormat == SourceFormat.OpenSongXml)
+				{
+					throw new InvalidOperationException("The text editor supports ChordPro, chord-over-text, and mixed song text.");
+				}
+
+				warnings.AddRange(SongEditorWarnings.Get(analysis));
+				warnings.AddRange(SourceMetadataReconciliation.Apply(song, analysis).Select(conflict =>
+					$"{conflict.Field}: kept the independent catalog value '{conflict.CatalogValue}'; source contains '{conflict.SourceValue}'."));
+			}
+
 			bool changedText = original.Text is not null && text is not null && !StringComparer.Ordinal.Equals(original.Text, text);
 			await using IStagedBookWrite? write = changedText
 				? await activeStore.StageWriteAsync(activeLocation, expectedJson, cancellationToken).ConfigureAwait(false) : null;
@@ -237,35 +275,20 @@ public sealed partial class BookApplicationSession
 					throw new InvalidOperationException("The song file changed outside the editor. Reopen it before saving.");
 				}
 
-				Encoding encoding = GetTextEncoding(file);
-				byte[] preamble = file.ByteOrderMark == ByteOrderMarkKind.None ? [] : encoding.GetPreamble();
-				byte[] bytes = [.. preamble, .. encoding.GetBytes(text!)];
-				SongFileAnalysis analysis = SongFileAnalyzer.Analyze(bytes, file.RelativePath);
-				if (analysis.MediaKind != MediaKind.Text || analysis.SourceFormat == SourceFormat.OpenSongXml)
-				{
-					throw new InvalidOperationException("The text editor supports ChordPro, chord-over-text, and mixed song text.");
-				}
-
 				file.ContentHash = SongFileAnalyzer.Hash(bytes);
 				file.ContentRevision++;
-				file.SourceFormat = analysis.SourceFormat;
+				file.SourceFormat = analysis!.SourceFormat;
 				file.AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion;
 				file.ObservedLength = bytes.Length;
 				file.ObservedWriteUtc = now;
 				file.Revision = NextRevision(file.Revision, deviceId, now);
-				song.SourceMetadata.Clear();
-				foreach ((string name, IReadOnlyList<SourceMetadataValue> values) in analysis.Metadata)
-				{
-					song.SourceMetadata[name] = [.. values];
-				}
 
 				using MemoryStream content = new(bytes);
 				await write.WriteManagedAssetAsync(file.Id, file.RelativePath, content, cancellationToken).ConfigureAwait(false);
 			}
 
-			song.Title = title.Trim();
-			song.Artists = [.. artists.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())];
-			song.Tags = [.. tags.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim())];
+			metadata.ApplyTo(song, original);
+
 			song.Revision = NextRevision(song.Revision, deviceId, now);
 			database.Revision = NextRevision(database.Revision, deviceId, now);
 			string updatedJson;
@@ -282,6 +305,7 @@ public sealed partial class BookApplicationSession
 
 			this.SetDatabase(database);
 			this.committedJson = updatedJson;
+			return warnings;
 		}
 		catch
 		{
@@ -329,7 +353,19 @@ public sealed partial class BookApplicationSession
 			text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
 		}
 
-		return new(song.Id, song.Revision.Revision, song.Title, [.. song.Artists], [.. song.Tags], file?.Id, hash, text);
+		Dictionary<string, IReadOnlyList<string>> metadata = SongMetadata.Enumerate(song)
+			.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<string>)[.. pair.Value], StringComparer.Ordinal);
+		if (!song.MetadataOverrides.ContainsKey("tempo") && song.MetronomeOverride?.BeatsPerMinute is int tempo)
+		{
+			metadata["tempo"] = [tempo.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+		}
+
+		if (song.DurationSeconds is int duration && !metadata.ContainsKey("duration"))
+		{
+			metadata["duration"] = [duration.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+		}
+
+		return new(song.Id, song.Revision.Revision, song.Title, [.. song.Artists], [.. song.Tags], file?.Id, hash, text) { Metadata = metadata };
 	}
 
 	#endregion

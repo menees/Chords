@@ -28,6 +28,11 @@
 - When developing on Windows, create and edit repository text files with Windows CRLF line endings, including Markdown and local planning documents. Do not introduce LF-only or mixed line endings through patching or file-writing tools. Preserve the existing encoding and verify line endings after edits; normalize touched files to CRLF before finishing. Respect explicit file-specific requirements (for example, scripts requiring LF) and byte-preserving source/test fixtures. Do not rely on Git to repair working-tree line endings.
 - Use book/song/sheet terminology consistently in the UI. Keep technical storage details in diagnostics rather than normal user workflows.
 
+## UI conventions
+
+- Use Fluent icons for buttons by default, with descriptive tooltips and accessible names. Reuse established icon mappings; ask the user when choosing an icon would require a guess.
+- Place buttons in a toolbar at the top of the page or the section they control, outside scrolling content. Keep action naming, ordering, and placement consistent across related screens.
+
 ## Verification and handoff
 
 - Use the SDK selected by `global.json`; Windows app builds require the MAUI Windows workload. CI commands are in `.github/workflows/windows.yml` and `ubuntu.yml`.

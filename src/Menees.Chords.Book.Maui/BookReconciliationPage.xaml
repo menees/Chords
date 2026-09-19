@@ -4,7 +4,10 @@
 	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
 	xmlns:local="clr-namespace:Menees.Chords.Book.Maui" Title="Review Folder Changes">
 	<Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
-		<Label Text="Review Folder Changes" FontSize="22" />
+		<HorizontalStackLayout Spacing="4">
+			<Label Text="Review Folder Changes" FontSize="22" VerticalOptions="Center" />
+			<local:FluentIconButton Icon="Dismiss" Description="Close" Clicked="HandleClose" />
+		</HorizontalStackLayout>
 		<Label Grid.Row="1" Text="Applying updates the book catalog; it never rewrites your sheets. Catalog conflicts keep your edits unless you select Use source value. Missing files are not deleted." />
 		<CollectionView x:Name="items" Grid.Row="2" SelectionMode="None">
 			<CollectionView.ItemTemplate>
@@ -25,7 +28,6 @@
 			<HorizontalStackLayout x:Name="actions" Spacing="8">
 				<Button x:Name="apply" Text="Apply Reviewed Changes" Clicked="HandleApply" />
 				<Button Text="Refresh Review" Clicked="HandleRefresh" />
-				<Button Text="Close" Clicked="HandleClose" />
 			</HorizontalStackLayout>
 		</VerticalStackLayout>
 	</Grid>

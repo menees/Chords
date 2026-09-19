@@ -57,8 +57,11 @@ const darkTheme = EditorView.theme({
 const dark = matchMedia('(prefers-color-scheme: dark)');
 function makeState(text) {
 	return EditorState.create({ doc: text, extensions: [
+		EditorState.phrases.of({ next: 'Next', previous: 'Previous', all: 'All',
+			'match case': 'Match case', regexp: 'Regexp', 'by word': 'By word',
+			replace: 'Replace', 'replace all': 'Replace all', close: 'Close' }),
 		lineNumbers(), history(), drawSelection(), highlightActiveLine(), search(), songLanguage,
-		syntaxHighlighting(highlights), keymap.of([{ key: 'Mod-h', run: editor => showSearch(editor, true) }, { key: 'Mod-f', run: editor => showSearch(editor) }, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+		syntaxHighlighting(highlights), keymap.of([{ key: 'Mod-y', run: redo }, { key: 'Mod-Shift-z', run: redo }, { key: 'Mod-h', run: editor => showSearch(editor, true) }, { key: 'Mod-f', run: editor => showSearch(editor) }, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
 		EditorView.contentAttributes.of({ 'aria-label': 'Song source', spellcheck: 'false' }),
 		readOnly.of(EditorState.readOnly.of(false)), theme.of(dark.matches ? darkTheme : []),
 		EditorView.updateListener.of(update => {
@@ -90,7 +93,7 @@ window.chordBookEditor = {
 	},
 	replaceText(text) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } }); },
 	setReadOnly(value) { view.dispatch({ effects: readOnly.reconfigure([EditorState.readOnly.of(value), EditorView.editable.of(!value)]) }); },
-	undo() { view.focus(); return undo(view); }, redo() { return redo(view); },
+	undo() { view.focus(); return undo(view); }, redo() { view.focus(); return redo(view); },
 	search(replace = false) { showSearch(view, replace); }, focus() { view.focus(); }
 };
 window.chordBookEditor.load('');

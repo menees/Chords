@@ -11,7 +11,7 @@ public sealed partial class PerformanceInputPage : ContentPage
 {
 	#region Private Data
 
-	private const int PagePadding = 20;
+	private const int PagePadding = 16;
 	private const int ControlSpacing = 8;
 	private const int CaptureHeight = 140;
 	private readonly BookSession session;
@@ -59,13 +59,13 @@ public sealed partial class PerformanceInputPage : ContentPage
 				this.RefreshBindings();
 			}
 		};
-		Button save = new() { Text = "Save" };
+		FluentIconButton save = new() { Icon = "Save", Description = "Save" };
 		save.Clicked += async (_, _) => await this.SaveAsync().ConfigureAwait(true);
-		Button cancel = new() { Text = "Cancel" };
+		FluentIconButton cancel = new() { Icon = "Dismiss", Description = "Cancel" };
 		cancel.Clicked += async (_, _) => await this.CloseAsync(false).ConfigureAwait(true);
 		this.capture.Navigating += this.HandleNavigating;
 		this.capture.Navigated += (_, _) => this.capture.Focus();
-		this.Content = new ScrollView
+		ScrollView body = new()
 		{
 			Content = new VerticalStackLayout
 			{
@@ -73,12 +73,12 @@ public sealed partial class PerformanceInputPage : ContentPage
 				Spacing = ControlSpacing,
 				Children =
 				{
-					new Label { Text = "Keyboard and Pedal Commands", FontAttributes = FontAttributes.Bold },
 					new Label { Text = "Bindings apply while the chart has focus. Modifiers work; held-key repeats are ignored." },
-					this.existing, remove, reset, this.commands, learn, this.capture, this.status, assign, save, cancel,
+					this.existing, remove, reset, this.commands, learn, this.capture, this.status, assign,
 				},
 			},
 		};
+		this.Content = DialogLayout.Create("Keyboard and Pedal Commands", body, save, cancel);
 		this.RefreshBindings();
 	}
 

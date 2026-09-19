@@ -303,7 +303,7 @@ public sealed partial class BookSession : IDisposable
 		}
 
 		string title = presentation.PerformanceDescription is null ? presentation.Title : presentation.Title + " · " + presentation.PerformanceDescription;
-		return new(title, presentation.Html, pdfPath, presentation.SongFileId);
+		return new(title, presentation.Html, pdfPath, presentation.SongFileId) { OriginalKey = presentation.OriginalKey };
 	}
 
 	#endregion

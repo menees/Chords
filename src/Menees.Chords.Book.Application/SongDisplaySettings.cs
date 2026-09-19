@@ -59,7 +59,7 @@ public static class SongDisplaySettings
 		return Render(Document.Parse(Sample), profile);
 	}
 
-	public static string Render(Document document, DisplayProfile profile)
+	public static string Render(Document document, DisplayProfile profile, bool responsivePages = true)
 	{
 		Validate(profile);
 		if (profile.NotationSystem != "Letter")
@@ -68,7 +68,7 @@ public static class SongDisplaySettings
 			document = new NotationTransformer(document, notation).Transform().Document;
 		}
 
-		HtmlFormatterOptions options = new() { LineSpacing = profile.LineSpacing };
+		HtmlFormatterOptions options = new() { LineSpacing = profile.LineSpacing, ResponsivePages = responsivePages };
 		options.DefaultTextStyle.FontSize = CssSize.Parse(FormattableString.Invariant($"{profile.FontSize}px"));
 		string theme = profile.Theme switch { "Light" => "light", "Dark" => "dark", _ => "light dark" };
 		int maximumColumns = profile.AutoColumns ? 0 : profile.Columns;

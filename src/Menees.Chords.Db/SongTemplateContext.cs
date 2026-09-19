@@ -21,9 +21,9 @@ public sealed class SongTemplateContext
 			this.Add("duration", [TimeSpan.FromSeconds(durationSeconds).ToString(@"m\:ss", System.Globalization.CultureInfo.InvariantCulture)]);
 		}
 
-		foreach ((string name, List<SourceMetadataValue> metadata) in song.SourceMetadata)
+		foreach ((string name, IReadOnlyList<string> metadata) in SongMetadata.Enumerate(song))
 		{
-			IEnumerable<string> metadataValues = metadata.Select(value => value.Value);
+			IEnumerable<string> metadataValues = metadata;
 			this.Add(name, metadataValues);
 			if (!name.EndsWith('s'))
 			{

@@ -41,7 +41,7 @@ public partial class App : global::Microsoft.Maui.Controls.Application
 	{
 		Window window = new(this.mainPage)
 		{
-			Title = "ChordBook",
+			Title = "Menees ChordBook",
 			Width = InitialWindowWidth,
 			Height = InitialWindowHeight,
 		};

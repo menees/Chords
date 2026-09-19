@@ -16,12 +16,14 @@ public static class MauiProgram
 	{
 		MauiAppBuilder builder = MauiApp.CreateBuilder();
 		builder.UseMauiApp<App>();
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<TransposePicker, TransposePickerHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<FluentIconButton, FluentIconButtonHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<ArchiveToggle, FluentIconToggleHandler>()
 			.AddHandler<FluentIconToggle, FluentIconToggleHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<BookTabs, BookTabsHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<PositionEntry, PositionEntryHandler>());
-		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<OpenBookSplitButton, OpenBookSplitButtonHandler>());
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<OpenBookSplitButton, FluentIconSplitButtonHandler>()
+			.AddHandler<FluentIconSplitButton, FluentIconSplitButtonHandler>());
 		Microsoft.Maui.Handlers.CheckBoxHandler.Mapper.AppendToMapping("CompactCheckBox", (handler, _) =>
 		{
 			handler.PlatformView.MinWidth = 0;

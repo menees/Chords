@@ -10,6 +10,13 @@ public sealed class OneDriveCloudReplica : ICloudReplica
 
 	public OneDriveCloudReplica(OneDriveOptions options, IOneDriveTransport? transport = null)
 	{
+		ArgumentNullException.ThrowIfNull(options);
+		if (transport is not null && (transport.Identity.ProviderKind != "OneDrive"
+			|| transport.Identity.AccountId != options.AccountId || transport.Identity.RemoteFolderId != options.RemoteFolderId))
+		{
+			throw new ArgumentException("The OneDrive transport must match the configured account and book folder.", nameof(transport));
+		}
+
 		this.Options = options;
 		this.transport = transport;
 		this.Identity = new CloudReplicaIdentity("OneDrive", options.AccountId, options.RemoteFolderId);
@@ -19,9 +26,7 @@ public sealed class OneDriveCloudReplica : ICloudReplica
 
 	public CloudReplicaIdentity Identity { get; }
 
-	public CloudReplicaCapabilities Capabilities => CloudReplicaCapabilities.ChangeTokens
-		| CloudReplicaCapabilities.Rename
-		| CloudReplicaCapabilities.ConditionalMutation;
+	public CloudReplicaCapabilities Capabilities => this.transport?.Capabilities ?? CloudReplicaCapabilities.None;
 
 	public bool IsAuthenticated => this.transport?.IsAuthenticated ?? false;
 
