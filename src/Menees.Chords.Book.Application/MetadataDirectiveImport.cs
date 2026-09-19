@@ -42,14 +42,14 @@ public sealed class MetadataDirectiveImport
 		Entry? Parse(LineContext context)
 		{
 			ChordProDirectiveLine? directive = ChordProDirectiveLine.TryParse(context);
-			var line = lines[context.LineNumber - 1];
+			(int start, string? text, string? ending) = lines[context.LineNumber - 1];
 
 			// Blank lines are skipped by DocumentParser; checking offsets also ends the leading block at a blank.
-			leading &= line.Start == insertionOffset && directive is not null
+			leading &= start == insertionOffset && directive is not null
 				&& !directive.LongName.StartsWith("start_of_", StringComparison.OrdinalIgnoreCase);
 			if (leading)
 			{
-				insertionOffset = line.Start + line.Text.Length + line.Ending.Length;
+				insertionOffset = start + text.Length + ending.Length;
 				insertionNumber = context.LineNumber + 1;
 			}
 
@@ -59,8 +59,8 @@ public sealed class MetadataDirectiveImport
 				if (SupportedNames.Contains(name))
 				{
 					string value = entry.Argument;
-					int close = line.Text.LastIndexOf('}');
-					int valueStart = line.Text.LastIndexOf(value, close, StringComparison.Ordinal);
+					int close = text.LastIndexOf('}');
+					int valueStart = text.LastIndexOf(value, close, StringComparison.Ordinal);
 					bool safe = valueStart >= 0 && directive.QualifiedName.Selector is null && directive.Args.Attributes.Count == 0;
 					if (!occurrences.TryGetValue(name, out List<MetadataDirectiveOccurrence>? list))
 					{
@@ -68,7 +68,7 @@ public sealed class MetadataDirectiveImport
 						occurrences.Add(name, list);
 					}
 
-					list.Add(new(context.LineNumber, line.Start + Math.Max(0, valueStart), value.Length, value, line.Text, safe));
+					list.Add(new(context.LineNumber, start + Math.Max(0, valueStart), value.Length, value, text, safe));
 				}
 			}
 
