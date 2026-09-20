@@ -6,17 +6,17 @@
 	<Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
 		<FlexLayout Wrap="Wrap" AlignItems="Center">
 			<Label x:Name="heading" FontSize="22" VerticalOptions="Center" />
-			<local:FluentIconButton Icon="Dismiss" Description="Close" Clicked="HandleClose" />
+			<local:FluentIconButton Icon="Dismiss" Description="Close" Clicked="HandleClose" Margin="8,0,0,0" />
 		</FlexLayout>
 		<FlexLayout x:Name="actions" Grid.Row="1" Wrap="Wrap" AlignItems="Center">
-			<Button x:Name="add" Text="Add Sheets…" Clicked="HandleAdd" Margin="0,0,8,4" />
-			<Button x:Name="prefer" Text="Make Default" Clicked="HandlePrefer" Margin="0,0,8,4" />
-			<Button x:Name="edit" Text="Edit Sheet…" Clicked="HandleEdit" Margin="0,0,8,4" />
-			<Button x:Name="up" Text="Move Up" Clicked="HandleUp" Margin="0,0,8,4" />
-			<Button x:Name="down" Text="Move Down" Clicked="HandleDown" Margin="0,0,8,4" />
-			<Button x:Name="rename" Text="Rename…" Clicked="HandleRename" Margin="0,0,8,4" />
-			<Button x:Name="archive" Text="Archive" Clicked="HandleArchive" Margin="0,0,8,4" />
-			<Button x:Name="delete" Text="Delete Permanently…" Clicked="HandleDelete" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="add" Icon="DocumentOnePageAdd" Description="Add Sheets…" Clicked="HandleAdd" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="prefer" Icon="Star" Description="Make Default" Clicked="HandlePrefer" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="edit" Icon="EditLineHorizontal3" Description="Edit Sheet…" Clicked="HandleEdit" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="up" Icon="ArrowUp" Description="Move Up" Clicked="HandleUp" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="down" Icon="ArrowDown" Description="Move Down" Clicked="HandleDown" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="rename" Icon="Rename" Description="Rename…" Clicked="HandleRename" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="archive" Icon="Archive" Description="Archive" Clicked="HandleArchive" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="delete" Icon="Delete" Description="Delete Permanently…" Clicked="HandleDelete" Margin="0,0,8,4" />
 		</FlexLayout>
 		<CollectionView x:Name="files" Grid.Row="2" SelectionMode="Single" SelectionChanged="HandleSelectionChanged">
 			<CollectionView.EmptyView><Label Text="No sheets. Add a text chart or PDF to this song." /></CollectionView.EmptyView>

@@ -23,6 +23,7 @@ public partial class MainPage
 		this.PerformanceLockButton.SetIcon(locked ? "LockOpen" : "LockClosed", locked ? "Unlock" : "Lock");
 		this.QuickNotation.IsEnabled = !locked && this.showingHtmlChart;
 		this.QuickTranspose.IsEnabled = this.QuickNotation.IsEnabled;
+		this.QuickInstrument.IsEnabled = !locked;
 		this.PerformanceSongButton.IsEnabled = !locked;
 		this.PerformanceAddButton.IsEnabled = !locked;
 		this.PerformanceMetronomeButton.IsEnabled = !locked;

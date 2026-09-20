@@ -19,9 +19,9 @@ public sealed partial class BookIntegrityPage : ContentPage
 	private readonly IWindowsPicker picker;
 	private readonly Editor report = new() { IsReadOnly = true, AutoSize = EditorAutoSizeOption.Disabled, FontSize = ReportFontSize };
 	private readonly Label status = new();
-	private readonly Button scan = new() { Text = "Validate Again" };
-	private readonly Button save = new() { Text = "Save Report…", IsEnabled = false };
-	private readonly Button cancel = new() { Text = "Cancel Validation", IsVisible = false };
+	private readonly FluentIconButton scan = new() { Icon = "ArrowClockwise", Description = "Validate Again" };
+	private readonly FluentIconButton save = new() { Icon = "Save", Description = "Save Report…", IsEnabled = false };
+	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Validation", IsVisible = false };
 	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
 	private readonly TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private CancellationTokenSource? operation;
@@ -42,14 +42,10 @@ public sealed partial class BookIntegrityPage : ContentPage
 			RowSpacing = ControlSpacing,
 			RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) },
 		};
-		layout.Add(DialogLayout.Header("Validate Book", this.close), 0, 0);
+		layout.Add(DialogLayout.Header("Validate Book", this.close, this.scan, this.save, this.cancel), 0, 0);
 		layout.Add(new Label { Text = "Checks every recorded sheet and looks for duplicate or unreferenced files. Your files are kept unchanged." }, 0, 1);
 		layout.Add(this.report, 0, 2);
-		VerticalStackLayout footer = new() { Spacing = ControlSpacing };
-		HorizontalStackLayout buttons = new() { Spacing = ControlSpacing, Children = { this.scan, this.save, this.cancel } };
-		footer.Children.Add(this.status);
-		footer.Children.Add(buttons);
-		layout.Add(footer, 0, FooterRow);
+		layout.Add(this.status, 0, FooterRow);
 		this.Content = layout;
 		this.scan.Clicked += this.HandleScan;
 		this.save.Clicked += this.HandleSave;

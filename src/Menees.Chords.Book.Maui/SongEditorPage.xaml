@@ -6,10 +6,10 @@
     <Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
         <FlexLayout Wrap="Wrap" AlignItems="Center">
             <Label x:Name="heading" Text="Edit Song" FontSize="22" VerticalOptions="Center" />
-            <local:FluentIconButton Icon="Save" Description="Save" Clicked="HandleSave" />
-            <local:FluentIconButton Icon="Dismiss" Description="Cancel" Clicked="HandleCancel" />
+            <local:FluentIconButton Icon="Save" Description="Save" Clicked="HandleSave" Margin="8,0,0,0" />
+            <local:FluentIconButton Icon="Dismiss" Description="Cancel" Clicked="HandleCancel" Margin="8,0,0,0" />
             <HorizontalStackLayout x:Name="newSongActions" IsVisible="False">
-                <Button Text="Preview Metadata" Clicked="HandlePreviewMetadata" />
+                <local:FluentIconButton Icon="PreviewLink" Description="Preview Metadata" Clicked="HandlePreviewMetadata" Margin="8,0,0,0" />
             </HorizontalStackLayout>
         </FlexLayout>
         <VerticalStackLayout Grid.Row="1" Spacing="4">
@@ -31,9 +31,9 @@
                 <local:FluentIconButton Icon="Search" Description="Find/Replace (Ctrl+F or Ctrl+H)" Clicked="HandleFind" />
                 <local:FluentIconButton Icon="ArrowUndo" Description="Undo (Ctrl+Z)" Clicked="HandleUndo" />
                 <local:FluentIconButton Icon="ArrowRedo" Description="Redo (Ctrl+Y or Ctrl+Shift+Z)" Clicked="HandleRedo" />
-                <local:FluentIconButton x:Name="revertButton" Icon="ArrowReset" Description="Revert Text" Clicked="HandleRevert" />
+                <local:FluentIconButton x:Name="revertButton" Icon="ArrowReset" Description="Revert Text" Margin="8,0,8,0" Clicked="HandleRevert" />
                 <local:FluentIconToggle x:Name="showPreview" Icon="PreviewLink" Description="Preview current section" CheckedChanged="HandlePreviewChanged" />
-                <Button Text="Import Metadata as Directives…" Clicked="HandleImportMetadata" Margin="8,0,0,0" />
+                <local:FluentIconButton Icon="ArrowImport" Description="Import Metadata as Directives…" Clicked="HandleImportMetadata" Margin="8,0,0,0" />
             </FlexLayout>
             <WebView Grid.Row="1" x:Name="text" Grid.ColumnSpan="2" />
             <WebView Grid.Row="1" x:Name="preview" Grid.Column="1" IsVisible="False" />

@@ -22,7 +22,7 @@ public sealed partial class BookBackupPage : ContentPage
 	private readonly Button restore = new() { Text = "Restore as New Book…" };
 	private readonly Button backupSettings = new() { Text = "Backup Settings…" };
 	private readonly Button restoreSettings = new() { Text = "Restore Settings…" };
-	private readonly Button cancel = new() { Text = "Cancel Operation", IsVisible = false };
+	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Operation", IsVisible = false };
 	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
 	private readonly Label status = new();
 	private readonly ActivityIndicator progress = new();
@@ -47,17 +47,15 @@ public sealed partial class BookBackupPage : ContentPage
 				Children =
 				{
 					new Label { Text = "A book backup includes its songs, sheets, setlists and book settings. Keep a copy on another drive for recovery." },
-					this.backup,
 					new Label { Text = "Restore validates the backup and creates a separate book. Your current book remains available in Recent books." },
-					this.restore,
 					new Label { Text = "Recover this book from an earlier backup. A safety backup is saved automatically before replacement." },
-					this.replace,
 					new Label { Text = "Transfer display, metronome, keyboard/pedal and title settings independently of your songs using a settings backup." },
-					this.backupSettings, this.restoreSettings, this.progress, this.cancel, this.status,
+					this.progress, this.status,
 				},
 			},
 		};
-		this.Content = DialogLayout.Create(this.Title, body, this.close);
+		this.Content = DialogLayout.Create(
+			this.Title, body, this.close, this.backup, this.restore, this.replace, this.backupSettings, this.restoreSettings, this.cancel);
 		this.backup.Clicked += this.HandleBackup;
 		this.restore.Clicked += this.HandleRestore;
 		this.replace.Clicked += this.HandleReplace;

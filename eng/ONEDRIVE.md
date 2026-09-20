@@ -1,7 +1,8 @@
 # OneDrive development and acceptance
 
-The September 18 increment supplies transport, comparison, conflict selection,
-application-folder discovery and a Windows authentication adapter. It does **not**
+The current implementation supplies transport, comparison, conflict selection,
+application-folder discovery, a Windows authentication adapter, and the guarded
+publication/local-application components described below. It does **not**
 yet provide usable end-to-end sync in the ChordBook UI. Do not migrate the only copy
 of a book to cloud storage to test these components.
 
@@ -73,9 +74,42 @@ would discard a new entity stop conservatively. Resolution remains future work.
 The caller must invalidate provider merge state after a restore/recovery epoch.
 A merge result alone must never be written to a live book or cloud replica.
 
+## September 19 executor components
+
+- `ReplicaStateStore.Acquire` takes an exclusive per-replica lease in a supplied
+  device-local directory outside books/backups. Checkpoints use staged writes and
+  durable flushes. Corrupt, unsupported, foreign, or wrong-kind documents stop
+  loading rather than silently resetting the merge base.
+- `SaveJournalAsync` persists the confirmed operation skeleton. Use
+  `MarkCompletedAsync` for subsequent acknowledgements; its fixed-size append log
+  avoids rewriting catalog state or the plan for each asset. A partial final
+  record is ignored on reopen and truncated before the next append. A completion
+  is not evidence that a remote request with an uncertain outcome may be replayed.
+- `VerifiedAssetStage` streams into a temporary file with bounded buffers and
+  requires matching length and SHA-256. Disposal removes its file. Stages are not
+  durable transfer receipts and must be recreated after interruption.
+- `CloudBookPublisher` uses new immutable physical filenames for changed sheets,
+  then conditionally replaces the captured database version. Existing cloud asset
+  bytes are never replaced/deleted. Unchanged assets can be reused without content
+  I/O. This is a publication step for an existing compared cloud book, not initial
+  publication, cleanup, directional coordination or resume. Failed uploads/CAS may
+  leave orphan files; the future coordinator must persist/reconcile upload receipts.
+- `LocalBookSyncApplier` stages only changed/new assets, renames and deletions through
+  the book-store transaction. `VerifyOriginalAssets` rehashes affected original
+  files under the commit lease and journal, rejecting external edits and rolling
+  back. Unrelated assets are not opened. The caller must persist the successful
+  cloud receipt before local application and resolve any stale local baseline.
+
+The generic operation journal still lacks bound catalog snapshots, asset source
+versions, upload receipts and commit receipts. Do not present these components as
+usable end-to-end sync until that coordinator and its interruption tests exist.
+Random cloud version filenames also need a user-friendly naming policy before UI
+integration; currently they prioritize avoiding any existing-file replacement.
+
 ## Remaining implementation order
 
-1. Persist independent replica state and crash-safe operation journals outside books.
+1. Bind confirmed catalog snapshots, transfer details and upload/commit receipts to
+   the persisted per-replica journal; reconcile uncertain remote outcomes before retry.
 2. Build a confirmed transfer plan with target, direction, counts, conflicts and bytes.
 3. Hash-verify changed assets into staging; preserve every losing sheet before mutation.
 4. Upload new asset versions before conditional database replacement, retaining old

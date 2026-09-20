@@ -53,6 +53,9 @@ public partial class MainPage : ContentPage
 	private Guid? performanceSetlistId;
 	private IReadOnlyList<Guid> performanceEntryIds = [];
 	private bool performanceLocked;
+	private Guid? instrumentOverride;
+	private Guid? instrumentSongId;
+	private Guid? instrumentEntryId;
 	private bool confirmingPerformanceExit;
 	private bool? previousKeepScreenOn;
 	private bool windowActive = true;
@@ -439,7 +442,7 @@ public partial class MainPage : ContentPage
 	private void HandleEditSetlistClicked(object? sender, EventArgs e)
 	{
 		this.editingSetlist = !this.editingSetlist;
-		this.EditSetlistButton.Text = this.editingSetlist ? "Done" : "Edit";
+		this.EditSetlistButton.SetIcon(this.editingSetlist ? "Checkmark" : "EditLineHorizontal3", this.editingSetlist ? "Done" : "Edit");
 		this.AddSetlistSongsButton.IsVisible = this.editingSetlist;
 		this.RenameSetlistButton.IsVisible = this.editingSetlist;
 		this.ArchiveSetlistButton.IsVisible = this.editingSetlist;
@@ -865,7 +868,7 @@ public partial class MainPage : ContentPage
 			this.selectedSetlistEntries = new(this.session.GetSetlistEntries(setlist.Id, this.editingSetlist));
 			this.SetlistDetailName.Text = setlist.Name;
 			this.SetlistDetailMetadata.Text = setlist.MetadataText;
-			this.ArchiveSetlistButton.Text = setlist.IsArchived ? "Restore" : "Archive";
+			this.ArchiveSetlistButton.SetIcon(setlist.IsArchived ? "ArchiveArrowBack" : "Archive", setlist.IsArchived ? "Restore" : "Archive");
 		}
 		else
 		{
@@ -882,7 +885,7 @@ public partial class MainPage : ContentPage
 	{
 		this.currentSetlist = this.allSetlists.Single(setlist => setlist.Id == setlistId);
 		this.editingSetlist = false;
-		this.EditSetlistButton.Text = "Edit";
+		this.EditSetlistButton.SetIcon("EditLineHorizontal3", "Edit");
 		this.AddSetlistSongsButton.IsVisible = false;
 		this.RenameSetlistButton.IsVisible = false;
 		this.ArchiveSetlistButton.IsVisible = false;
@@ -1023,6 +1026,28 @@ public partial class MainPage : ContentPage
 #pragma warning restore CA1031
 	}
 
+	private async void HandleInstrumentSettingsRequested(object? sender, EventArgs e)
+	{
+		if (!this.performanceLocked && this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+		{
+			await this.ManageSongAsync(this.performanceSongs[this.currentSongIndex].Id, "Instrument Settings").ConfigureAwait(true);
+		}
+	}
+
+	private async void HandleQuickInstrumentChanged(object? sender, EventArgs e)
+	{
+		if (!this.performanceLocked && this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
+		{
+			this.instrumentOverride = this.QuickInstrument.SelectedId;
+			await this.ShowSongAsync(
+				this.performanceSongs[this.currentSongIndex],
+				this.performanceSongs,
+				this.currentSongIndex,
+				this.performanceContextName,
+				displayOnly: true).ConfigureAwait(true);
+		}
+	}
+
 	private async void HandleQuickDisplayChanged(object? sender, EventArgs e)
 	{
 		if (this.PerformanceSurface.IsVisible && this.showingHtmlChart && !this.performanceLocked
@@ -1063,12 +1088,32 @@ public partial class MainPage : ContentPage
 				this.metronome.Stop();
 			}
 
+			if (this.instrumentSongId != song.Id || this.instrumentEntryId != entryId)
+			{
+				this.instrumentOverride = null;
+				this.instrumentSongId = song.Id;
+				this.instrumentEntryId = entryId;
+			}
+
+			var assigned = this.session.Instruments.GetAssignedProfiles(song.Id);
+			if (this.instrumentOverride.HasValue && !assigned.Any(profile => profile.Id == this.instrumentOverride))
+			{
+				this.instrumentOverride = null;
+			}
+
+			Guid? entryInstrument = this.performanceSetlistId is Guid setlist && entryId is Guid entry
+				? this.session.GetSetlistEntrySettings(setlist, entry).InstrumentProfileId : null;
+			Guid? effectiveInstrument = this.instrumentOverride ?? entryInstrument
+				?? this.session.Instruments.ResolveInstrument(song.Id, this.session.ActiveInstrumentId);
+			this.QuickInstrument.Update(assigned, this.session.Instruments.GetProfiles().FirstOrDefault(profile => profile.Id == effectiveInstrument));
+			this.QuickInstrument.IsEnabled = !this.performanceLocked;
 			SongPresentation presentation = await this.session.GetPresentationAsync(
 				song.Id,
 				setlistId: this.performanceSetlistId,
 				entryId: entryId,
 				notationOverride: this.QuickNotation.SelectedIndex > 0 ? (string)this.QuickNotation.SelectedItem : null,
-				transposeOffset: this.QuickTranspose.Offset).ConfigureAwait(true);
+				transposeOffset: this.QuickTranspose.Offset,
+				instrumentOverride: this.instrumentOverride).ConfigureAwait(true);
 			if (generation == this.viewerGeneration)
 			{
 				this.viewerReady = false;

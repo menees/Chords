@@ -69,7 +69,9 @@ public sealed partial class SongFilesPage : ContentPage
 		this.down.IsEnabled = index >= 0 && index + 1 < this.rows.Count;
 		this.rename.IsEnabled = selected is not null;
 		this.archive.IsEnabled = selected is not null;
-		this.archive.Text = selected is { IsArchived: true } ? "Restore" : "Archive";
+		this.archive.SetIcon(
+			selected is { IsArchived: true } ? "ArchiveArrowBack" : "Archive",
+			selected is { IsArchived: true } ? "Restore" : "Archive");
 		this.delete.IsEnabled = selected is { IsArchived: true };
 	}
 

@@ -459,7 +459,7 @@ public sealed partial class BookApplicationSession
 
 	public Task<BookSongPresentation> GetPresentationAsync(
 		Guid songId, Guid? setlistId, Guid? entryId, Guid? activeInstrumentId, CancellationToken cancellationToken)
-		=> this.GetPresentationAsync(songId, setlistId, entryId, activeInstrumentId, null, 0, cancellationToken);
+		=> this.GetPresentationAsync(songId, setlistId, entryId, activeInstrumentId, null, 0, null, cancellationToken);
 
 	/// <summary>Resolves and renders the preferred active file for a song.</summary>
 	public async Task<BookSongPresentation> GetPresentationAsync(
@@ -469,6 +469,7 @@ public sealed partial class BookApplicationSession
 		Guid? activeInstrumentId = null,
 		string? notationOverride = null,
 		int transposeOffset = 0,
+		Guid? instrumentOverride = null,
 		CancellationToken cancellationToken = default)
 	{
 		const int MaximumQuickTranspose = 11;
@@ -482,7 +483,8 @@ public sealed partial class BookApplicationSession
 			? database.Setlists.Single(list => list.Id == listId).Entries.Single(item => item.Id == itemId && item.SongId == songId) : null;
 		SongFile[] activeFiles = [.. this.GetOrderedSongFiles(songId).Where(item => !item.IsArchived && item.RecoveryVersion is null)];
 		SongFile? file = activeFiles.FirstOrDefault();
-		Guid? instrumentId = entry?.InstrumentProfileId ?? activeInstrumentId;
+		Guid? instrumentId = instrumentOverride ?? entry?.InstrumentProfileId
+			?? new InstrumentSettingsService(this).ResolveInstrument(songId, activeInstrumentId);
 		InstrumentProfile? instrument = instrumentId is Guid profileId ? database.InstrumentProfiles.Single(item => item.Id == profileId) : null;
 		SongInstrumentSetting? setting = instrumentId is Guid selectedId ? this.GetInstrumentSetting(songId, selectedId) : null;
 		if (setting?.PreferredSongFileId is Guid instrumentFileId)
@@ -548,23 +550,27 @@ public sealed partial class BookApplicationSession
 			};
 		}
 
-		string? description = instrument?.Name;
+		List<string> description = [];
 		if (instrument is not null)
 		{
 			int soundingTranspose = entry?.TransposeSemitones ?? setting?.TransposeSemitones ?? 0;
-			description += FormattableString.Invariant($" · Transpose {soundingTranspose:+0;-0;0}");
+			if (soundingTranspose != 0)
+			{
+				description.Add(FormattableString.Invariant($"Transpose {soundingTranspose:+0;-0;0}"));
+			}
+
 			if (setting?.CapoFret is int capo)
 			{
-				description += $" · Capo {capo} ({(setting.CapoBehavior == CapoBehavior.AffectsShownChords ? "chord shapes" : "display only")})";
+				description.Add($"Capo {capo} ({(setting.CapoBehavior == CapoBehavior.AffectsShownChords ? "chord shapes" : "display only")})");
 			}
 
 			if (file?.MediaKind == MediaKind.Pdf)
 			{
-				description += " · PDF chords unchanged";
+				description.Add("PDF chords unchanged");
 			}
 		}
 
-		return result with { PerformanceDescription = description };
+		return result with { PerformanceDescription = description.Count == 0 ? null : string.Join(" · ", description) };
 	}
 
 	internal static RevisionStamp NextRevision(RevisionStamp current, Guid deviceId, DateTimeOffset now) => new()

@@ -116,6 +116,8 @@ public sealed class SettingsTransferService
 
 				database.BookSettings = new()
 				{
+					DefaultInstrumentId = database.BookSettings.DefaultInstrumentId,
+					StandardInstrumentsInitialized = database.BookSettings.StandardInstrumentsInitialized,
 					DefaultDisplayProfile = snapshot.Display,
 					DefaultMetronome = snapshot.Metronome,
 					StopMetronomeOnSetlistTransition = snapshot.StopMetronomeOnSetlistTransition,

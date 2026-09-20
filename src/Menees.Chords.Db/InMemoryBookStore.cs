@@ -309,6 +309,9 @@ public sealed class InMemoryBookStore : IBookStore
 			this.expectedVersion = expectedVersion;
 		}
 
+		// In-memory asset bytes are immutable and the transaction checks the complete state version.
+		public bool VerifyOriginalAssets { get; set; }
+
 		public Task WriteDatabaseJsonAsync(string json, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();

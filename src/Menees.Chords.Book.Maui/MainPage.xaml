@@ -31,10 +31,10 @@
 				<Label x:Name="SelectedSongCount" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
 				<local:FluentIconButton Grid.Column="2" Icon="LayerDiagonalAdd" Description="Add to Setlist" Clicked="HandleAddSelectedSongsClicked" />
 				<local:FluentIconButton x:Name="EditSelectedSongButton" Grid.Column="3" Icon="EditLineHorizontal3" Description="Song" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
-                <Button x:Name="ArchiveSelectedSongsButton" Grid.Column="4" Text="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
-                <Button x:Name="RestoreSelectedSongsButton" Grid.Column="5" Text="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
-                <Button x:Name="DeleteSelectedSongsButton" Grid.Column="6" Text="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
-                <Button Grid.Column="7" Text="Cancel" Clicked="HandleCancelSongSelectionClicked" />
+                <local:FluentIconButton x:Name="ArchiveSelectedSongsButton" Grid.Column="4" Icon="Archive" Description="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
+                <local:FluentIconButton x:Name="RestoreSelectedSongsButton" Grid.Column="5" Icon="ArchiveArrowBack" Description="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
+                <local:FluentIconButton x:Name="DeleteSelectedSongsButton" Grid.Column="6" Icon="Delete" Description="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
+                <local:FluentIconButton Grid.Column="7" Icon="Dismiss" Description="Cancel" Clicked="HandleCancelSongSelectionClicked" />
 			</Grid>
 
 			<Grid SizeChanged="HandleJumpViewportChanged" x:Name="SongSurface" Grid.Row="3" ColumnDefinitions="*,Auto">
@@ -114,11 +114,11 @@
 							<Label x:Name="SetlistDetailName" FontAttributes="Bold" FontSize="20" />
 							<Label x:Name="SetlistDetailMetadata" FontSize="12" TextColor="{DynamicResource AppMuted}" />
 						</VerticalStackLayout>
-						<Button x:Name="AddSetlistSongsButton" Grid.Column="1" Text="Add Songs…" Clicked="HandleAddSetlistSongsClicked" />
-						<Button x:Name="RenameSetlistButton" Grid.Column="2" Text="Rename…" Clicked="HandleRenameSetlistClicked" />
-						<Button x:Name="EditSetlistButton" Grid.Column="3" Text="Edit" Clicked="HandleEditSetlistClicked" />
-						<Button x:Name="ArchiveSetlistButton" Grid.Column="4" Text="Archive" IsVisible="False" Clicked="HandleArchiveSetlistClicked" />
-                        <Button x:Name="DeleteSetlistButton" Grid.Column="5" Text="Delete Permanently…" IsVisible="False" Clicked="HandleDeleteSetlistClicked" />
+						<local:FluentIconButton x:Name="AddSetlistSongsButton" Grid.Column="1" Icon="Add" Description="Add Songs…" Clicked="HandleAddSetlistSongsClicked" />
+						<local:FluentIconButton x:Name="RenameSetlistButton" Grid.Column="2" Icon="Rename" Description="Rename…" Clicked="HandleRenameSetlistClicked" />
+						<local:FluentIconButton x:Name="EditSetlistButton" Grid.Column="3" Icon="EditLineHorizontal3" Description="Edit" Clicked="HandleEditSetlistClicked" />
+						<local:FluentIconButton x:Name="ArchiveSetlistButton" Grid.Column="4" Icon="Archive" Description="Archive" IsVisible="False" Clicked="HandleArchiveSetlistClicked" />
+                        <local:FluentIconButton x:Name="DeleteSetlistButton" Grid.Column="5" Icon="Delete" Description="Delete Permanently…" IsVisible="False" Clicked="HandleDeleteSetlistClicked" />
 					</Grid>
 					<CollectionView
 						x:Name="SetlistEntries"
@@ -136,10 +136,10 @@
 									<Label Text="{Binding Position}" IsVisible="{Binding IsViewing}" HorizontalTextAlignment="Center" VerticalOptions="Center" />
                                     <local:PositionEntry Text="{Binding Position, Mode=OneWay}" IsVisible="{Binding IsEditing}" Keyboard="Numeric" HorizontalTextAlignment="Center" PositionSubmitted="HandleSetlistPositionCompleted" Unfocused="HandleSetlistPositionUnfocused" SemanticProperties.Description="Song position, starting at 1. Press Enter to move." />
 									<Label Grid.Column="1" Text="{Binding DisplayText}" TextColor="{DynamicResource AppText}" FontAttributes="{Binding Song.RowFontAttributes}" FontSize="14" LineBreakMode="WordWrap" VerticalOptions="Center" />
-									<Button Grid.Column="2" Text="↑" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveUp}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryUpClicked" />
-									<Button Grid.Column="3" Text="↓" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveDown}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryDownClicked" />
-									<Button Grid.Column="4" Text="Remove" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleRemoveSetlistEntryClicked" />
-									<Button Grid.Column="5" Text="Settings…" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleEntrySettingsClicked" />
+									<local:FluentIconButton Grid.Column="2" Icon="ArrowUp" Description="Move Up" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveUp}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryUpClicked" />
+									<local:FluentIconButton Grid.Column="3" Icon="ArrowDown" Description="Move Down" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveDown}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryDownClicked" />
+									<local:FluentIconButton Grid.Column="4" Icon="Subtract" Description="Remove" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleRemoveSetlistEntryClicked" />
+									<local:FluentIconButton Grid.Column="5" Icon="Settings" Description="Settings…" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleEntrySettingsClicked" />
 								</Grid>
 							</DataTemplate>
 						</CollectionView.ItemTemplate>
@@ -176,10 +176,12 @@
 					HorizontalTextAlignment="Center"
 					VerticalOptions="Center"
 					LineBreakMode="TailTruncation" />
+				<local:InstrumentSelector x:Name="QuickInstrument" Margin="3,0" FlexLayout.Shrink="0" IsVisible="False"
+					Changed="HandleQuickInstrumentChanged" SettingsRequested="HandleInstrumentSettingsRequested" />
 				<Label x:Name="PerformancePosition" TextColor="{DynamicResource AppMuted}" VerticalOptions="Center" />
 				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="NextSongButton" Icon="Next" Description="Next" Clicked="HandleNextSongClicked" />
                 <local:FluentIconSplitButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceSongButton" Icon="EditLineHorizontal3" Description="Edit Song" Clicked="HandleEditCurrentSongClicked" />
-                <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceMetronomeButton" Icon="SoundWaveCircleSparkle" Description="Metronome" Clicked="HandleMetronomeClicked" />
+                <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceMetronomeButton" Icon="Metronome" Description="Metronome" Clicked="HandleMetronomeClicked" />
 				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceLockButton" Icon="LockClosed" Description="Lock" Clicked="HandlePerformanceLockClicked" />
 				<HorizontalStackLayout Spacing="4" Margin="6,0">
 

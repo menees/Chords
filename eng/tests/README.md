@@ -31,7 +31,9 @@ Do not commit the restored dependency files.
 
     powershell -ExecutionPolicy Bypass -File eng/tests/Test-NativeIcons.ps1
 
-This loads all bundled Fluent icon paths through the production WinUI helper.
+This opens a temporary WinUI window and checks actual rendered pixels and viewport
+bounds for all bundled Fluent and custom icons through the production helper. No books
+are opened.
 It does not establish interactive layout, tooltip or theme quality.
 
 ## Native metronome

@@ -505,6 +505,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		Dictionary<Guid, string> writtenHashes,
 		string expectedDatabaseJson,
 		string? recoveryBackupPath,
+		bool verifyOriginalAssets,
 		CancellationToken cancellationToken)
 	{
 		ChordDatabase next;
@@ -583,7 +584,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			bool databaseReplaced = false;
 			try
 			{
-				await MoveOriginalAssetsAsync(directory, rollback, affected, journal, recoveryBackupPath is not null, cancellationToken).ConfigureAwait(false);
+				await MoveOriginalAssetsAsync(
+					directory, rollback, affected, journal, verifyOriginalAssets || recoveryBackupPath is not null, cancellationToken).ConfigureAwait(false);
 
 				this.faultInjector?.Invoke(FileSystemCommitStep.RollbackSnapshotCreated);
 				this.InstallAssets(directory, stageDirectory, rollback, installed, previousFiles, writtenHashes, journal, cancellationToken);
@@ -730,6 +732,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 			this.expectedDatabaseJson = expectedDatabaseJson;
 		}
 
+		public bool VerifyOriginalAssets { get; set; }
+
 		internal string? RecoveryBackupPath { get; set; }
 
 		public Task WriteDatabaseJsonAsync(string json, CancellationToken cancellationToken = default)
@@ -807,6 +811,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				this.writtenHashes,
 				this.expectedDatabaseJson,
 				this.RecoveryBackupPath,
+				this.VerifyOriginalAssets,
 				cancellationToken).ConfigureAwait(false);
 			this.assets = null;
 			Directory.Delete(this.stageDirectory, recursive: true);

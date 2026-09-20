@@ -21,6 +21,83 @@ public sealed class InstrumentSettingsTests
 	#region Public Methods
 
 	[TestMethod]
+	public async Task StandardChoicesPersistWithoutReaddingRenamedOrDeletedProfiles()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, store, location, device, _, _) = await CreateAsync(token);
+		await service.EnsureDefaultsAsync(device, token);
+		service.GetProfiles().Count.ShouldBe(8);
+		session.Database!.BookSettings.DefaultInstrumentId.ShouldBe(StandardInstruments.All[0].Id);
+		string initialized = await store.ReadDatabaseJsonAsync(location, token);
+		await service.EnsureDefaultsAsync(device, token);
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(initialized);
+		InstrumentProfileInfo banjo = service.GetProfiles().Single(profile => profile.Name == "Banjo");
+		await service.DeleteProfileAsync(banjo, device, token);
+		InstrumentProfileInfo piano = service.GetProfiles().Single(profile => profile.Name == "Piano");
+		await service.SaveProfileAsync(piano, "Keyboard", device, token);
+		await session.ReloadAsync(token);
+		await service.EnsureDefaultsAsync(device, token);
+		service.GetProfiles().Count.ShouldBe(7);
+		service.GetProfiles().ShouldNotContain(profile => profile.Name == "Banjo" || profile.Name == "Piano");
+		service.GetProfiles().ShouldContain(profile => profile.Name == "Keyboard" && profile.Id == piano.Id);
+		InstrumentProfileInfo acoustic = service.GetProfiles().Single(profile => profile.Name == "Acoustic Guitar");
+		await Should.ThrowAsync<InvalidOperationException>(() => service.DeleteProfileAsync(acoustic, device, token));
+	}
+
+	[TestMethod]
+	public async Task AssignmentsAndBookDefaultResolveAndQuickChoiceDoesNotPersist()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, store, location, device, song, _) = await CreateAsync(token);
+		await service.EnsureDefaultsAsync(device, token);
+		Guid acoustic = StandardInstruments.All[0].Id;
+		Guid electric = StandardInstruments.All.Single(item => item.Name == "Electric Guitar").Id;
+		service.ResolveInstrument(song).ShouldBe(acoustic);
+		(await session.GetPresentationAsync(song, cancellationToken: token)).PerformanceDescription.ShouldBeNull();
+		await service.SaveSongSettingsBatchAsync(
+			[(service.GetSongSettings(song, acoustic), new()), (service.GetSongSettings(song, electric), new(2))],
+			device,
+			cancellationToken: token);
+		service.GetAssignedProfiles(song).Count.ShouldBe(2);
+		long revision = session.Database!.BookSettings.Revision.Revision;
+		await service.SaveDefaultAsync(session.Database.Id, revision, electric, device, token);
+		await Should.ThrowAsync<InvalidOperationException>(() => service.SaveDefaultAsync(session.Database.Id, revision, acoustic, device, token));
+		await session.ReloadAsync(token);
+		service.ResolveInstrument(song).ShouldBe(electric);
+		(await session.GetPresentationAsync(song, cancellationToken: token)).PerformanceDescription.ShouldBe("Transpose +2");
+		(await session.GetPresentationAsync(song, cancellationToken: token)).Html!.ShouldContain(">D</span>");
+		Guid list = await session.CreateSetlistAsync("Set", device, token);
+		Guid entry = await session.AddSongToSetlistAsync(list, song, device, token);
+		await session.SaveSetlistEntrySettingsAsync(session.GetSetlistEntrySettings(list, entry), null, null, acoustic, device, token);
+		(await session.GetPresentationAsync(song, list, entry, cancellationToken: token)).Html!.ShouldContain(">C</span>");
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		(await session.GetPresentationAsync(song, list, entry, instrumentOverride: electric, cancellationToken: token)).Html!.ShouldContain(">D</span>");
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		await service.SaveSongSettingsAsync(service.GetSongSettings(song, electric), null, device, cancellationToken: token);
+		service.ResolveInstrument(song, electric).ShouldBe(acoustic);
+		service.GetAssignedProfiles(song).Count.ShouldBe(1);
+		(await session.GetSongEditAsync(song, token)).Text.ShouldBe("{key: C}\r\n[C]Words");
+	}
+
+	[TestMethod]
+	public async Task AssignmentBatchRollsBackAllChangesWhenAnySnapshotIsStale()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, store, location, device, song, guitar) = await CreateAsync(token);
+		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
+		SongInstrumentSnapshot stale = service.GetSongSettings(song, piano);
+		await service.SaveSongSettingsAsync(stale, new(2), device, cancellationToken: token);
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		await Should.ThrowAsync<InvalidOperationException>(() => service.SaveSongSettingsBatchAsync(
+			[(service.GetSongSettings(song, guitar), new(1)), (stale, new(3))], device, cancellationToken: token));
+		service.GetSongSettings(song, guitar).SettingId.ShouldBeNull();
+		service.GetSongSettings(song, piano).Options.TransposeSemitones.ShouldBe(2);
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		session.Database!.BookSettings.DefaultInstrumentId = Guid.NewGuid();
+		DatabaseValidation.Validate(session.Database).ShouldContain(problem => problem.Path == "bookSettings.defaultInstrumentId");
+	}
+
+	[TestMethod]
 	public async Task QuickDisplayAdjustmentsDoNotChangeSourceOrPersistedSettings()
 	{
 		var token = this.TestContext.CancellationToken;
@@ -128,6 +205,8 @@ public sealed class InstrumentSettingsTests
 					locks.Add(new FileStream(Path.Combine(store.GetDirectory(location), file.RelativePath), FileMode.Open, FileAccess.Read, FileShare.None));
 				}
 
+				await service.EnsureDefaultsAsync(device, token);
+				await service.SaveDefaultAsync(session.Database!.Id, session.Database.BookSettings.Revision.Revision, guitar, device, token);
 				await service.SaveSongSettingsAsync(
 					service.GetSongSettings(song, guitar), new(0, 4, CapoBehavior.DisplayOnly), device, cancellationToken: token);
 				(await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token)).Html.ShouldBeSameAs(html);

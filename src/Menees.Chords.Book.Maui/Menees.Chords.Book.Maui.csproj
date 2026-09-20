@@ -27,6 +27,7 @@
 		<MauiCss Remove="Resources\Editor\**\*.css" />
 		<Content Include="Resources\Editor\**\*" Exclude="Resources\Editor\vendor\**\*" Link="Editor\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<EmbeddedResource Include="Resources\Fluent\*.svg" />
+		<EmbeddedResource Include="Resources\Icons\*.svg" />
 		<Content Include="Resources\Fluent\*.txt" Link="FluentIcons\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<Content Include="Resources\Viewer\**\*" Exclude="Resources\Viewer\pdfjs\**\*" Link="Viewer\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 	</ItemGroup>

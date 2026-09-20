@@ -53,6 +53,11 @@ public static class DatabaseValidation
 			HashSet<Guid> songIds = [.. database.Songs.Select(item => item.Id)];
 			Dictionary<Guid, SongFile> filesById = database.SongFiles.DistinctBy(file => file.Id).ToDictionary(file => file.Id);
 			HashSet<Guid> profileIds = [.. database.InstrumentProfiles.Select(item => item.Id)];
+			if (database.BookSettings.DefaultInstrumentId is Guid defaultInstrument && !profileIds.Contains(defaultInstrument))
+			{
+				problems.Add(new("bookSettings.defaultInstrumentId", "The referenced instrument profile does not exist."));
+			}
+
 			HashSet<string> paths = new(PortableManagedFileName.Comparer);
 			for (int index = 0; index < database.SongFiles.Count; index++)
 			{

@@ -8,9 +8,15 @@ public sealed class FluentIconSplitButtonHandler : ViewHandler<FluentIconSplitBu
 	private static readonly IPropertyMapper<FluentIconSplitButton, FluentIconSplitButtonHandler> SplitMapper
 		= new PropertyMapper<FluentIconSplitButton, FluentIconSplitButtonHandler>(ViewMapper)
 		{
-			[nameof(FluentIconSplitButton.Icon)] = (handler, view) => handler.PlatformView.Content = FluentIconSource.Create(view.Icon),
+			[nameof(FluentIconSplitButton.Icon)] = (handler, view) =>
+				handler.PlatformView.Content = string.IsNullOrEmpty(view.Icon) ? view.Description : FluentIconSource.Create(view.Icon),
 			[nameof(FluentIconSplitButton.Description)] = (handler, view) =>
 			{
+				if (string.IsNullOrEmpty(view.Icon))
+				{
+					handler.PlatformView.Content = view.Description;
+				}
+
 				ToolTipService.SetToolTip(handler.PlatformView, view.Description);
 				Microsoft.UI.Xaml.Automation.AutomationProperties.SetName(handler.PlatformView, view.Description);
 			},
@@ -49,6 +55,11 @@ public sealed class FluentIconSplitButtonHandler : ViewHandler<FluentIconSplitBu
 		foreach (FluentMenuItem action in view.MenuItems)
 		{
 			Microsoft.UI.Xaml.Controls.MenuFlyoutItem item = new() { Text = action.Text, IsEnabled = action.IsEnabled };
+			if (!string.IsNullOrEmpty(action.Icon))
+			{
+				item.Icon = FluentIconSource.Create(action.Icon);
+			}
+
 			ToolTipService.SetToolTip(item, action.Description ?? action.Text);
 			item.Click += (_, _) => action.Invoke();
 			menu.Items.Add(item);

@@ -3,6 +3,12 @@ namespace Menees.Chords.Db;
 /// <summary>Represents book-wide settings.</summary>
 public sealed class BookSettings
 {
+	/// <summary>Gets or sets the default instrument profile identifier.</summary>
+	public Guid? DefaultInstrumentId { get; set; }
+
+	/// <summary>Gets or sets whether the initial standard instrument choices have been added.</summary>
+	public bool StandardInstrumentsInitialized { get; set; }
+
 	/// <summary>Gets or sets the default display profile.</summary>
 	public DisplayProfile DefaultDisplayProfile { get; set; } = new();
 

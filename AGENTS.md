@@ -28,9 +28,16 @@
 - When developing on Windows, create and edit repository text files with Windows CRLF line endings, including Markdown and local planning documents. Do not introduce LF-only or mixed line endings through patching or file-writing tools. Preserve the existing encoding and verify line endings after edits; normalize touched files to CRLF before finishing. Respect explicit file-specific requirements (for example, scripts requiring LF) and byte-preserving source/test fixtures. Do not rely on Git to repair working-tree line endings.
 - Use book/song/sheet terminology consistently in the UI. Keep technical storage details in diagnostics rather than normal user workflows.
 
+## Current Windows release priorities
+
+- Work in this order: OneDrive; recovery/comparison; browsing/settings; Windows/Surface acceptance; release preparation; Google Drive; PDF export/share.
+- Google Drive and PDF export/share are follow-up features, not blockers for the first Windows release. OneDrive is the required first-release cloud provider.
+
 ## UI conventions
 
+- Keep the individual SVG asset approach; do not switch to the Fluent Blazor NuGet package. Other appropriately licensed SVG icon sources may be used for specialized actions.
 - Use Fluent icons for buttons by default, with descriptive tooltips and accessible names. Reuse established icon mappings; ask the user when choosing an icon would require a guess.
+- Leave a visible gap between dialog captions and actions, between Save and Cancel, and before subsequent action groups such as Reset. Use 8 device-independent pixels for dialog action separation to reduce accidental touch activation.
 - Place buttons in a toolbar at the top of the page or the section they control, outside scrolling content. Keep action naming, ordering, and placement consistent across related screens.
 
 ## Verification and handoff

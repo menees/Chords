@@ -7,6 +7,10 @@ namespace Menees.Chords.Db;
 /// <summary>Collects database and asset changes that become visible together on commit.</summary>
 public interface IStagedBookWrite : IAsyncDisposable
 {
+	/// <summary>Gets or sets whether affected original assets must still match their recorded hashes at commit.</summary>
+	/// <remarks>Enable for synchronization/recovery. Unaffected assets are not opened or hashed.</remarks>
+	bool VerifyOriginalAssets { get; set; }
+
 	/// <summary>Stages canonical database JSON.</summary>
 	Task WriteDatabaseJsonAsync(string json, CancellationToken cancellationToken = default);
 

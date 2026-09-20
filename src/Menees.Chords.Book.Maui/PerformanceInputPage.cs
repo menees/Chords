@@ -36,11 +36,11 @@ public sealed partial class PerformanceInputPage : ContentPage
 		this.original = session.Input.GetBindings();
 		this.bindings = [.. this.original.Bindings];
 		this.Title = "Keyboard and Pedals";
-		Button learn = new() { Text = "Learn a Key / Pedal…" };
+		FluentIconButton learn = new() { Icon = "Learn", Description = "Learn a Key / Pedal…" };
 		learn.Clicked += (_, _) => this.BeginLearning();
-		Button assign = new() { Text = "Assign Learned Key" };
+		FluentIconButton assign = new() { Icon = "AttachArrowRight", Description = "Assign Learned Key" };
 		assign.Clicked += (_, _) => this.Assign();
-		Button remove = new() { Text = "Remove Selected Binding" };
+		FluentIconButton remove = new() { Icon = "Subtract", Description = "Remove Selected Binding" };
 		remove.Clicked += (_, _) =>
 		{
 			if (this.existing.SelectedIndex >= 0 && !this.busy)
@@ -49,7 +49,7 @@ public sealed partial class PerformanceInputPage : ContentPage
 				this.RefreshBindings();
 			}
 		};
-		Button reset = new() { Text = "Restore Default Bindings" };
+		FluentIconButton reset = new() { Icon = "ArrowReset", Description = "Restore Default Bindings" };
 		reset.Clicked += (_, _) =>
 		{
 			if (!this.busy)
@@ -74,11 +74,11 @@ public sealed partial class PerformanceInputPage : ContentPage
 				Children =
 				{
 					new Label { Text = "Bindings apply while the chart has focus. Modifiers work; held-key repeats are ignored." },
-					this.existing, remove, reset, this.commands, learn, this.capture, this.status, assign,
+					this.existing, this.commands, this.capture, this.status,
 				},
 			},
 		};
-		this.Content = DialogLayout.Create("Keyboard and Pedal Commands", body, save, cancel);
+		this.Content = DialogLayout.Create("Keyboard and Pedal Commands", body, save, cancel, remove, reset, learn, assign);
 		this.RefreshBindings();
 	}
 

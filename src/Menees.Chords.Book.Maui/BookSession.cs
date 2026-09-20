@@ -288,11 +288,12 @@ public sealed partial class BookSession : IDisposable
 		Guid? entryId = null,
 		string? notationOverride = null,
 		int transposeOffset = 0,
+		Guid? instrumentOverride = null,
 		CancellationToken cancellationToken = default)
 	{
 		BookSongPresentation presentation = await Task.Run(
 			() => this.application.GetPresentationAsync(
-				songId, setlistId, entryId, this.ActiveInstrumentId, notationOverride, transposeOffset, cancellationToken),
+				songId, setlistId, entryId, this.ActiveInstrumentId, notationOverride, transposeOffset, instrumentOverride, cancellationToken),
 			cancellationToken).ConfigureAwait(false);
 		string? pdfPath = null;
 		if (presentation.MediaKind == MediaKind.Pdf && presentation.SongFileId is Guid fileId)
@@ -462,6 +463,7 @@ public sealed partial class BookSession : IDisposable
 				cancellationToken)
 				.ConfigureAwait(false);
 			await this.application.ActivateAsync(nextStore, nextLocation, cancellationToken).ConfigureAwait(false);
+			await this.Instruments.EnsureDefaultsAsync(this.DeviceId, cancellationToken).ConfigureAwait(false);
 			this.DirectoryPath = nextStore.GetDirectory(nextLocation);
 			this.LastMetadataRefresh = metadataRefresh;
 			Preferences.Default.Set(CurrentBookPreference, this.DirectoryPath);
@@ -473,7 +475,18 @@ public sealed partial class BookSession : IDisposable
 			this.store = priorStore;
 			this.location = priorLocation;
 			this.LastMetadataRefresh = priorMetadataRefresh;
-			nextStore.Dispose();
+			try
+			{
+				if (priorStore is not null && priorLocation is not null)
+				{
+					await this.application.ActivateAsync(priorStore, priorLocation, CancellationToken.None).ConfigureAwait(false);
+				}
+			}
+			finally
+			{
+				nextStore.Dispose();
+			}
+
 			throw;
 		}
 	}
