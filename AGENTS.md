@@ -30,7 +30,7 @@
 
 ## Acceptance build distribution
 
-- Every successful new Windows MAUI publish must clean and replace the contents of `C:\Users\Bill\OneDrive\Documents\Music\Creations\ChordBookPrototypes\Maui.Acceptance`. Use `eng/Publish-ChordBook.ps1`; it retains a timestamped artifact and invokes `eng/Copy-ChordBookAcceptance.ps1` only after publishing and required-asset validation succeed. Keep books and per-device state outside this binary distribution folder.
+- Every successful new Windows MAUI publish must incrementally mirror the published contents into `C:\Users\Bill\OneDrive\Documents\Music\Creations\ChordBookPrototypes\Maui.Acceptance`. Use `eng/Publish-ChordBook.ps1`; it retains a timestamped artifact and invokes `eng/Copy-ChordBookAcceptance.ps1` only after publishing and required-asset validation succeed. Retain byte-identical files without writes; copy only added/changed files and remove only stale entries. Keep books and per-device state outside this binary distribution folder.
 
 ## Current Windows release priorities
 

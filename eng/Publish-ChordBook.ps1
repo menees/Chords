@@ -35,7 +35,7 @@ try
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'WINDOWS_DEPLOYMENT.md') -Destination (Join-Path $outputPath 'WINDOWS_DEPLOYMENT.md')
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'RECOVERY.md') -Destination (Join-Path $outputPath 'RECOVERY.md')
     & (Join-Path $PSScriptRoot 'Copy-ChordBookAcceptance.ps1') -SourceDirectory $outputPath
-    Write-Output "Published ChordBook to $outputPath and replaced Maui.Acceptance. WebView2 must be available on the destination PC."
+    Write-Output "Published ChordBook to $outputPath and incrementally mirrored Maui.Acceptance. WebView2 must be available on the destination PC."
 }
 finally
 {

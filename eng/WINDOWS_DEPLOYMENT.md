@@ -12,7 +12,7 @@ The script creates a fresh timestamped folder under artifacts. It publishes Rele
 
 ## Automatic OneDrive acceptance copy
 
-Each successful publish validates the required assets, then cleans and replaces the contents of Bill's fixed acceptance folder:
+Each successful publish validates the required assets, then incrementally mirrors its contents into Bill's fixed acceptance folder:
 
 ```text
 C:\Users\Bill\OneDrive\Documents\Music\Creations\ChordBookPrototypes\Maui.Acceptance
@@ -26,7 +26,7 @@ The timestamped local artifact remains available. To copy an already validated p
 .\eng\Copy-ChordBookAcceptance.ps1 -SourceDirectory .\artifacts\ChordBook-win-x64-<timestamp>
 ```
 
-The copy script refuses overlapping source/destination paths and redirected target directories, removes old hidden/stale files, copies every published subdirectory, and verifies file counts/lengths. The copy preflight refuses a running acceptance app or locked destination files before cleanup. A publish failure leaves the acceptance folder untouched. A filesystem error during replacement can leave an incomplete folder; rerun the copy from the retained artifact before launching.
+The copy script compares file sizes and SHA-256 content, retains byte-identical files without changing their timestamps, copies only added/changed files, and removes only stale files and directories (including hidden entries). This avoids rewriting unchanged dependencies when a publish changes their timestamps. Comparison reads local bytes; online-only OneDrive files may need hydration. It reports added/updated, removed and unchanged counts, then verifies file counts/lengths. Preflight refuses overlapping paths, symbolic links/junctions, file/directory conflicts, a running acceptance app or locked destination files before changing contents. A publish failure leaves the acceptance folder untouched. A filesystem error during mirroring can leave an incomplete folder; rerun the copy from the retained artifact before launching.
 
 The project declares Windows 10 version 1809/build 17763 or later as its minimum; acceptance on older supported Windows builds is still pending. The destination needs Windows 10/11 and a matching x64/ARM64 build. It also needs the [Microsoft Edge WebView2 Evergreen runtime](https://developer.microsoft.com/en-us/microsoft-edge/webview2/). The .NET SDK, Visual Studio, MAUI workload and Store installation are not required on that PC. This unsigned development build may prompt Windows trust/SmartScreen handling.
 
