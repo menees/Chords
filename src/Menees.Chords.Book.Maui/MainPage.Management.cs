@@ -113,7 +113,7 @@ public partial class MainPage
 		=> await this.RunBookMutationAsync(async () =>
 		{
 			string[] actions = ["Resume Last Performance", "Rename Book", "Review Folder Changes", "Display Defaults",
-				"Metronome Defaults", "Instruments", "Keyboard and Pedals", "Backup and Restore", "Validate Book", "Appearance"];
+				"Metronome Defaults", "Instruments", "Keyboard and Pedals", "Backup and Restore", "Validate Book", "OneDrive", "Appearance"];
 			string? action = await this.DisplayActionSheetAsync("Options", "Cancel", null, actions)
 				.ConfigureAwait(true);
 			if (action == "Appearance")
@@ -123,6 +123,14 @@ public partial class MainPage
 				{
 					app.SetTheme(theme switch { "Light" => AppTheme.Light, "Dark" => AppTheme.Dark, _ => AppTheme.Unspecified });
 				}
+			}
+			else if (action == "OneDrive")
+			{
+				OneDriveSyncPage page = new(this.session);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await page.Completion.ConfigureAwait(true);
+				this.RefreshSongs("OneDrive review closed.");
+				this.RefreshSetlists();
 			}
 			else if (action == "Backup and Restore")
 			{

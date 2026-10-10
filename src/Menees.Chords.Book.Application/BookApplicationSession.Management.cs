@@ -270,11 +270,14 @@ public sealed partial class BookApplicationSession
 				using Stream existing = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
 				using MemoryStream existingBytes = new();
 				await existing.CopyToAsync(existingBytes, cancellationToken).ConfigureAwait(false);
-				if (!StringComparer.Ordinal.Equals(SongFileAnalyzer.Hash(existingBytes.ToArray()), original.ContentHash))
+				string existingHash = SongFileAnalyzer.Hash(existingBytes.GetBuffer().AsSpan(0, checked((int)existingBytes.Length)));
+				if (!StringComparer.Ordinal.Equals(existingHash, original.ContentHash))
 				{
 					throw new InvalidOperationException("The song file changed outside the editor. Reopen it before saving.");
 				}
 
+				write.VerifyOriginalAssets = true;
+				await SavedSongVersionService.StageAsync(write, database, file, existingBytes, deviceId, now, cancellationToken).ConfigureAwait(false);
 				file.ContentHash = SongFileAnalyzer.Hash(bytes);
 				file.ContentRevision++;
 				file.SourceFormat = analysis!.SourceFormat;
@@ -303,7 +306,7 @@ public sealed partial class BookApplicationSession
 				await write.CommitAsync(cancellationToken).ConfigureAwait(false);
 			}
 
-			this.SetDatabase(database);
+			this.RefreshSongCatalog(song);
 			this.committedJson = updatedJson;
 			return warnings;
 		}

@@ -209,7 +209,9 @@ public sealed class SongManagementTests
 		original.Text.ShouldBe("{title: Café}\r\n[C]Original\r\n");
 		await session.SaveSongEditAsync(original, "Renamed", ["Artist"], ["Practice"], original.Text!.Replace("Original", "Edited"), device, token);
 		await session.ActivateAsync(store, location, token);
-		SongFile file = session.Database!.SongFiles.Single();
+		session.Database!.SongFiles.Count.ShouldBe(2);
+		session.Database.SongFiles.Single(item => item.IsArchived).SavedVersion!.SourceFileId.ShouldBe(original.FileId!.Value);
+		SongFile file = session.Database.SongFiles.Single(item => !item.IsArchived);
 		using Stream stream = await store.OpenManagedAssetAsync(location, file.Id, token);
 		using MemoryStream bytes = new();
 		await stream.CopyToAsync(bytes, token);

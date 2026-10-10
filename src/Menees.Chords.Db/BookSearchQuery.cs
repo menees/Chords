@@ -36,7 +36,7 @@ internal static class BookSearchQuery
 			string value = token.ToString();
 			int colon = value.IndexOf(':', StringComparison.Ordinal);
 			string? field = colon > 0 ? value[..colon] : null;
-			if (field is "title" or "artist" or "tag" or "key" or "genre" or "capo" or "duration"
+			if (field is "title" or "artist" or "tag" or "key" or "genre" or "capo" or "duration" or "album" or "time"
 				or "archived" or "display" or "metronome" or "multiple" or "recovery" or "archivedfiles")
 			{
 				result.Add((field, value[(colon + 1)..]));

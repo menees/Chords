@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 
 namespace Menees.Chords.Db;
 
@@ -50,14 +51,20 @@ public static class DatabaseJson
 
 	private static JsonSerializerOptions CreateOptions()
 	{
+		DefaultJsonTypeInfoResolver resolver = new();
+		resolver.Modifiers.Add(DatabaseJsonDefaults.Configure);
 		JsonSerializerOptions result = new()
 		{
 			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 			PropertyNameCaseInsensitive = false,
 			WriteIndented = true,
+			IndentCharacter = '\t',
+			IndentSize = 1,
+			TypeInfoResolver = resolver,
 			DefaultIgnoreCondition = JsonIgnoreCondition.Never,
 			UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
 		};
+		result.Converters.Add(new SourceMetadataJsonConverter());
 		result.Converters.Add(new JsonStringEnumConverter());
 		return result;
 	}

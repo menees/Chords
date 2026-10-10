@@ -44,9 +44,13 @@ Choose distinct artwork for the backup and restore variants; a generic arrow or 
 | Remove setlist entry / input binding | Subtract |
 | Entry settings | Settings |
 | Save report | Save |
+| Sync Now | ArrowSync (Bill approved October 1, 2026) |
+| Download Book | CloudArrowDown (Bill approved October 1, 2026) |
+| Connect / Reconnect OneDrive | PlugConnected (Bill approved October 1, 2026) |
+| Disconnect OneDrive | PlugDisconnected (Bill approved October 1, 2026) |
 | Cancel selection | Dismiss |
 | Cancel running validation / backup operation | Stop |
-| Refresh review / Validate Again | ArrowClockwise |
+| Validate Again | ArrowClockwise |
 | Restore default bindings | ArrowReset |
 | Preview metadata | PreviewLink |
 | Import metadata as directives | ArrowImport |
@@ -57,6 +61,10 @@ Icon buttons retain descriptive tooltips and accessible names. Edit/Done and Arc
 
 Alphabet jump buttons, transpose key/offset choices and +/- controls communicate their value directly and retain their labels. Standard operating-system confirmation/action-sheet buttons and CodeMirror's built-in Find/Replace panel retain their text; this sweep covers application-owned native action buttons, not vendor UI.
 
+## Comparison actions awaiting selection
+
+Compare Sheets, Keep Left, Keep Right, Keep Both, Copy Left and Copy Right currently retain descriptive text. Bill is away; do not guess Fluent mappings. Close and cancellation reuse Dismiss and Stop.
+
 ## Verification
 
-The native icon smoke runner checks bounds and actual rendered pixels for all 48 bundled SVGs in a temporary WinUI window. Actual toolbar wrapping, tooltip placement, keyboard focus, and icon recognition still require an interactive Windows check.
+The native icon smoke runner checks bounds and actual rendered pixels for all 52 bundled SVGs in a temporary WinUI window. Actual toolbar wrapping, tooltip placement, keyboard focus, and icon recognition still require an interactive Windows check.

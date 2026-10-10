@@ -1,140 +1,64 @@
-# OneDrive development and acceptance
+# OneDrive setup and two-PC acceptance
 
-The current implementation supplies transport, comparison, conflict selection,
-application-folder discovery, a Windows authentication adapter, and the guarded
-publication/local-application components described below. It does **not**
-yet provide usable end-to-end sync in the ChordBook UI. Do not migrate the only copy
-of a book to cloud storage to test these components.
+ChordBook now has manual OneDrive sync under **Options > OneDrive**: choose a direction and press **Sync Now**. It signs in if needed, compares the books, and applies changes without another confirmation dialog. Connect/Reconnect, Disconnect and Download Book are separate optional actions. Automated tests exercise independent filesystem books and a simulated cloud. Bill verified live Microsoft sign-in and initial publication of 531 sheets on October 4, 2026. Real Graph concurrency/interruption behavior and two-physical-PC acceptance remain to be checked below.
 
-## Public application registration
+## Connect as a user
 
-Before interactive acceptance, register ChordBook as a public desktop application
-in Microsoft Entra. The current Windows adapter expects:
+The app includes ChordBook's public application ID. Users do not register their own application or enter a GUID.
 
-- Supported accounts: organizational directories and personal Microsoft accounts.
-- Mobile/desktop redirect URI: `http://localhost` for the system-browser flow.
-- Delegated Microsoft Graph permission: `Files.ReadWrite.AppFolder`.
-- A public application/client GUID; no client secret or certificate.
+1. Open **Options > OneDrive**, choose a direction (normally **Two-Way**), and press **Sync Now**.
+2. Sign in with your Microsoft account and approve OneDrive app-folder access.
+3. Use that same account on each PC. Sync a disposable book on the first PC, then use Download Book on the second PC.
+4. Follow the two-PC acceptance steps below before adopting a personal book.
 
-Pass that GUID, an app-local cache directory, and an optional previously selected
-MSAL home-account ID to `WindowsOneDriveTokenProvider.CreateAsync`. The upcoming
-Connect dialog must store the public client ID and replica identity as local
-configuration. Tokens stay solely in the protected MSAL cache, outside books,
-backups, portable settings and source control. Creating the adapter loads only a
-selected cached account; it does not infer an account or launch sign-in.
-`AuthenticateAsync` is for an explicit Connect/Reconnect action. Token retrieval
-uses silent acquisition and reports when reconnection is needed.
+## App registration (maintainer only)
 
-The adapter uses Microsoft's [desktop token cache](https://learn.microsoft.com/en-us/entra/msal/dotnet/how-to/token-cache-serialization)
-and [interactive acquisition](https://learn.microsoft.com/en-us/entra/msal/dotnet/acquiring-tokens/desktop-mobile/acquiring-tokens-interactively)
-APIs. Cache-protection failures stop connection; there is no plaintext fallback.
-Organization consent policies may still require administrator approval.
+Bill registered the app on October 4, 2026 and named it **Menees ChordBook**. Its app folder is **Apps/Menees ChordBook**. The built-in public client ID is `1b9e6b04-2e72-4654-815d-e62bc68dcf3a`. It is an application identifier, not a credential. The steps below document that registration for maintenance; they are not user setup.
 
-## Application folders and transport
+You need access to a Microsoft Entra directory and permission to register applications there. The registration identifies the desktop app; your personal Microsoft account can still be the account you connect for OneDrive. If App registrations is unavailable, establish directory access before continuing. See Microsoft\'s registration guide linked below.
 
-`OneDriveBookFolders` accesses `me/drive/special/approot`. First access can create
-OneDrive's `Apps/<registered application name>` folder; invoke it only in a
-user-directed connection flow. Each book uses its stable GUID in D format as a
-child-folder name. `EnsureAsync` creates only that folder and handles a concurrent
-creator without replacing anything. It does not initialize `database.json`.
-`ListAsync` lists candidate GUID-named book folders; the selected database must
-still be validated against its book identity before use.
+1. In the Microsoft Entra admin center, open **App registrations > New registration** and name the app Menees ChordBook.
+2. Choose **Any Entra ID Tenant + Personal Microsoft accounts** (also displayed as **Accounts in any organizational directory and personal Microsoft accounts**), then Register. This matches ChordBook\'s configured organizational/personal account audience.
+3. Under Authentication, add the **Mobile and desktop applications** platform with redirect URI `http://localhost`.
+4. Under API permissions, add Microsoft Graph's **delegated** `Files.ReadWrite.AppFolder` permission.
+5. Save your authentication changes. The **Application (client) ID** GUID from Overview is embedded in the Windows authentication adapter. A replacement registration requires updating that constant and rebuilding. No client secret is used.
 
-The [Graph application-folder documentation](https://learn.microsoft.com/en-us/graph/onedrive-sharepoint-appfolder)
-describes this restricted scope. No broad file permission is requested.
+Microsoft's [registration guide](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app) and [desktop configuration](https://learn.microsoft.com/en-us/entra/identity-platform/scenario-desktop-app-configuration) describe the portal settings. Organizational policy may require administrator consent. The app uses a system browser and a Windows-protected MSAL cache. Tokens, device identities and sync checkpoints stay local, outside books, backups and copied builds.
 
-`OneDriveHttpTransport` operates within a configured account/book folder. Listings
-are complete, shallow and paginated, with no advertised change-token support.
-Downloads follow a preauthenticated HTTPS URL without forwarding a bearer token.
-Uploads stream from a readable, seekable source. New files request fail-on-conflict;
-replacement, rename and deletion require an explicit ETag. HTTP errors expose
-status and retry delay rather than provider bodies or access-token URLs.
+OneDrive stores books beneath its application folder, usually `Apps/<registration name>/<book GUID>`. ChordBook requests only [application-folder access](https://learn.microsoft.com/en-us/graph/onedrive-sharepoint-appfolder). Both PCs use the built-in registration and need the same Microsoft account to find these books.
 
-The current simple-upload limit is 250 MB. Resumable upload sessions and automatic
-retry are not implemented. Actual Graph create/replace conditional behavior still
-requires disposable-account acceptance before a transfer executor can ship.
+## Start with a disposable book
 
-## Comparison and safety boundaries
+1. On PC A, create a test book and add a text song plus a small PDF. Open OneDrive, select Two-Way and press Sync Now. Complete Microsoft sign-in if prompted. Check the resulting book/account, counts and conflicts.
+2. On PC B, run the complete published folder, Connect with the same Microsoft account, then Download Book. Select the uploaded test book. The independent local copy keeps the same book identity.
+3. Edit a song and add another on PC B. Press Sync Now there, then on PC A. Check titles, authored text bytes and PDF viewing. Reverse the sequence with edits on PC A.
+4. Edit the same text sheet independently on both PCs before syncing. Sync A, then B, then A. Inspect the archived recovery sheet in Song Sheets; verify both versions survive.
+5. Cancel a sync after a sheet upload, close/relaunch and press Sync Now to resume. Repeat after editing locally before resuming: Sync Now automatically preserves captured sheets as archived recoveries and compares current books again.
+6. Try offline operation, canceled browser sign-in, Disconnect/Reconnect and expired credentials. Local editing must continue. Sync failures must retain books and confirmed progress.
+7. Test Update This Device and Update Cloud on the disposable book. Check the resulting counts and song removals. Conflicting text/PDF bytes must survive as recovery sheets; Update This Device must make no cloud writes.
+8. Start a sync on A and publish a new edit from B during A's comparison/transfer. A must refuse a stale cloud catalog. Press Sync Now again; it automatically preserves and replaces a stale pending transfer.
 
-`CloudBookComparisonService` reads `database.json`, checks referenced filenames,
-and returns a captured ETag plus a detached whole-entity merge. It neither opens
-sheet assets nor verifies their bytes, and it is not an executable sync plan.
-Missing databases/sheets, portable filename collisions and wrong book identities
-stop comparison. Unrelated assets are never candidates for deletion.
+Run the portable deployment checks in [WINDOWS_DEPLOYMENT.md](WINDOWS_DEPLOYMENT.md) on PC B. Record OS/architecture, build folder, result and any failure before adopting a personal book.
 
-`BookSyncMerger` combines changes to different entities against a provider-specific
-fingerprint base. Simultaneous changes select a whole entity; a setlist's exact
-ordered entries remain together. Plausible separated timestamps choose the winner;
-ambiguous clocks fall back to a stable fingerprint comparison. Conflicting sheet
-content receives a deterministic archived recovery identity and a source mapping.
-This describes recovery bytes to copy; it does not copy them.
+## Review, interruption and current limits
 
-Deletion/edit conflicts, deletion without a known base, and directional sync that
-would discard a new entity stop conservatively. Resolution remains future work.
-The caller must invalidate provider merge state after a restore/recovery epoch.
-A merge result alone must never be written to a live book or cloud replica.
+- Sync Now automatically authenticates, compares and executes. The report shows target account, direction, sheet counts, bytes, song removals and recognizable conflict names. An unchanged comparison reports Already up to date; completion includes elapsed mm:ss for comparison, transfer and local reload (excluding sign-in). Metadata/setlist conflicts select whole entities. Text/PDF conflicts keep an archived losing version.
+- Newly uploaded sheet versions use a 16-character lowercase hexadecimal version ID derived once from the transfer ID, followed by the permanent bracketed sheet GUID. This shortens the former 32-character transfer token. Existing paths and pending transfers remain valid; unchanged sheets are not renamed or re-uploaded. Uploads never overwrite an existing same-name sheet: matching bytes are verified before reuse, and a conflicting version stops safely.
+- Confirmed transfers bind original/target catalogs and sources to the book/device/account/folder. Durable stages and per-item receipts reconcile lost responses. Changed bytes are length/hash verified before upload; referenced and uploaded versions are checked before conditional catalog publication. Local commits use the existing incremental transaction and original-byte checks.
+- Sync Now resumes an interrupted transfer when its direction, recovery epoch and local/cloud catalogs remain valid. If those changed, it automatically retains captured sheet versions locally and retires that transfer before making a fresh comparison. There is no separate recovery-mode button. It never rolls back a newer cloud catalog. Retired diagnostics remain device-local and currently have no automatic cleanup.
+- Deletion/edit conflicts, deletions without a known base, and directional removal of a newly introduced item stop conservatively. Resolve these in the disposable books and sync again. Text/PDF version comparison with confirmed keep-left/right/both is available; see [RECOVERY.md](RECOVERY.md). General deletion/edit ambiguity resolution remains follow-up work.
+- Existing cloud assets are retained when superseded. Automatic obsolete-asset cleanup is deferred to avoid removing another device's pending sources. Cloud-folder growth is a known limitation.
+- Each individual simple upload is limited to 250,000,000 bytes. Upload sessions are not implemented. Catalog comparison is bounded to 32 million characters. A few complete shallow listings are used per sync, rather than a listing for every upload.
+- The coordinator retries transient errors at most twice, honoring delay up to 30 seconds. Cancellation stops waiting. Authentication does not silently launch a browser.
+- Keep ordinary local books in local folders. Copying application binaries through OneDrive is independent of app-managed book synchronization. Do not put two live local book folders under desktop OneDrive synchronization.
 
-## September 19 executor components
+## Automated checks
 
-- `ReplicaStateStore.Acquire` takes an exclusive per-replica lease in a supplied
-  device-local directory outside books/backups. Checkpoints use staged writes and
-  durable flushes. Corrupt, unsupported, foreign, or wrong-kind documents stop
-  loading rather than silently resetting the merge base.
-- `SaveJournalAsync` persists the confirmed operation skeleton. Use
-  `MarkCompletedAsync` for subsequent acknowledgements; its fixed-size append log
-  avoids rewriting catalog state or the plan for each asset. A partial final
-  record is ignored on reopen and truncated before the next append. A completion
-  is not evidence that a remote request with an uncertain outcome may be replayed.
-- `VerifiedAssetStage` streams into a temporary file with bounded buffers and
-  requires matching length and SHA-256. Disposal removes its file. Stages are not
-  durable transfer receipts and must be recreated after interruption.
-- `CloudBookPublisher` uses new immutable physical filenames for changed sheets,
-  then conditionally replaces the captured database version. Existing cloud asset
-  bytes are never replaced/deleted. Unchanged assets can be reused without content
-  I/O. This is a publication step for an existing compared cloud book, not initial
-  publication, cleanup, directional coordination or resume. Failed uploads/CAS may
-  leave orphan files; the future coordinator must persist/reconcile upload receipts.
-- `LocalBookSyncApplier` stages only changed/new assets, renames and deletions through
-  the book-store transaction. `VerifyOriginalAssets` rehashes affected original
-  files under the commit lease and journal, rejecting external edits and rolling
-  back. Unrelated assets are not opened. The caller must persist the successful
-  cloud receipt before local application and resolve any stale local baseline.
+From the repository root:
 
-The generic operation journal still lacks bound catalog snapshots, asset source
-versions, upload receipts and commit receipts. Do not present these components as
-usable end-to-end sync until that coordinator and its interruption tests exist.
-Random cloud version filenames also need a user-friendly naming policy before UI
-integration; currently they prioritize avoiding any existing-file replacement.
+```powershell
+dotnet test tests/Menees.Chords.Sync.Tests/Menees.Chords.Sync.Tests.csproj --settings tests/.runsettings
+powershell -ExecutionPolicy Bypass -File eng/tests/Test-OneDriveAuthentication.ps1
+```
 
-## Remaining implementation order
-
-1. Bind confirmed catalog snapshots, transfer details and upload/commit receipts to
-   the persisted per-replica journal; reconcile uncertain remote outcomes before retry.
-2. Build a confirmed transfer plan with target, direction, counts, conflicts and bytes.
-3. Hash-verify changed assets into staging; preserve every losing sheet before mutation.
-4. Upload new asset versions before conditional database replacement, retaining old
-   assets until the database commit. Avoid in-place asset replacement that could
-   destroy another device's bytes before a database ETag failure is discovered.
-5. Commit local changes through the staged book store, retry bounded remote races,
-   resume interrupted work, then clean up only explicitly managed obsolete assets.
-6. Add Connect/Reconnect/Disconnect, Sync Now, reports and cloud-book download UI.
-7. Exercise two Windows installations, offline/cancellation/quota/expired credentials,
-   both directional modes, concurrent edits/deletions and interrupted recovery.
-
-## Automated evidence
-
-Run from the repository root:
-
-    dotnet test tests/Menees.Chords.Sync.Tests/Menees.Chords.Sync.Tests.csproj --settings tests/.runsettings
-
-Tests use synthetic books and scripted Graph responses; no account credentials
-are needed.
-
-On Windows, run:
-
-    powershell -ExecutionPolicy Bypass -File eng/tests/Test-OneDriveAuthentication.ps1
-
-This links the production adapter into a disposable fixture and checks Windows
-protected-cache persistence, signed-out token refusal, disconnect, cancellation
-and client-ID validation. It performs no sign-in and does not test token expiry,
-consent, real Graph ETags or multi-computer convergence.
+The authentication fixture checks protected-cache persistence, signed-out refusal, disconnect, cancellation and client-ID validation without a browser/account. These checks do not establish live consent, real Graph conditional writes or physical-PC convergence.

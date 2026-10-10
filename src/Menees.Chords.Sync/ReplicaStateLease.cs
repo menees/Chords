@@ -37,6 +37,21 @@ public sealed class ReplicaStateLease : IDisposable
 
 	#endregion
 
+	#region Internal Properties
+
+	internal CloudReplicaKey Key => this.key;
+
+	internal string DirectoryPath
+	{
+		get
+		{
+			ObjectDisposedException.ThrowIf(this.disposed, this);
+			return this.directory;
+		}
+	}
+
+	#endregion
+
 	#region Public Methods
 
 	public async Task<CloudReplicaState> LoadStateAsync(CancellationToken cancellationToken = default)

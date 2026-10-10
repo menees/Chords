@@ -53,6 +53,10 @@ public sealed class SongFile
 	/// <summary>Gets or sets recovery-version provenance.</summary>
 	public RecoveryVersionProvenance? RecoveryVersion { get; set; }
 
+	/// <summary>Gets or sets previous-save recovery provenance.</summary>
+	[JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+	public SavedVersionProvenance? SavedVersion { get; set; }
+
 	/// <summary>Gets or sets the revision stamp.</summary>
 	public RevisionStamp Revision { get; set; } = new();
 }

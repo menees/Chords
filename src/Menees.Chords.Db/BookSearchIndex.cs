@@ -12,33 +12,50 @@ public sealed class BookSearchIndex
 {
 	#region Private Data
 
-	private static readonly string[] SourceFields = ["key", "genre", "capo"];
+	private static readonly string[] SourceFields = ["key", "genre", "capo", "album", "time"];
 
-	private readonly IReadOnlyList<SearchEntry> entries;
+	private readonly SortedSet<SearchEntry> entries;
 	private readonly Dictionary<Guid, SearchEntry> entriesById;
 
 	#endregion
 
 	#region Constructors
 
-	/// <summary>Builds an immutable index over the database's current song metadata.</summary>
+	/// <summary>Builds a sorted index over the database's current song metadata.</summary>
 	public BookSearchIndex(ChordDatabase database)
 	{
 		ArgumentNullException.ThrowIfNull(database);
 		ILookup<Guid, SongFile> files = database.SongFiles.ToLookup(file => file.SongId);
-		this.entries =
-		[
-			.. database.Songs
-				.Select(song => new SearchEntry(song.Id, song.Title, [.. song.Artists], CreateSearchText(song), CreateFields(song, files[song.Id])))
-				.OrderBy(entry => entry.Title, StringComparer.CurrentCultureIgnoreCase)
-				.ThenBy(entry => entry.SongId),
-		];
+		StringComparer titles = StringComparer.CurrentCultureIgnoreCase;
+		IComparer<SearchEntry> order = Comparer<SearchEntry>.Create((left, right) =>
+		{
+			int result = titles.Compare(left.Title, right.Title);
+			return result == 0 ? left.SongId.CompareTo(right.SongId) : result;
+		});
+		IEnumerable<SearchEntry> initial = database.Songs.Select(song =>
+			new SearchEntry(song.Id, song.Title, [.. song.Artists], CreateSearchText(song), CreateFields(song, files[song.Id])));
+		this.entries = new(initial, order);
 		this.entriesById = this.entries.ToDictionary(entry => entry.SongId);
 	}
 
 	#endregion
 
 	#region Public API
+
+	/// <summary>Replaces one song's indexed metadata and sheets without rebuilding unrelated entries.</summary>
+	public void RefreshSong(Song song, IEnumerable<SongFile> files)
+	{
+		ArgumentNullException.ThrowIfNull(song);
+		ArgumentNullException.ThrowIfNull(files);
+		if (this.entriesById.TryGetValue(song.Id, out SearchEntry? previous))
+		{
+			this.entries.Remove(previous);
+		}
+
+		SearchEntry updated = new(song.Id, song.Title, [.. song.Artists], CreateSearchText(song), CreateFields(song, files));
+		this.entriesById[song.Id] = updated;
+		this.entries.Add(updated);
+	}
 
 	/// <summary>Refreshes one song's archive and override predicates without rebuilding unrelated search entries.</summary>
 	public void RefreshSongPredicates(Song song)
@@ -82,7 +99,7 @@ public sealed class BookSearchIndex
 		}
 		else
 		{
-			bool exact = field is "key" or "capo" or "duration" or "archived" or "display" or "metronome"
+			bool exact = field is "key" or "time" or "capo" or "duration" or "archived" or "display" or "metronome"
 				or "multiple" or "recovery" or "archivedfiles";
 			result = values.Any(item => exact ? item == value : item.Contains(value, StringComparison.Ordinal));
 		}
@@ -109,7 +126,7 @@ public sealed class BookSearchIndex
 		{
 			activeCount += file.IsArchived || file.RecoveryVersion is not null ? 0 : 1;
 			archived |= file.IsArchived;
-			recovery |= file.RecoveryVersion is not null;
+			recovery |= file.RecoveryVersion is not null || file.SavedVersion is not null;
 		}
 
 		result["multiple"] = [activeCount > 1 ? "true" : "false"];

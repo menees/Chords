@@ -13,6 +13,10 @@ public interface IBookStore
 	/// <summary>Creates a book and returns its opaque location.</summary>
 	Task<BookLocation> CreateBookAsync(string name, Guid deviceId, CancellationToken cancellationToken = default);
 
+	/// <summary>Creates an empty local replica with an existing book identity; does not replace an existing book.</summary>
+	Task<BookLocation> CreateReplicaBookAsync(string name, Guid bookId, Guid deviceId, CancellationToken cancellationToken = default)
+		=> throw new NotSupportedException("This store does not support creating book replicas.");
+
 	/// <summary>Determines whether a book still exists.</summary>
 	Task<bool> ExistsAsync(BookLocation location, CancellationToken cancellationToken = default);
 

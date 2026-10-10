@@ -17,9 +17,42 @@ public sealed partial class BookApplicationSession
 	public IReadOnlyList<SongFileCatalogItem> GetSongFiles(Guid songId)
 	{
 		SongFile[] files = [.. this.GetOrderedSongFiles(songId)];
-		Guid? defaultId = files.FirstOrDefault(file => !file.IsArchived)?.Id;
+		Guid? defaultId = files.FirstOrDefault(file => !file.IsArchived && file.RecoveryVersion is null)?.Id;
 		return [.. files.Select(file => new SongFileCatalogItem(
-			file.Id, file.RelativePath, file.MediaKind, file.SourceFormat, file.IsArchived, file.RecoveryVersion is not null, file.Id == defaultId))];
+			file.Id,
+			file.RelativePath,
+			file.MediaKind,
+			file.SourceFormat,
+			file.IsArchived,
+			file.RecoveryVersion is not null || file.SavedVersion is not null,
+			file.Id == defaultId))];
+	}
+
+	/// <summary>Captures a read-only comparison of two sheets belonging to the same song.</summary>
+	public Task<SongVersionComparison> CompareSongVersionsAsync(
+		Guid songId, Guid leftId, Guid rightId, CancellationToken cancellationToken = default)
+	{
+		(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+		return SongVersionComparisonService.ReadAsync(activeStore, activeLocation, songId, leftId, rightId, cancellationToken);
+	}
+
+	/// <summary>Commits one confirmed keep-left/right/both resolution and reloads the affected catalog.</summary>
+	public async Task ResolveSongVersionsAsync(
+		SongVersionComparison comparison, SongVersionChoice choice, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+			string json = await SongVersionComparisonService.ResolveAsync(
+				activeStore, activeLocation, comparison, choice, deviceId, cancellationToken).ConfigureAwait(false);
+			this.SetDatabase(DatabaseJson.Deserialize(json));
+			this.committedJson = json;
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
 	}
 
 	/// <summary>Adds related local sheets in one byte-preserving import transaction.</summary>
@@ -72,6 +105,11 @@ public sealed partial class BookApplicationSession
 			{
 				SongFile file = database.SongFiles.Single(item => item.SongId == songId && item.Id == fileId);
 				file.IsArchived = archived;
+				if (!archived)
+				{
+					file.SavedVersion = null;
+				}
+
 				file.Revision = NextRevision(file.Revision, deviceId, now);
 			},
 			deviceId,

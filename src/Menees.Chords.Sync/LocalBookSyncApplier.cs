@@ -35,42 +35,52 @@ public static class LocalBookSyncApplier
 		}
 
 		Dictionary<Guid, SongFile> oldFiles = original.SongFiles.ToDictionary(file => file.Id);
-		HashSet<Guid> retained = [];
-		await using IStagedBookWrite transaction = await store.StageWriteAsync(location, expectedJson, cancellationToken).ConfigureAwait(false);
-		transaction.VerifyOriginalAssets = true;
-		foreach (SongFile file in target.SongFiles)
+		bool metadataOnly = oldFiles.Count == target.SongFiles.Count && target.SongFiles.All(file =>
+			oldFiles.TryGetValue(file.Id, out SongFile? old) && old.SongId == file.SongId && old.RelativePath == file.RelativePath
+			&& old.ContentHash == file.ContentHash && old.ContentRevision == file.ContentRevision && old.ObservedLength == file.ObservedLength);
+		if (metadataOnly)
 		{
-			cancellationToken.ThrowIfCancellationRequested();
-			retained.Add(file.Id);
-			if (oldFiles.TryGetValue(file.Id, out SongFile? old)
-				&& !string.IsNullOrEmpty(file.ContentHash) && StringComparer.OrdinalIgnoreCase.Equals(old.ContentHash, file.ContentHash))
+			await store.CommitMetadataAsync(location, expectedJson, target, cancellationToken).ConfigureAwait(false);
+		}
+		else
+		{
+			HashSet<Guid> retained = [];
+			await using IStagedBookWrite transaction = await store.StageWriteAsync(location, expectedJson, cancellationToken).ConfigureAwait(false);
+			transaction.VerifyOriginalAssets = true;
+			foreach (SongFile file in target.SongFiles)
 			{
-				if (!StringComparer.Ordinal.Equals(old.RelativePath, file.RelativePath))
+				cancellationToken.ThrowIfCancellationRequested();
+				retained.Add(file.Id);
+				if (oldFiles.TryGetValue(file.Id, out SongFile? old)
+					&& !string.IsNullOrEmpty(file.ContentHash) && StringComparer.OrdinalIgnoreCase.Equals(old.ContentHash, file.ContentHash))
 				{
-					await transaction.RenameManagedAssetAsync(file.Id, file.RelativePath, cancellationToken).ConfigureAwait(false);
+					if (!StringComparer.Ordinal.Equals(old.RelativePath, file.RelativePath))
+					{
+						await transaction.RenameManagedAssetAsync(file.Id, file.RelativePath, cancellationToken).ConfigureAwait(false);
+					}
+				}
+				else
+				{
+					await using Stream source = await openSource(file, cancellationToken).ConfigureAwait(false);
+					long length = source.CanSeek ? source.Length - source.Position
+						: file.ObservedLength ?? throw new InvalidDataException("The incoming sheet has no known length.");
+					await using Stream staged = await VerifiedAssetStage.CreateAsync(
+						source, file.ContentHash, length, stagingDirectory, cancellationToken).ConfigureAwait(false);
+					await transaction.WriteManagedAssetAsync(file.Id, file.RelativePath, staged, cancellationToken).ConfigureAwait(false);
 				}
 			}
-			else
-			{
-				await using Stream source = await openSource(file, cancellationToken).ConfigureAwait(false);
-				long length = source.CanSeek ? source.Length - source.Position
-					: file.ObservedLength ?? throw new InvalidDataException("The incoming sheet has no known length.");
-				await using Stream staged = await VerifiedAssetStage.CreateAsync(
-					source, file.ContentHash, length, stagingDirectory, cancellationToken).ConfigureAwait(false);
-				await transaction.WriteManagedAssetAsync(file.Id, file.RelativePath, staged, cancellationToken).ConfigureAwait(false);
-			}
-		}
 
-		foreach (SongFile file in original.SongFiles)
-		{
-			if (!retained.Contains(file.Id))
+			foreach (SongFile file in original.SongFiles)
 			{
-				await transaction.DeleteManagedAssetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+				if (!retained.Contains(file.Id))
+				{
+					await transaction.DeleteManagedAssetAsync(file.Id, cancellationToken).ConfigureAwait(false);
+				}
 			}
-		}
 
-		await transaction.WriteDatabaseJsonAsync(targetJson, cancellationToken).ConfigureAwait(false);
-		await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+			await transaction.WriteDatabaseJsonAsync(targetJson, cancellationToken).ConfigureAwait(false);
+			await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+		}
 	}
 
 	#endregion

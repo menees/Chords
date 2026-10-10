@@ -56,7 +56,7 @@ public partial class MainPage
 			if (action == "Search Help")
 			{
 				const string Help = "Combine words or quoted phrases with fields, for example:\nartist:\"Joni Mitchell\" key:c genre:folk\n\n"
-						+ "Fields: title, artist, tag, key, genre, capo, duration (seconds or m:ss).\n\n"
+						+ "Fields: title, artist, tag, key, genre, album, time (exact time signature), capo, duration (seconds or m:ss).\n\n"
 						+ "Use true or false with: archived, display, metronome, multiple, recovery, archivedfiles.\n"
 						+ "Enable Show Archived to include archived songs. All terms must match. Save a search as a tab from Views.";
 				await this.DisplayAlertAsync("Search", Help, "Close").ConfigureAwait(true);

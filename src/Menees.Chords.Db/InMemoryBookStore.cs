@@ -28,9 +28,20 @@ public sealed class InMemoryBookStore : IBookStore
 
 	/// <inheritdoc />
 	public Task<BookLocation> CreateBookAsync(string name, Guid deviceId, CancellationToken cancellationToken = default)
+		=> this.CreateReplicaBookAsync(name, Guid.CreateVersion7(), deviceId, cancellationToken);
+
+	/// <inheritdoc />
+	public Task<BookLocation> CreateReplicaBookAsync(
+		string name, Guid bookId, Guid deviceId, CancellationToken cancellationToken = default)
 	{
 		cancellationToken.ThrowIfCancellationRequested();
+		if (bookId == Guid.Empty)
+		{
+			throw new ArgumentException("The book identity must be nonempty.", nameof(bookId));
+		}
+
 		ChordDatabase database = ChordDatabase.Create(name, deviceId);
+		database.Id = bookId;
 		BookLocation location = new(this.storeId, database.Id);
 		lock (this.syncRoot)
 		{

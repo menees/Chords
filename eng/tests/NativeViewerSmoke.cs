@@ -6,6 +6,7 @@ using System.Windows;
 using Microsoft.Web.WebView2.Wpf;
 using Microsoft.Web.WebView2.Core;
 using Menees.Chords.Book.Application;
+using Menees.Chords.Db;
 
 internal static class Program
 {
@@ -140,12 +141,41 @@ internal static class Program
 				core.Navigate("https://editor.chordbook.invalid/editor.html");
 				await Wait("typeof window.chordBookEditor === 'object'");
 				await CheckScript("SongEditorChecks.js");
+				const string conversionSource = "{title: Disposable}\r\nC     G\r\nHello world\r\n[Am]Again\r\n";
+				foreach (SourceFormat target in new[] { SourceFormat.ChordPro, SourceFormat.ChordOverText })
+				{
+					string converted = SongTextConversion.Convert(conversionSource, target);
+					string sourceJson = System.Text.Json.JsonSerializer.Serialize(conversionSource);
+					string convertedJson = System.Text.Json.JsonSerializer.Serialize(converted);
+					string result = await core.ExecuteScriptAsync("(() => { const e = window.chordBookEditor; e.load(" + sourceJson
+						+ "); e.replaceText(" + convertedJson + "); const changed = e.getText() !== " + sourceJson
+						+ "; return changed && e.undo() && e.getText() === " + sourceJson + " && e.redo(); })()");
+					if (result != "true") throw new Exception("Conversion did not preserve native editor undo/redo: " + target);
+				}
 				File.WriteAllText(Path.Combine(output, "editor-performance.txt"), await core.ExecuteScriptAsync("window.editorLoadMilliseconds"));
 				if (requests.Any(url => !url.StartsWith("https://chordbook.invalid/") && !url.StartsWith("about:")))
 					throw new Exception("The viewer/editor attempted an external request: " + string.Join(", ", requests));
 				using (var capture = File.Create(Path.Combine(output, "native-editor.png")))
 					await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, capture);
-				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), continuous section preview without nested scrollers, offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. No Node.js.");
+				InMemoryBookStore comparisonStore = new();
+				Guid comparisonDevice = Guid.NewGuid();
+				BookLocation comparisonBook = await comparisonStore.CreateBookAsync("Disposable comparison", comparisonDevice);
+				BookApplicationSession comparisonSession = new();
+				await comparisonSession.ActivateAsync(comparisonStore, comparisonBook);
+				string leftText = "Left source\r\n<script>window.comparisonInjected=true</script>\n[C]Shared\nOld line\n";
+				Guid comparisonSong = await comparisonSession.CreateSongAsync("Comparison", [], [], leftText, comparisonDevice);
+				Guid leftId = comparisonSession.Database!.SongFiles.Single().Id;
+				string rightPath = Path.Combine(output, "comparison-right.cho");
+				File.WriteAllText(rightPath, "Right source\r\n<script>window.comparisonInjected=true</script>\n[C]Shared\nNew line\nAdded line\n");
+				await comparisonSession.ImportSongFilesAsync(comparisonSong, [rightPath], comparisonDevice);
+				Guid rightId = comparisonSession.Database.SongFiles.Single(file => file.Id != leftId).Id;
+				SongVersionComparison comparison = await comparisonSession.CompareSongVersionsAsync(comparisonSong, leftId, rightId);
+				core.NavigateToString(SongVersionComparisonHtml.Create(comparison));
+				await Wait("document.querySelectorAll('.columns section').length === 2");
+				await CheckScript("SongComparisonChecks.js");
+				using (var capture = File.Create(Path.Combine(output, "native-comparison.png")))
+					await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, capture);
+				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), continuous section preview without nested scrollers, offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. Read-only comparison alignment, independent selection/copy, highlights and encoded source/CSP. No Node.js.");
 			}
 			catch (Exception ex) { File.WriteAllText(log, ex.ToString()); Environment.ExitCode = 1; }
 			finally { browser.Dispose(); foreach (var stream in streams) stream.Dispose(); window.Close(); app.Shutdown(); }

@@ -38,7 +38,8 @@ public static class BookMetadataRefresh
 			Dictionary<Guid, SongFileAnalysis> analyses = [];
 			Dictionary<Guid, Song> songs = database.Songs.ToDictionary(song => song.Id);
 			ILookup<Guid, SongFile> filesBySong = database.SongFiles.ToLookup(file => file.SongId);
-			foreach (SongFile file in database.SongFiles.Where(file => affectedSongIds.Contains(file.SongId)))
+			foreach (SongFile file in database.SongFiles.Where(file => affectedSongIds.Contains(file.SongId)
+				&& (file.AnalysisVersion < SongFileAnalyzer.CurrentAnalysisVersion || (!file.IsArchived && file.RecoveryVersion is null))))
 			{
 				try
 				{
@@ -71,7 +72,7 @@ public static class BookMetadataRefresh
 			foreach (Guid songId in affectedSongIds)
 			{
 				SongFile? metadataFile = filesBySong[songId]
-					.Where(file => !file.IsArchived
+					.Where(file => !file.IsArchived && file.RecoveryVersion is null
 						&& analyses.TryGetValue(file.Id, out SongFileAnalysis? analysis) && analysis.MediaKind == MediaKind.Text)
 					.OrderByDescending(file => file.DisplayPriority)
 					.ThenBy(file => file.Id)

@@ -13,7 +13,7 @@ using Windows.Storage.Streams;
 namespace Menees.Chords.Book.Maui.Platforms.Windows;
 
 /// <summary>Hosts bundled viewer assets and streams only the selected document into WebView2.</summary>
-public sealed class WindowsDocumentViewer : IDocumentViewer
+public sealed partial class WindowsDocumentViewer : IDocumentViewer, IDisposable
 {
 	#region Private Data
 
@@ -50,6 +50,13 @@ public sealed class WindowsDocumentViewer : IDocumentViewer
 				_ => CoreWebView2PreferredColorScheme.Auto,
 			};
 		}
+	}
+
+	/// <summary>Initializes the native browser before navigating a standalone read-only HTML view.</summary>
+	public async Task LoadReadOnlyHtmlAsync(string html, CancellationToken cancellationToken = default)
+	{
+		this.Clear();
+		await this.ShowHtmlAsync(html, this.generation, cancellationToken).ConfigureAwait(true);
 	}
 
 	public async Task LoadAsync(
@@ -141,6 +148,12 @@ public sealed class WindowsDocumentViewer : IDocumentViewer
 			cancellationToken).ConfigureAwait(true);
 	}
 
+	public void Dispose()
+	{
+		this.Clear();
+		this.Disconnect();
+	}
+
 	public void Clear()
 	{
 		this.generation++;
@@ -157,6 +170,22 @@ public sealed class WindowsDocumentViewer : IDocumentViewer
 	#endregion
 
 	#region Private Methods
+
+	private async Task ShowHtmlAsync(string html, int expectedGeneration, CancellationToken cancellationToken)
+	{
+		if (this.view.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.WebView2 browser)
+		{
+			throw new InvalidOperationException("The sheet viewer is not available yet.");
+		}
+
+		await browser.EnsureCoreWebView2Async().AsTask(cancellationToken).ConfigureAwait(true);
+		cancellationToken.ThrowIfCancellationRequested();
+		if (this.generation == expectedGeneration)
+		{
+			this.ApplyTheme();
+			this.view.Source = new HtmlWebViewSource { Html = html };
+		}
+	}
 
 	private void Disconnect()
 	{

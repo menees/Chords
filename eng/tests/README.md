@@ -69,8 +69,8 @@ For replacement recovery, use a disposable book and a matching earlier backup.
 Verify the count preview, Cancel, automatic safety-backup path, restored catalog,
 and a foreign backup's Restore as New Book offer. Validate Book should report
 intentionally missing/changed/duplicate fixture sheets, allow cancellation and
-save a readable report. It must not alter files. Provider transport and read-only
-comparison have mocked tests; end-to-end sync is not yet implemented. The future executor must honor the persisted recovery epoch.
+save a readable report. It must not alter files. Provider transport and end-to-end coordination have simulated-cloud tests, including two independent filesystem books and interrupted recovery.
+Live sign-in, Graph conditional behavior and two physical PCs remain manual; follow [OneDrive acceptance](../ONEDRIVE.md).
 The native viewer harness also checks the bundled CodeMirror 6 editor: exact unchanged text, mixed newlines, undo/redo, highlighting, search/replace, read-only state and virtualization of 10,000 lines. All editor modules load locally from app output; no Node or runtime CDN is used.
 
 Editor checks also cover Ctrl+Y/Ctrl+Shift+Z redo, capitalized search captions, native UI font overrides, Find/Replace input focus, current-section selection (including nested/abbreviated ChordPro environments), musical context, paragraph fallback, range invalidation and preview-safe undo. The editor capture leaves Find/Replace open for visual inspection.
@@ -85,3 +85,7 @@ disconnect, cancellation and public client-ID validation. It opens no browser an
 uses no live account or book. The MSAL package versions come from the central
 package file; no Node installation is needed. See [OneDrive development](../ONEDRIVE.md)
 for registration requirements, limitations and remaining live acceptance.
+
+The native viewer smoke also checks both conversion targets as undoable buffer replacements restoring the exact original line endings, plus read-only sheet comparison: aligned highlighted lines, independent left-side text selection, encoded source markup and a restrictive content security policy. The isolated MAUI fixture below additionally exercises the production comparison modal and Windows document adapter.
+
+Run `eng/tests/Test-NativeMetadata.ps1` to exercise the production metadata picker/scalar controls in an isolated MAUI window with production styles. It checks quoted values, duplicate preservation, invalid-entry reporting, unedited multi-value metadata and deferred selection reset; light/dark captures are included. It loads the production Edit Song metadata XAML and verifies shared input-row positions at 1,100/1,908 widths. It uses only disposable books and opens no personal book or preferences. It also validates dark-theme text differences, two PDF previews with paging/painting, mixed text/PDF previews and released PDF source handles after closing the modal. This does not replace full editor or Surface acceptance.

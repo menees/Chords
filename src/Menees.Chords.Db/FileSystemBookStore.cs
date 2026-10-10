@@ -54,11 +54,27 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		| BookStoreCapabilities.UserVisibleLocation | BookStoreCapabilities.AvailableSpaceReporting;
 
 	/// <inheritdoc />
-	public async Task<BookLocation> CreateBookAsync(string name, Guid deviceId, CancellationToken cancellationToken = default)
+	public Task<BookLocation> CreateBookAsync(string name, Guid deviceId, CancellationToken cancellationToken = default)
+		=> this.CreateReplicaBookAsync(name, Guid.CreateVersion7(), deviceId, cancellationToken);
+
+	/// <inheritdoc />
+	public async Task<BookLocation> CreateReplicaBookAsync(
+		string name, Guid bookId, Guid deviceId, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		cancellationToken.ThrowIfCancellationRequested();
+		if (bookId == Guid.Empty)
+		{
+			throw new ArgumentException("The book identity must be nonempty.", nameof(bookId));
+		}
+
+		if (this.paths.ContainsKey(bookId))
+		{
+			throw new BookStoreException("That book identity is already registered in this store.");
+		}
+
 		ChordDatabase database = ChordDatabase.Create(name, deviceId);
+		database.Id = bookId;
 		string directory = this.GetUnusedBookDirectory(name);
 		Directory.CreateDirectory(directory);
 		try

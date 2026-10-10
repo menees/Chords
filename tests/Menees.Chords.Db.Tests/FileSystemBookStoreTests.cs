@@ -43,6 +43,21 @@ public sealed class FileSystemBookStoreTests
 	}
 
 	[TestMethod]
+	public async Task ReplicaCreationPreservesIdentityAndRejectsRegisteredDuplicateWithoutLeavingAFolder()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		using FileSystemBookStore store = new(this.directory);
+		Guid bookId = Guid.NewGuid();
+		Guid deviceId = Guid.NewGuid();
+		BookLocation location = await store.CreateReplicaBookAsync("Replica", bookId, deviceId, token);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
+		database.Id.ShouldBe(bookId);
+		database.Revision.DeviceId.ShouldBe(deviceId);
+		await Should.ThrowAsync<BookStoreException>(() => store.CreateReplicaBookAsync("Duplicate", bookId, deviceId, token));
+		Directory.EnumerateDirectories(this.directory).Count().ShouldBe(1);
+	}
+
+	[TestMethod]
 	public async Task OpeningBookRemovesAnUnheldLegacyLeaseMarker()
 	{
 		var token = this.TestContext.CancellationToken;

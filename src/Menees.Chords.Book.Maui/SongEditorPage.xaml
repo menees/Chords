@@ -13,16 +13,25 @@
             </HorizontalStackLayout>
         </FlexLayout>
         <VerticalStackLayout Grid.Row="1" Spacing="4">
-            <Grid ColumnDefinitions="2*,3*" ColumnSpacing="16">
-                <VerticalStackLayout Spacing="4">
-                    <Label Text="Catalog title" />
-                    <Entry x:Name="songTitle" Placeholder="Title" />
+            <Grid x:Name="metadataGrid" ColumnDefinitions="2*,1.5*,1.5*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="4">
+                <Label Text="Catalog title" />
+                <Entry x:Name="songTitle" Grid.Row="1" Placeholder="Title" />
+                <Grid Grid.Row="2" ColumnDefinitions="*,150" ColumnSpacing="8">
                     <Label Text="Artists (semicolon separated)" />
+                    <Label Grid.Column="1" Text="Add existing artist" />
+                </Grid>
+                <Grid Grid.Row="3" ColumnDefinitions="*,150" ColumnSpacing="8">
                     <Entry x:Name="artists" />
+                    <local:MetadataValuePicker x:Name="artistChoices" Grid.Column="1" WidthRequest="150" SemanticProperties.Description="Add existing artist" />
+                </Grid>
+                <Grid Grid.Row="4" ColumnDefinitions="*,150" ColumnSpacing="8">
                     <Label Text="Tags (semicolon separated)" />
+                    <Label Grid.Column="1" Text="Add existing tag" />
+                </Grid>
+                <Grid Grid.Row="5" ColumnDefinitions="*,150" ColumnSpacing="8">
                     <Entry x:Name="tags" />
-                </VerticalStackLayout>
-                <local:ScalarMetadataEditor x:Name="scalarMetadata" Grid.Column="1" />
+                    <local:MetadataValuePicker x:Name="tagChoices" Grid.Column="1" WidthRequest="150" SemanticProperties.Description="Add existing tag" />
+                </Grid>
             </Grid>
             <Label x:Name="editingHint" />
         </VerticalStackLayout>
@@ -32,6 +41,7 @@
                 <local:FluentIconButton Icon="ArrowUndo" Description="Undo (Ctrl+Z)" Clicked="HandleUndo" />
                 <local:FluentIconButton Icon="ArrowRedo" Description="Redo (Ctrl+Y or Ctrl+Shift+Z)" Clicked="HandleRedo" />
                 <local:FluentIconButton x:Name="revertButton" Icon="ArrowReset" Description="Revert Text" Margin="8,0,8,0" Clicked="HandleRevert" />
+                <local:FluentIconSplitButton x:Name="convertButton" Icon="BracesVariable" Description="Convert To ChordPro" Clicked="HandleConvertChordPro" Margin="0,0,8,0" />
                 <local:FluentIconToggle x:Name="showPreview" Icon="PreviewLink" Description="Preview current section" CheckedChanged="HandlePreviewChanged" />
                 <local:FluentIconButton Icon="ArrowImport" Description="Import Metadata as Directives…" Clicked="HandleImportMetadata" Margin="8,0,0,0" />
             </FlexLayout>

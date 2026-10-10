@@ -43,8 +43,9 @@
                 <Setter Property="TextColor" Value="{DynamicResource AppText}" />
                 <Setter Property="BackgroundColor" Value="{DynamicResource AppControl}" />
             </Style>
-            <Style TargetType="Picker">
+            <Style TargetType="Picker" ApplyToDerivedTypes="True">
                 <Setter Property="TextColor" Value="{DynamicResource AppText}" />
+                <Setter Property="TitleColor" Value="{DynamicResource AppText}" />
                 <Setter Property="BackgroundColor" Value="{DynamicResource AppControl}" />
                 <Setter Property="VerticalOptions" Value="Center" />
             </Style>

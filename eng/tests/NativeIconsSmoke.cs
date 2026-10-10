@@ -25,7 +25,7 @@ sealed class SmokeApp : Microsoft.UI.Xaml.Application
 
 				string[] names = ["ArrowLeft", "Previous", "Next", "LayerDiagonalAdd", "ArrowRight", "EditLineHorizontal3",
 					"SoundWaveCircleSparkle", "LockClosed", "LockOpen", "BookAdd", "Book", "Settings", "ArrowImport",
-					"Filter", "MultiselectLtr", "DocumentOnePageAdd", "LayerDiagonal", "ArrowReset", "Archive", "Play", "Stop", "Save", "Dismiss", "Search", "SearchSparkle", "ArrowUndo", "ArrowRedo", "PreviewLink", "Add", "Delete", "ArrowUp", "ArrowDown", "Rename", "ArchiveArrowBack", "Checkmark", "ArrowClockwise", "Subtract", "Metronome", "AttachArrowRight", "Learn", "Piano", "AcousticGuitar", "Banjo", "BassGuitar", "ElectricGuitar", "Mandolin", "Ukulele", "Star"];
+					"Filter", "MultiselectLtr", "DocumentOnePageAdd", "LayerDiagonal", "ArrowReset", "Archive", "Play", "Stop", "Save", "Dismiss", "Search", "SearchSparkle", "ArrowUndo", "ArrowRedo", "PreviewLink", "Add", "Delete", "ArrowUp", "ArrowDown", "Rename", "ArchiveArrowBack", "Checkmark", "ArrowClockwise", "Subtract", "Metronome", "AttachArrowRight", "Learn", "Piano", "AcousticGuitar", "Banjo", "BassGuitar", "ElectricGuitar", "Mandolin", "Ukulele", "Star", "ArrowSync", "CloudArrowDown", "PlugConnected", "PlugDisconnected", "BracesVariable"];
 				Microsoft.UI.Xaml.Window window = new();
 				StackPanel panel = new() { Orientation = Orientation.Horizontal };
 				window.Content = panel;
@@ -55,7 +55,7 @@ sealed class SmokeApp : Microsoft.UI.Xaml.Application
 					if (!pixels.Where((value, index) => index % 4 == 3).Any(value => value > 0)) throw new Exception("Blank rendered icon: " + name);
 				}
 
-				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "result.txt"), "PASS: All 48 native icons fit their viewports and render visible pixels.");
+				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "result.txt"), $"PASS: All {names.Length} native icons fit their viewports and render visible pixels.");
 			}
 			catch (Exception error)
 			{

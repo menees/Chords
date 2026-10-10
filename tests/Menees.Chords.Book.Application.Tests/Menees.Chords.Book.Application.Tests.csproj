@@ -7,5 +7,6 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\..\src\Menees.Chords.Book.Application\Menees.Chords.Book.Application.csproj" />
+		<ProjectReference Include="..\..\src\Menees.Chords.Sync\Menees.Chords.Sync.csproj" />
 	</ItemGroup>
 </Project>

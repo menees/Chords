@@ -16,12 +16,13 @@ internal static class MetadataCommit
 			throw new BookStoreValidationException("A metadata commit cannot change the book identity.");
 		}
 
-		Dictionary<Guid, JsonElement> files = previous.RootElement.GetProperty("songFiles").EnumerateArray()
-			.ToDictionary(file => file.GetProperty("id").GetGuid());
+		Dictionary<Guid, JsonElement> files = previous.RootElement.TryGetProperty("songFiles", out JsonElement previousFiles)
+			? previousFiles.EnumerateArray().ToDictionary(file => file.GetProperty("id").GetGuid()) : [];
 		if (files.Count != next.SongFiles.Count || next.SongFiles.Any(file => !files.TryGetValue(file.Id, out JsonElement old)
 			|| old.GetProperty("songId").GetGuid() != file.SongId || old.GetProperty("relativePath").GetString() != file.RelativePath
-			|| old.GetProperty("contentHash").GetString() != file.ContentHash || old.GetProperty("contentRevision").GetInt64() != file.ContentRevision
-			|| (old.GetProperty("observedLength").ValueKind == JsonValueKind.Null ? (long?)null : old.GetProperty("observedLength").GetInt64())
+			|| (old.TryGetProperty("contentHash", out JsonElement hash) ? hash.GetString() : string.Empty) != file.ContentHash
+			|| (old.TryGetProperty("contentRevision", out JsonElement revision) ? revision.GetInt64() : 0) != file.ContentRevision
+			|| (old.TryGetProperty("observedLength", out JsonElement length) && length.ValueKind != JsonValueKind.Null ? length.GetInt64() : (long?)null)
 				!= file.ObservedLength))
 		{
 			throw new BookStoreValidationException("Song file identity or content changes require an asset transaction.");

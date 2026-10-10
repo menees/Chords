@@ -12,6 +12,12 @@ namespace Menees.Chords.Book.Maui.Platforms.Windows;
 /// <remarks>The caller owns the lifetime and must finish pending operations before disposing.</remarks>
 internal sealed partial class WindowsOneDriveTokenProvider : IOneDriveTokenProvider, IDisposable
 {
+	#region Public Data
+
+	public const string ApplicationClientId = "1b9e6b04-2e72-4654-815d-e62bc68dcf3a";
+
+	#endregion
+
 	#region Private Data
 
 	private static readonly string[] Scopes = ["https://graph.microsoft.com/Files.ReadWrite.AppFolder"];
@@ -38,6 +44,8 @@ internal sealed partial class WindowsOneDriveTokenProvider : IOneDriveTokenProvi
 	#region Public API
 
 	public string? AccountId => this.account?.HomeAccountId.Identifier;
+
+	public string? AccountName => this.account?.Username;
 
 	/// <summary>Loads the selected cached account without network access or interactive sign-in.</summary>
 	public static async Task<WindowsOneDriveTokenProvider> CreateAsync(
@@ -80,7 +88,7 @@ internal sealed partial class WindowsOneDriveTokenProvider : IOneDriveTokenProvi
 		return result;
 	}
 
-	/// <summary>Called only by an explicit Connect/Reconnect action. Never by comparison or transfer code.</summary>
+	/// <summary>Called by Connect/Reconnect or user-initiated Sync Now. Never by provider requests.</summary>
 	public async Task AuthenticateAsync(CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(this.disposed, this);
@@ -120,9 +128,9 @@ internal sealed partial class WindowsOneDriveTokenProvider : IOneDriveTokenProvi
 
 			return result.AccessToken;
 		}
-		catch (MsalUiRequiredException)
+		catch (MsalUiRequiredException exception)
 		{
-			throw new InvalidOperationException("OneDrive sign-in needs attention. Use Reconnect, then start sync again.");
+			throw new InvalidOperationException("OneDrive sign-in needs attention. Reconnect to continue.", exception);
 		}
 		finally
 		{

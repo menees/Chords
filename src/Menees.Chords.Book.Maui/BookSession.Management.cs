@@ -80,6 +80,16 @@ public sealed partial class BookSession
 	public IReadOnlyList<SongFileCatalogItem> GetSongFiles(Guid songId)
 		=> this.application.GetSongFiles(songId);
 
+	public BookMetadataValueIndex GetMetadataValueSuggestions() => this.application.GetMetadataValueSuggestions();
+
+	public Task<SongVersionComparison> CompareSongVersionsAsync(
+		Guid songId, Guid leftId, Guid rightId, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.CompareSongVersionsAsync(songId, leftId, rightId, cancellationToken), cancellationToken);
+
+	public Task ResolveSongVersionsAsync(
+		SongVersionComparison comparison, SongVersionChoice choice, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.ResolveSongVersionsAsync(comparison, choice, this.DeviceId, cancellationToken), cancellationToken);
+
 	public Task<int> ImportSongFilesAsync(Guid songId, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.ImportSongFilesAsync(songId, paths, this.DeviceId, cancellationToken), cancellationToken);
 

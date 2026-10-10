@@ -19,6 +19,31 @@ public sealed class BookSearchIndexTests
 	#region Public Methods
 
 	[TestMethod]
+	public void RefreshOneSongReordersOnlyItsSnapshotAndKeepsOtherEntriesDetached()
+	{
+		ChordDatabase database = CreateGeneratedDatabase(3);
+		Song changed = database.Songs[0], unrelated = database.Songs[1];
+		changed.Title = "Zebra";
+		unrelated.Title = "Middle";
+		unrelated.Artists = ["Original artist"];
+		BookSearchIndex index = new(database);
+		unrelated.Title = "Uncommitted change";
+		unrelated.Artists = ["Uncommitted artist"];
+		changed.Title = "Aardvark";
+		changed.Artists = ["Edited artist"];
+		changed.Tags = ["Edited tag"];
+		SongFile recovery = new() { Id = Guid.NewGuid(), SongId = changed.Id, IsArchived = true, SavedVersion = new() };
+		index.RefreshSong(changed, [recovery]);
+		index.Search(string.Empty)[0].SongId.ShouldBe(changed.Id);
+		index.Search("artist:edited tag:edited recovery:true archivedfiles:true").Single().SongId.ShouldBe(changed.Id);
+		index.Search("Zebra").ShouldBeEmpty();
+		index.Search("Middle").Single().Artists.ShouldBe(["Original artist"]);
+		index.Search("Uncommitted").ShouldBeEmpty();
+		index.RefreshSong(changed, []);
+		index.Search("recovery:true").ShouldBeEmpty();
+	}
+
+	[TestMethod]
 	public void SearchIsCaseAndDiacriticInsensitive()
 	{
 		ChordDatabase database = CreateGeneratedDatabase(3);
@@ -65,6 +90,31 @@ public sealed class BookSearchIndexTests
 		index.RefreshSongPredicates(song);
 		index.Search("archived:true metronome:false artist:renee").Single().SongId.ShouldBe(song.Id);
 		index.Search("key:c").Single().SongId.ShouldBe(song.Id);
+	}
+
+	[TestMethod]
+	public void AlbumAndTimeSearchUseEffectiveDetachedMetadataAndIncrementalRefresh()
+	{
+		ChordDatabase database = CreateGeneratedDatabase(3);
+		Song song = database.Songs[0];
+		song.SourceMetadata["album"] = [new() { Value = "Source album" }];
+		song.SourceMetadata["time"] = [new() { Value = "3/4" }];
+		song.MetadataOverrides["album"] = ["Déjà Blue", "Live; Sessions"];
+		song.MetadataOverrides["time"] = ["6/8"];
+		BookSearchIndex index = new(database);
+		index.Search("album:\"deja blue\" time:6/8").Single().SongId.ShouldBe(song.Id);
+		index.Search("album:\"live; sessions\"").Single().SongId.ShouldBe(song.Id);
+		index.Search("album:source").ShouldBeEmpty();
+		index.Search("time:3/4").ShouldBeEmpty();
+		index.Search("time:6").ShouldBeEmpty();
+		song.MetadataOverrides["album"] = [];
+		song.MetadataOverrides["time"] = ["12/8"];
+		index.Search("album:deja time:6/8").Single().SongId.ShouldBe(song.Id);
+		index.RefreshSong(song, []);
+		index.Search("album:deja").ShouldBeEmpty();
+		index.Search("album:source").ShouldBeEmpty();
+		index.Search("time:6/8").ShouldBeEmpty();
+		index.Search("time:12/8").Single().SongId.ShouldBe(song.Id);
 	}
 
 	[TestMethod]

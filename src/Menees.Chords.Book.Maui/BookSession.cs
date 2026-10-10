@@ -309,7 +309,63 @@ public sealed partial class BookSession : IDisposable
 
 	#endregion
 
+	#region Internal API
+
+	internal (FileSystemBookStore Store, BookLocation Location) GetSyncBook() => this.GetActiveBook();
+
+	internal Task ReloadAfterSyncAsync(CancellationToken cancellationToken)
+		=> this.application.ReloadAsync(cancellationToken);
+
+	internal async Task DownloadCloudBookAsync(
+		Sync.ICloudReplica replica,
+		Guid expectedBookId,
+		Sync.ReplicaStateStore states,
+		string stagingDirectory,
+		IProgress<string> progress,
+		CancellationToken cancellationToken)
+	{
+		string root = this.booksRoot ?? throw new InvalidOperationException("Open a book before downloading.");
+		await Task.Run(() => RequireNewReplicaAsync(root, expectedBookId, cancellationToken), cancellationToken).ConfigureAwait(false);
+		FileSystemBookStore nextStore = new(root);
+		BookLocation nextLocation;
+		try
+		{
+			nextLocation = await Task.Run(
+				() => Sync.CloudBookDownloader.DownloadAsync(
+					nextStore, replica, this.DeviceId, states, stagingDirectory, progress, expectedBookId, cancellationToken),
+				cancellationToken).ConfigureAwait(false);
+		}
+		catch
+		{
+			nextStore.Dispose();
+			throw;
+		}
+
+		await this.SwitchAsync(nextStore, nextLocation, cancellationToken).ConfigureAwait(false);
+	}
+
+	#endregion
+
 	#region Private Methods
+
+	private static async Task RequireNewReplicaAsync(string root, Guid bookId, CancellationToken cancellationToken)
+	{
+		IEnumerable<string> directories = Directory.EnumerateDirectories(root)
+			.Concat(GetRecentBooks().Select(book => book.Path)).Distinct(StringComparer.OrdinalIgnoreCase);
+		foreach (string directory in directories)
+		{
+			cancellationToken.ThrowIfCancellationRequested();
+			string catalog = Path.Combine(directory, DatabaseFileName);
+			if (File.Exists(catalog))
+			{
+				ChordDatabase database = DatabaseJson.Deserialize(await File.ReadAllTextAsync(catalog, cancellationToken).ConfigureAwait(false));
+				if (database.Id == bookId)
+				{
+					throw new InvalidOperationException($"This book already has a local copy. Open {directory} and use Review Sync to update it.");
+				}
+			}
+		}
+	}
 
 	private static void CleanupAbandonedStages(string rootDirectory)
 	{

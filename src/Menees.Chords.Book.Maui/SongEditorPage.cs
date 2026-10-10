@@ -13,12 +13,14 @@ public sealed partial class SongEditorPage : ContentPage
 {
 	#region Private Data
 
+	private readonly ScalarMetadataEditor scalarMetadata = new();
 	private readonly SongEditDocument original;
 	private readonly BookSession session;
 	private readonly WindowsSongTextEditor editor;
 	private readonly IDispatcherTimer previewTimer;
 	private readonly CancellationTokenSource lifetime = new();
 	private readonly TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+	private bool selectorsLoaded;
 	private bool saving;
 	private bool loading;
 	private bool ready;
@@ -46,9 +48,22 @@ public sealed partial class SongEditorPage : ContentPage
 		this.session = session;
 		this.InitializeComponent();
 		this.songTitle.Text = original.Title;
-		this.artists.Text = string.Join("; ", original.Artists);
-		this.tags.Text = string.Join("; ", original.Tags);
+		this.artists.Text = CatalogValueList.Format(original.Artists);
+		this.tags.Text = CatalogValueList.Format(original.Tags);
 		this.scalarMetadata.Load(original);
+		this.scalarMetadata.AttachTo(this.metadataGrid);
+		this.convertButton.MenuItems =
+		[
+			new("Convert To ChordPro", () => this.HandleConvertChordPro(this, EventArgs.Empty)),
+			new("Convert To Chords Over Text", () => this.HandleConvertChordsOverText(this, EventArgs.Empty)),
+		];
+		this.artistChoices.TargetEntry = this.artists;
+		this.artistChoices.AppendValue = true;
+		this.tagChoices.TargetEntry = this.tags;
+		this.tagChoices.AppendValue = true;
+		this.artistChoices.SelectionRejected += message => this.status.Text = message;
+		this.tagChoices.SelectionRejected += message => this.status.Text = message;
+		this.Loaded += async (_, _) => await this.LoadSelectorsAsync().ConfigureAwait(true);
 		this.editorArea.IsVisible = original.Text is not null;
 		this.showPreview.IsEnabled = original.Text is not null;
 		this.revertButton.IsVisible = original.Text is not null;
@@ -84,7 +99,35 @@ public sealed partial class SongEditorPage : ContentPage
 
 	#region Private Methods
 
-	private static string[] Split(string? text) => (text ?? string.Empty).Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+	private static string[] Split(string? text) => [.. CatalogValueList.Parse(text)];
+
+	private async Task LoadSelectorsAsync()
+	{
+		if (!this.selectorsLoaded)
+		{
+			this.selectorsLoaded = true;
+			try
+			{
+				BookMetadataValueIndex suggestions = await Task.Run(this.session.GetMetadataValueSuggestions, this.lifetime.Token).ConfigureAwait(true);
+				if (!this.closed)
+				{
+					this.artistChoices.LoadValues(suggestions.GetValues("artist"));
+					this.tagChoices.LoadValues(suggestions.GetValues("tag"));
+					this.scalarMetadata.LoadSuggestions(suggestions);
+				}
+			}
+			catch (OperationCanceledException)
+			{
+				// Closing an editor cancels background suggestions.
+			}
+#pragma warning disable CA1031 // Suggestions must not prevent editing or discard the buffer.
+			catch (Exception exception)
+			{
+				this.status.Text = exception.Message;
+			}
+#pragma warning restore CA1031
+		}
+	}
 
 	private async void HandleEditorLoaded(object? sender, EventArgs e)
 	{
@@ -193,6 +236,31 @@ public sealed partial class SongEditorPage : ContentPage
 		}
 	}
 
+	private async void HandleConvertChordPro(object? sender, EventArgs e)
+		=> await this.ConvertTextAsync(SourceFormat.ChordPro).ConfigureAwait(true);
+
+	private async void HandleConvertChordsOverText(object? sender, EventArgs e)
+		=> await this.ConvertTextAsync(SourceFormat.ChordOverText).ConfigureAwait(true);
+
+	private async Task ConvertTextAsync(SourceFormat target)
+		=> await this.RunOperationAsync(async () =>
+		{
+			string source = await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true);
+			string converted = await Task.Run(() => SongTextConversion.Convert(source, target, this.lifetime.Token), this.lifetime.Token)
+				.ConfigureAwait(true);
+			if (source != await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true))
+			{
+				throw new InvalidOperationException("The editor text changed during conversion. Convert the current buffer again.");
+			}
+
+			if (converted != source)
+			{
+				await this.editor.ReplaceTextAsync(converted, this.lifetime.Token).ConfigureAwait(true);
+			}
+
+			this.status.Text = "Converted the buffer. Undo is available; Save commits the text.";
+		}).ConfigureAwait(true);
+
 	private async void HandleFind(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(() => this.editor.FindAsync(false, this.lifetime.Token), disablePage: false).ConfigureAwait(true);
 
@@ -221,7 +289,7 @@ public sealed partial class SongEditorPage : ContentPage
 
 				if (string.IsNullOrWhiteSpace(this.artists.Text))
 				{
-					this.artists.Text = string.Join("; ", analysis.Artists);
+					this.artists.Text = CatalogValueList.Format(analysis.Artists);
 				}
 
 				this.status.Text = string.IsNullOrWhiteSpace(this.songTitle.Text) ? "Enter a catalog title before saving." : "Metadata previewed.";
@@ -292,8 +360,8 @@ public sealed partial class SongEditorPage : ContentPage
 		async () =>
 		{
 			string? source = this.ready ? await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true) : this.original.Text;
-			bool changed = this.songTitle.Text != this.original.Title || !Split(this.artists.Text).SequenceEqual(this.original.Artists)
-				|| !Split(this.tags.Text).SequenceEqual(this.original.Tags) || source != this.original.Text || this.scalarMetadata.HasChanges;
+			bool changed = this.songTitle.Text != this.original.Title || this.artists.Text != CatalogValueList.Format(this.original.Artists)
+				|| this.tags.Text != CatalogValueList.Format(this.original.Tags) || source != this.original.Text || this.scalarMetadata.HasChanges;
 			if (!changed || await this.DisplayAlertAsync("Discard changes?", "Your unsaved song edits will be lost.", "Discard", "Keep Editing")
 				.ConfigureAwait(true))
 			{

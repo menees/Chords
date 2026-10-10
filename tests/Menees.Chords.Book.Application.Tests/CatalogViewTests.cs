@@ -44,6 +44,27 @@ public sealed class CatalogViewTests
 	}
 
 	[TestMethod]
+	public async Task SavedAlbumAndTimeSearchSurvivesCatalogReload()
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Metadata views", device, token);
+		BookApplicationSession session = new();
+		await session.ActivateAsync(store, location, token);
+		Guid song = await session.CreateSongAsync(
+			"Song", [], [], "{album: Live Sessions}\n{time: 6/8}\n[C]Song", device, token);
+		const string Query = "album:\"live sessions\" time:6/8";
+		await session.SaveCustomTabAsync(null, "Live six-eight", Query, "title", device, token);
+		await session.ReloadAsync(token);
+		CustomTabCatalogItem saved = session.GetCustomTabs().Single();
+		saved.Search.ShouldBe(Query);
+		saved.IsSupported.ShouldBeTrue();
+		session.Search(saved.Search).Single().Id.ShouldBe(song);
+		session.Search("time:6").ShouldBeEmpty();
+	}
+
+	[TestMethod]
 	public async Task SavedViewsRoundTripAndDeletionRetainsSongsAndRecordsTombstone()
 	{
 		var token = this.TestContext.CancellationToken;

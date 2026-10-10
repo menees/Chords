@@ -28,6 +28,10 @@
 - When developing on Windows, create and edit repository text files with Windows CRLF line endings, including Markdown and local planning documents. Do not introduce LF-only or mixed line endings through patching or file-writing tools. Preserve the existing encoding and verify line endings after edits; normalize touched files to CRLF before finishing. Respect explicit file-specific requirements (for example, scripts requiring LF) and byte-preserving source/test fixtures. Do not rely on Git to repair working-tree line endings.
 - Use book/song/sheet terminology consistently in the UI. Keep technical storage details in diagnostics rather than normal user workflows.
 
+## Acceptance build distribution
+
+- Every successful new Windows MAUI publish must clean and replace the contents of `C:\Users\Bill\OneDrive\Documents\Music\Creations\ChordBookPrototypes\Maui.Acceptance`. Use `eng/Publish-ChordBook.ps1`; it retains a timestamped artifact and invokes `eng/Copy-ChordBookAcceptance.ps1` only after publishing and required-asset validation succeed. Keep books and per-device state outside this binary distribution folder.
+
 ## Current Windows release priorities
 
 - Work in this order: OneDrive; recovery/comparison; browsing/settings; Windows/Surface acceptance; release preparation; Google Drive; PDF export/share.

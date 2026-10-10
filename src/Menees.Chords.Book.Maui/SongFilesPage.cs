@@ -64,6 +64,7 @@ public sealed partial class SongFilesPage : ContentPage
 		int index = selected is null ? -1 : this.rows.IndexOf(selected);
 		this.add.IsEnabled = !this.session.Database!.Songs.Single(song => song.Id == this.songId).IsArchived;
 		this.prefer.IsEnabled = selected is { IsArchived: false } && index > 0;
+		this.compare.IsEnabled = selected is not null && this.rows.Count > 1;
 		this.edit.IsEnabled = selected is { CanEdit: true };
 		this.up.IsEnabled = index > 0;
 		this.down.IsEnabled = index >= 0 && index + 1 < this.rows.Count;
@@ -85,6 +86,26 @@ public sealed partial class SongFilesPage : ContentPage
 		}).ConfigureAwait(true);
 
 	private async void HandlePrefer(object? sender, EventArgs e) => await this.MoveAsync(1, relative: false).ConfigureAwait(true);
+
+	private async void HandleCompare(object? sender, EventArgs e)
+		=> await this.RunAsync(async () =>
+		{
+			SongFileRow left = (SongFileRow)this.files.SelectedItem;
+			SongFileRow[] other = [.. this.rows.Where(row => row.Id != left.Id)];
+			string[] choices = [.. other.Select((row, index) => $"{index + 1}. {row.Name} — {row.Details}")];
+			string? selected = await this.DisplayActionSheetAsync("Compare with which sheet?", "Cancel", null, choices).ConfigureAwait(true);
+			int index = Array.IndexOf(choices, selected);
+			bool result = false;
+			if (index >= 0)
+			{
+				var comparison = await this.session.CompareSongVersionsAsync(this.songId, left.Id, other[index].Id).ConfigureAwait(true);
+				SongVersionComparisonPage page = new(comparison, this.session);
+				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				result = await page.Completion.ConfigureAwait(true);
+			}
+
+			return result;
+		}).ConfigureAwait(true);
 
 	private async void HandleEdit(object? sender, EventArgs e)
 		=> await this.RunAsync(async () =>

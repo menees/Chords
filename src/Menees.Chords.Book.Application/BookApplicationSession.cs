@@ -32,6 +32,7 @@ public sealed partial class BookApplicationSession
 	private IBookStore? store;
 	private BookLocation? location;
 	private BookSearchIndex? searchIndex;
+	private BookMetadataValueIndex? metadataValueIndex;
 	private Dictionary<Guid, SongCatalogItem>? catalogItems;
 
 	#endregion
@@ -119,6 +120,10 @@ public sealed partial class BookApplicationSession
 			this.mutationLock.Release();
 		}
 	}
+
+	/// <summary>Gets cached catalog-only suggestions; catalog replacement explicitly invalidates this snapshot.</summary>
+	public BookMetadataValueIndex GetMetadataValueSuggestions()
+		=> this.metadataValueIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open."));
 
 	/// <summary>Searches the current catalog using the shared normalized metadata index.</summary>
 	public IReadOnlyList<SongCatalogItem> Search(string? query, bool includeArchived = false)
@@ -796,10 +801,22 @@ public sealed partial class BookApplicationSession
 		=> (this.store ?? throw new InvalidOperationException("No book is open."),
 			this.location ?? throw new InvalidOperationException("No book is open."));
 
+	private void RefreshSongCatalog(Song song)
+	{
+		SongFile[] files = [.. this.Database!.SongFiles.Where(file => file.SongId == song.Id)];
+		this.searchIndex!.RefreshSong(song, files);
+		int active = files.Count(file => !file.IsArchived && file.RecoveryVersion is null);
+		int archived = files.Count(file => file.IsArchived);
+		int recovery = files.Count(file => file.RecoveryVersion is not null || file.SavedVersion is not null);
+		this.catalogItems![song.Id] = CreateCatalogItem(song, active, archived, recovery);
+		this.metadataValueIndex = null;
+	}
+
 	private void SetDatabase(ChordDatabase database)
 	{
 		ILookup<Guid, SongFile> files = database.SongFiles.ToLookup(file => file.SongId);
 		this.Database = database;
+		this.metadataValueIndex = null;
 		this.instrumentSettings = database.SongInstrumentSettings.ToDictionary(item => (item.SongId, item.InstrumentProfileId));
 		this.searchIndex = new(database);
 		this.catalogItems = database.Songs.ToDictionary(
@@ -813,7 +830,7 @@ public sealed partial class BookApplicationSession
 				{
 					active += !file.IsArchived && file.RecoveryVersion is null ? 1 : 0;
 					archived += file.IsArchived ? 1 : 0;
-					recovery += file.RecoveryVersion is not null ? 1 : 0;
+					recovery += file.RecoveryVersion is not null || file.SavedVersion is not null ? 1 : 0;
 				}
 
 				return CreateCatalogItem(song, active, archived, recovery);

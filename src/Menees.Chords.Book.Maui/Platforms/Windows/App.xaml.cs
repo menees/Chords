@@ -4,7 +4,11 @@ public partial class App : MauiWinUIApplication
 {
 	#region Constructors
 
-	public App() => this.InitializeComponent();
+	public App()
+	{
+		Platforms.Windows.WindowsWebViewProfile.Configure();
+		this.InitializeComponent();
+	}
 
 	#endregion
 
