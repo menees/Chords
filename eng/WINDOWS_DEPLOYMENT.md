@@ -10,6 +10,16 @@ Publish from the repository root using the SDK in global.json and the MAUI Windo
 
 The script creates a fresh timestamped folder under artifacts. It publishes Release, unpackaged and self-contained, with .NET and Windows App SDK dependencies plus the offline editor and PDF viewer. It refuses an existing output directory to prevent stale binaries. Only x64 output has been built and checked in this milestone; ARM64 still needs hardware acceptance.
 
+## Published resource languages
+
+English is the initial supported UI language. The Windows project declares `DefaultLanguage` and managed `NeutralLanguage` as `en-US`; `SupportedResourceLanguages` currently contains `en-US;en-GB`. The same list filters managed satellite assemblies and native Windows App SDK MUI payloads before files are copied. This applies to direct project publishes as well as Publish-ChordBook.ps1. Regional number/date formatting and Unicode song content are unchanged.
+
+For a future translated release, update the project's supported list and add/validate the application's translations; shipping WinUI resources alone does not translate ChordBook. Keep the default language in the list. The publisher validates that only listed satellite/MUI languages are present and that each selected language has both required WinUI MUI files before mirroring. Resource folders remain next to their native DLLs. The initial reduction removes 84 unsupported MUI folders (168 files); the first mirror therefore performs these one-time stale-file deletions, and later builds retain unchanged English resources.
+
+Published releases omit RestartAgent.exe (Windows App SDK restart helper), NpuDetect/NPUDetect.dll (unused AI hardware detection), and createdump.exe (.NET dump-generation helper). The project applies these exclusions to direct Windows publishes too, and the distribution script refuses unexpected copies before mirroring. ChordBook has no dependency on the SDK restart or AI APIs; Windows Task Manager remains available for manually capturing a process dump.
+
+The app distribution also excludes the SDK package logo WindowsAppRuntime.png, unused AI workloads*.json manifests, and generated API documentation XML. Documentation generation and XML in reusable library/NuGet outputs remain enabled; this is an app-publish exclusion. ONEDRIVE.md, RECOVERY.md and WINDOWS_DEPLOYMENT.md remain included as requested.
+
 ## Automatic OneDrive acceptance copy
 
 Each successful publish validates the required assets, then incrementally mirrors its contents into Bill's fixed acceptance folder:

@@ -2,6 +2,10 @@
 
 ChordBook now has manual OneDrive sync under **Options > OneDrive**: choose a direction and press **Sync Now**. It signs in if needed, compares the books, and applies changes without another confirmation dialog. Connect/Reconnect, Disconnect and Download Book are separate optional actions. Automated tests exercise independent filesystem books and a simulated cloud. Bill verified live Microsoft sign-in and initial publication of 531 sheets on October 4, 2026. Real Graph concurrency/interruption behavior and two-physical-PC acceptance remain to be checked below.
 
+During Sync Now, the bottom status shows preparation/upload counts (for example, **Uploading: 237 of 531 sheets completed**) with a progress bar. The bar measures completed sheets in the current phase, not estimated time or bytes. Sign-in, comparison and catalog saves use an activity indicator; the sync finishes only after both catalog/state work and the local reload complete. Retries and resumed verified uploads count once, and Cancel retains recoverable transfer progress.
+
+Windows Sync Now transfers up to four independent sheets concurrently during upload or cloud-download preparation. Local staging and catalog commits remain serialized; the cloud catalog is published only after all required uploads and receipts succeed. A failed/canceled batch waits for active transfers to stop and retains its journal for automatic recovery. Provider-neutral callers retain a serial default and can select a limit from 1 to 16 when their provider supports concurrent transfers; future mobile clients can use a lower limit. Retries respect the provider Retry-After delay. This limit is currently a Windows policy, not a user setting or adaptive throttle. The separate Download Book operation remains serial.
+
 ## Connect as a user
 
 The app includes ChordBook's public application ID. Users do not register their own application or enter a GUID.

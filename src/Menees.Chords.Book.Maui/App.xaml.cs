@@ -51,6 +51,7 @@ public partial class App : global::Microsoft.Maui.Controls.Application
 			if (window.Handler?.PlatformView is Microsoft.UI.Xaml.Window native)
 			{
 				Platforms.Windows.WindowsWindowPlacement.Attach(native);
+				Platforms.Windows.WindowsAppIcon.Apply(native);
 			}
 		};
 		window.Activated += (_, _) => this.mainPage.SetWindowActive(true);

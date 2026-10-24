@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="-12 -2 280 280" role="img" aria-labelledby="title desc">
+  <title id="title">Menees ChordBook</title>
+  <desc id="desc">A blue three-page spiral notebook with bold sans-serif MCB lettering angled along the cover above two ascending connected eighth notes.</desc>
+  <defs>
+    <linearGradient id="back" x1="24" y1="35" x2="234" y2="271" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#38d6f5"/><stop offset=".58" stop-color="#08b4ed"/><stop offset="1" stop-color="#0878cd"/>
+    </linearGradient>
+    <linearGradient id="middle" x1="131" y1="24" x2="131" y2="266" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f9fdff"/><stop offset=".55" stop-color="#f2faff"/><stop offset="1" stop-color="#c7e5f3"/>
+    </linearGradient>
+    <linearGradient id="paper" x1="79" y1="30" x2="175" y2="254" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fafdff"/><stop offset=".48" stop-color="#fff"/><stop offset="1" stop-color="#dceff8"/>
+    </linearGradient>
+    <linearGradient id="coil" x1="20" y1="58" x2="20" y2="75" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#41dcfb"/><stop offset=".48" stop-color="#13b9f1"/><stop offset="1" stop-color="#087ec8"/>
+    </linearGradient>
+    <path id="loop" d="M25 76H21C11 76 11 64 21 64H46"/>
+    <clipPath id="visible-coil"><path d="M0 48H64V74H16.5V88H0Z"/></clipPath>
+    <g id="rear" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <use href="#loop" stroke="#061117" stroke-width="20"/>
+      <use href="#loop" stroke="url(#coil)" stroke-width="6"/>
+    </g>
+    <g id="ring">
+      <circle cx="46" cy="64" r="11" fill="#061117"/>
+      <g fill="none" stroke-linecap="round" stroke-linejoin="round" clip-path="url(#visible-coil)">
+        <use href="#loop" stroke="#061117" stroke-width="20"/>
+        <use href="#loop" stroke="url(#coil)" stroke-width="6"/>
+        <path d="M16.5 71H28V74H16.5Z" fill="#061117"/>
+        <path d="M17 64Q19 61.5 24 61.5H45" stroke="#a5ecff" stroke-width="2.5"/>
+      </g>
+    </g>
+  </defs>
+  <use href="#rear"/><use href="#rear" transform="translate(0 52)"/>
+  <use href="#rear" transform="translate(0 104)"/><use href="#rear" transform="translate(0 156)"/>
+  <g stroke="#061117" stroke-width="7" stroke-linejoin="round">
+    <path d="M35 26L236 32Q251 30 251 45V260Q251 272 238 272H35Q20 272 20 257V44Q20 29 35 26Z" fill="url(#back)"/>
+    <path d="M35 29L225 20Q237 19 237 32V247.5Q237 255.5 228 256.5L44 265.4Q35 266 35 257Z" fill="url(#middle)"/>
+    <path d="M35 26L214 4Q223 3 223 13V232Q223 240 215 241L44 264.75Q35 266 35 257Z" fill="url(#paper)"/>
+  </g>
+  <use href="#ring"/><use href="#ring" transform="translate(0 52)"/>
+  <use href="#ring" transform="translate(0 104)"/><use href="#ring" transform="translate(0 156)"/>
+  <g id="monogram" transform="matrix(1 -.122905 0 1 67 50.4634)" fill="#061117">
+    <path fill-rule="evenodd" d="M49.582 44.241H39.902V18.206C39.902 15.394 40.024 12.289 40.266 8.891H40.024C39.518 11.561 39.063 13.483 38.658 14.656L28.463 44.241H20.452L10.074 14.96C9.791 14.171 9.336 12.148 8.709 8.891H8.436C8.699 13.179 8.83 16.942 8.83 20.179V44.241H0V.728H14.353L23.243 26.521C23.951 28.584 24.467 30.657 24.791 32.741H24.973C25.519 30.334 26.096 28.24 26.703 26.46L35.593 .728H49.582ZM90.668 42.694C87.492 44.231 83.345 45 78.227 45C71.551 45 66.301 43.038 62.478 39.113C58.655 35.189 56.743 29.96 56.743 23.425C56.743 16.467 58.892 10.823 63.191 6.494C67.49 2.165 73.068 0 79.926 0C84.174 0 87.755 .536 90.668 1.608V11.045C87.755 9.305 84.437 8.436 80.715 8.436C76.628 8.436 73.331 9.72 70.823 12.289C68.314 14.858 67.06 18.338 67.06 22.728C67.06 26.935 68.243 30.288 70.61 32.787C72.977 35.285 76.163 36.534 80.169 36.534C83.992 36.534 87.492 35.604 90.668 33.742ZM98.254 44.241V.728H114.093C118.948 .728 122.68 1.618 125.29 3.399C127.9 5.179 129.204 7.687 129.204 10.924C129.204 13.27 128.41 15.324 126.822 17.084C125.234 18.844 123.206 20.067 120.738 20.755V20.877C123.833 21.261 126.307 22.404 128.157 24.305C130.008 26.207 130.934 28.523 130.934 31.254C130.934 35.239 129.508 38.4 126.655 40.737C123.803 43.073 119.909 44.241 114.973 44.241ZM108.055 7.95V18.267H112.363C114.386 18.267 115.979 17.776 117.143 16.795C118.306 15.814 118.887 14.464 118.887 12.744C118.887 9.548 116.5 7.95 111.726 7.95ZM108.055 25.55V37.02H113.365C115.631 37.02 117.406 36.494 118.69 35.442C119.975 34.39 120.617 32.953 120.617 31.133C120.617 29.393 119.985 28.028 118.721 27.036C117.456 26.045 115.691 25.55 113.426 25.55Z"/>
+  </g>
+  <g fill="#061117" transform="translate(-12.24 41.9082)">
+    <path d="M122.4455 91Q122.4455 87 126.4455 86L177.4455 68Q183.4455 66 183.4455 72V151.3481H176.4455V96L129.4455 112V170.3481H122.4455Z"/>
+    <ellipse cx="111" cy="173" rx="19" ry="15" transform="rotate(-23 111 173)"/>
+    <ellipse cx="165" cy="154" rx="19" ry="15" transform="rotate(-23 165 154)"/>
+  </g>
+</svg>

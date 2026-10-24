@@ -58,6 +58,42 @@ public class HtmlFormatterTests
 	}
 
 	[TestMethod]
+	public void ChordOnlyChordProLinesOmitLyricRowsTest()
+	{
+		const string Text = "[C] [F]\n[C][F]\n  [C]   [F]  \n\n[C]hoo![F]\n[C] [F]Now";
+		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
+		Document document = Document.Parse(Text, parser);
+		string? original = document.ToString();
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+		XElement[] lines = [.. GetClassElements(html, "chord-line")];
+
+		lines.Length.ShouldBe(5);
+		foreach (XElement line in lines.Take(3))
+		{
+			GetClassElements(line, "chord").Select(element => element.Value).ShouldBe(["C", "F"]);
+			GetClassElements(line, "lyric").ShouldBeEmpty();
+		}
+
+		GetClassElements(html, "blank-line").Count().ShouldBe(1);
+		GetClassElements(lines[3], "lyric").Select(element => element.Value).ShouldBe(["hoo!", "\u00A0"]);
+		GetClassElements(lines[4], "lyric").Select(element => element.Value).ShouldBe(["\u00A0", "Now"]);
+		document.ToString().ShouldBe(original);
+	}
+
+	[TestMethod]
+	public void ChordOnlyPlainLinesRemainSingleRowsTest()
+	{
+		Document document = Document.Parse("C F\nC F\nC F\nhoo!");
+		string? original = document.ToString();
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+
+		GetClassElements(html, "chord-only-line").Count().ShouldBe(2);
+		GetClassElements(html, "chord-line").Count().ShouldBe(1);
+		GetClassElements(html, "lyric").Select(element => element.Value).ShouldBe(["ho", "o!"]);
+		document.ToString().ShouldBe(original);
+	}
+
+	[TestMethod]
 	public void ChordProWordsTest()
 	{
 		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);

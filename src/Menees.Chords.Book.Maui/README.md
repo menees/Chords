@@ -35,6 +35,10 @@ Build from a Windows machine with the .NET 10 MAUI workload installed:
 dotnet build src/Menees.Chords.Book.Maui/Menees.Chords.Book.Maui.csproj
 ```
 
+Application branding uses size-specific SVG artwork exported to checked-in PNGs
+and one multi-resolution ICO, shared by the executable and running window. See
+[icon sources, export instructions, and verification](Resources/AppIcon/README.md).
+
 The project intentionally targets Windows in the production build today. On non-Windows
 hosts it compiles an empty placeholder so the repository's shared-library CI remains
 cross-platform. Future MAUI targets can replace platform adapters without changing the

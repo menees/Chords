@@ -58,6 +58,160 @@ public sealed class BookSyncCoordinatorTests
 	}
 
 	[TestMethod]
+	[DataRow(false, 1, 12)]
+	[DataRow(false, 4, 12)]
+	[DataRow(true, 4, 12)]
+	[DataRow(false, 4, 531)]
+	public async Task TransfersOverlapWithinLimitAndCommitLast(bool download, int concurrency, int addedSheets)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		this.bookB = await this.DownloadAsync();
+		for (int index = 0; index < addedSheets; index++)
+		{
+			using MemoryStream source = new(Encoding.UTF8.GetBytes($"[G]Sheet {index}"));
+			await BookImportService.ImportAsync(this.storeA, this.bookA, $"sheet{index}.cho", source, this.deviceA, token);
+		}
+
+		if (download)
+		{
+			await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		}
+
+		FileSystemBookStore store = download ? this.storeB : this.storeA;
+		BookLocation book = download ? this.bookB : this.bookA;
+		Guid device = download ? this.deviceB : this.deviceA;
+		ChordDatabase database = await this.ReadAsync(store, book);
+		using ConcurrentTransferReplica replica = new(this.cloud);
+		TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		int entered = 0;
+		replica.BeforeTransfer = async (_, cancellation) =>
+		{
+			if (Interlocked.Increment(ref entered) == concurrency)
+			{
+				ready.TrySetResult();
+			}
+
+			await release.Task.WaitAsync(cancellation);
+		};
+		using ReplicaStateLease lease = this.States(device).Acquire(new(database.Id, device, replica.Identity));
+		BookSyncPreview review = await BookSyncCoordinator.PrepareAsync(
+			store, book, replica, lease, download ? SyncDirection.UpdateThisDevice : SyncDirection.TwoWay, Guid.Empty, token);
+		RecordingSyncProgress progress = new();
+		System.Diagnostics.Stopwatch elapsed = System.Diagnostics.Stopwatch.StartNew();
+		Task<BookSyncResult> execution = BookSyncCoordinator.ExecuteWithProgressAsync(
+			store, book, replica, lease, review, progress, concurrency, token);
+		try
+		{
+			await ready.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+			replica.Active.ShouldBe(concurrency);
+		}
+		finally
+		{
+			release.TrySetResult();
+		}
+
+		BookSyncResult result = await execution;
+		this.TestContext.WriteLine($"{addedSheets} sheets, concurrency {concurrency}, download {download}: {elapsed.ElapsedMilliseconds} ms.");
+		replica.MaximumActive.ShouldBe(concurrency);
+		replica.Active.ShouldBe(0);
+		(download ? result.DownloadedSheets : result.UploadedSheets).ShouldBe(addedSheets);
+		string phase = download ? "Preparing changed sheets:" : "Uploading:";
+		progress.Values.Where(value => value.Message.StartsWith(phase, StringComparison.Ordinal))
+			.Select(value => value.CompletedSheets).ShouldBe(Enumerable.Range(0, addedSheets + 1).Select(value => (int?)value));
+		ChordDatabase actual = await this.ReadAsync(store, book);
+		actual.SongFiles.Count.ShouldBe(addedSheets + 1);
+		foreach (SongFile file in actual.SongFiles)
+		{
+			(await this.TextAsync(store, book, file.Id)).ShouldNotBeEmpty();
+		}
+	}
+
+	[TestMethod]
+	public async Task ParallelLostUploadResponseResumesWithoutDuplicates()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		const int ExtraSheets = 7;
+		const int Concurrency = 4;
+		for (int index = 0; index < ExtraSheets; index++)
+		{
+			using MemoryStream source = new(Encoding.UTF8.GetBytes($"[C]Resume {index}"));
+			await BookImportService.ImportAsync(this.storeA, this.bookA, $"resume{index}.cho", source, this.deviceA, token);
+		}
+
+		ChordDatabase database = await this.ReadAsync(this.storeA, this.bookA);
+		using ConcurrentTransferReplica replica = new(this.cloud);
+		using ReplicaStateLease lease = this.States(this.deviceA).Acquire(new(database.Id, this.deviceA, replica.Identity));
+		BookSyncPreview review = await BookSyncCoordinator.PrepareAsync(
+			this.storeA, this.bookA, replica, lease, SyncDirection.TwoWay, Guid.Empty, token);
+		int mutations = 0;
+		this.cloud.AfterMutation = _ =>
+		{
+			if (Interlocked.Increment(ref mutations) == 1)
+			{
+				throw new OperationCanceledException();
+			}
+		};
+		await Should.ThrowAsync<OperationCanceledException>(() => BookSyncCoordinator.ExecuteAsync(
+			this.storeA, this.bookA, replica, lease, review, null, Concurrency, token));
+		replica.Active.ShouldBe(0);
+		this.cloud.Mutations.ShouldNotContain("Create:database.json");
+		this.cloud.AfterMutation = null;
+		review = await BookSyncCoordinator.PrepareAsync(
+			this.storeA, this.bookA, replica, lease, SyncDirection.TwoWay, Guid.Empty, token);
+		review.IsResuming.ShouldBeTrue();
+		await BookSyncCoordinator.ExecuteAsync(this.storeA, this.bookA, replica, lease, review, null, Concurrency, token);
+		this.cloud.Mutations.Count(action => action.StartsWith("Create:", StringComparison.Ordinal)).ShouldBe(ExtraSheets + 2);
+		this.cloud.Mutations.Distinct().Count().ShouldBe(this.cloud.Mutations.Count);
+		(await this.storeA.ReadDatabaseJsonAsync(this.bookA, token)).ShouldBe(await this.cloud.ReadCatalogAsync(token));
+		Directory.EnumerateFiles(this.root, "transfer.json", SearchOption.AllDirectories).ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public async Task StructuredProgressCountsSuccessfulSheetsAndResumeWithoutDoubleCounting()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		using MemoryStream source = new(Encoding.UTF8.GetBytes("{title: Second}\n[G]Second"));
+		await BookImportService.ImportAsync(this.storeA, this.bookA, "second.cho", source, this.deviceA, token);
+		ChordDatabase database = await this.ReadAsync(this.storeA, this.bookA);
+		ReplicaStateStore states = new(Path.Combine(this.root, "states"));
+		using ReplicaStateLease lease = states.Acquire(new(database.Id, this.deviceA, this.cloud.Identity));
+		BookSyncPreview review = await BookSyncCoordinator.PrepareAsync(
+			this.storeA, this.bookA, this.cloud, lease, SyncDirection.TwoWay, Guid.Empty, token);
+		RecordingSyncProgress progress = new();
+		this.cloud.AfterMutation = action =>
+		{
+			if (action.StartsWith("Create:", StringComparison.Ordinal) && action != "Create:database.json")
+			{
+				throw new OperationCanceledException();
+			}
+		};
+		await Should.ThrowAsync<OperationCanceledException>(() => BookSyncCoordinator.ExecuteWithProgressAsync(
+			this.storeA, this.bookA, this.cloud, lease, review, progress, token));
+		progress.Values.Where(value => value.Message.StartsWith("Uploading:", StringComparison.Ordinal))
+			.Select(value => value.CompletedSheets).ShouldBe((int?[])[0]);
+		this.cloud.AfterMutation = null;
+		progress.Values.Clear();
+		review = await BookSyncCoordinator.PrepareAsync(
+			this.storeA, this.bookA, this.cloud, lease, SyncDirection.TwoWay, Guid.Empty, token);
+		await BookSyncCoordinator.ExecuteWithProgressAsync(this.storeA, this.bookA, this.cloud, lease, review, progress, token);
+		BookSyncProgress[] uploads = [.. progress.Values.Where(value => value.Message.StartsWith("Uploading:", StringComparison.Ordinal))];
+		uploads.Select(value => value.CompletedSheets).ShouldBe((int?[])[0, 1, 2]);
+		uploads.All(value => value.TotalSheets == 2).ShouldBeTrue();
+		this.cloud.Mutations.Count(action => action.StartsWith("Create:", StringComparison.Ordinal)).ShouldBe(3);
+		progress.Values.Last().Message.ShouldBe("Sync completed.");
+		progress.Values.Clear();
+		review = await BookSyncCoordinator.PrepareAsync(
+			this.storeA, this.bookA, this.cloud, lease, SyncDirection.TwoWay, Guid.Empty, token);
+		await BookSyncCoordinator.ExecuteWithProgressAsync(this.storeA, this.bookA, this.cloud, lease, review, progress, token);
+		progress.Values.Any(value => value.TotalSheets is > 0).ShouldBeFalse();
+	}
+
+	[TestMethod]
 	public async Task FirstPublicationDownloadAndAlternatingEditsConverge()
 	{
 		await this.InitializeAsync(this.TestContext.CancellationToken);

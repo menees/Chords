@@ -29,8 +29,14 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
+    - name: Verify generated app icons
+      run: pwsh -NoProfile -File eng/Export-ChordBookIcons.ps1 -Check
+
     - name: Build
       run: dotnet build --no-restore
+
+    - name: Verify Windows app icon resources
+      run: pwsh -File eng/tests/Test-AppIcons.ps1 -Executable src/Menees.Chords.Book.Maui/bin/Debug/net10.0-windows10.0.19041.0/win-x64/Menees.Chords.Book.Maui.exe
 
     - name: Test
       run: dotnet test --no-build --verbosity normal

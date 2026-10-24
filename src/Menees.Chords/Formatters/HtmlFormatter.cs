@@ -395,6 +395,25 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 		}
 	}
 
+	private static XElement CreateChordLyricCell(RenderToken token, string lyric, bool hasLyrics)
+	{
+		XElement chordElement = Element(
+			"span",
+			token.IsAnnotation ? "chord chord-annotation" : "chord",
+			token.Text);
+		chordElement.SetAttributeValue("aria-hidden", token.IsAnnotation ? null : "true");
+		chordElement.SetAttributeValue("role", token.IsAnnotation ? "note" : null);
+		XElement cell = Element("span", "chord-lyric", chordElement);
+		if (hasLyrics)
+		{
+			// Empty cells on sung lines still reserve space beneath their chords.
+			XElement lyricTextElement = Element("span", "lyric-text", lyric.Length == 0 ? "\u00A0" : lyric);
+			cell.Add(Element("span", "lyric", lyricTextElement));
+		}
+
+		return cell;
+	}
+
 	private static XElement FormatChordProLyricLine(
 		ChordProLyricLine line,
 		bool normalizeTrailingChords,
@@ -430,6 +449,8 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 				}
 			}
 		}
+
+		bool hasLyrics = tokens.Any(token => !token.IsAboveLyric && !token.IsWhiteSpace);
 
 		CombineAdjacentWhitespace(tokens);
 		CombineParenthesizedChords(tokens);
@@ -491,15 +512,7 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 							lyric += current.Tokens[++index].Text;
 						}
 
-						XElement chordElement = Element(
-							"span",
-							token.IsAnnotation ? "chord chord-annotation" : "chord",
-							token.Text);
-						chordElement.SetAttributeValue("aria-hidden", token.IsAnnotation ? null : "true");
-						chordElement.SetAttributeValue("role", token.IsAnnotation ? "note" : null);
-						XElement lyricTextElement = Element("span", "lyric-text", lyric.Length == 0 ? "\u00A0" : lyric);
-						XElement lyricElement = Element("span", "lyric", lyricTextElement);
-						wordElement.Add(Element("span", "chord-lyric", new object[] { chordElement, lyricElement }));
+						wordElement.Add(CreateChordLyricCell(token, lyric, hasLyrics));
 					}
 				}
 

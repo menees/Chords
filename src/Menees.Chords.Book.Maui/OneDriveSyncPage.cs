@@ -16,6 +16,8 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 {
 	#region Private Data
 
+	private const int WindowsTransferConcurrency = 4;
+
 	private const int PaddingSize = 16;
 	private const int ControlSpacing = 8;
 	private const int HeadingSize = 18;
@@ -26,6 +28,8 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 	private readonly ReplicaStateStore states = new(Path.Combine(WindowsOneDriveConnection.LocalDirectory, "Replicas"));
 	private readonly Label account = new();
 	private readonly Label status = new();
+	private readonly ProgressBar transferBar = new() { IsVisible = false };
+	private readonly ActivityIndicator working = new() { IsVisible = false };
 	private readonly Picker direction = new() { Title = "Sync direction" };
 	private readonly Editor report = new() { IsReadOnly = true, AutoSize = EditorAutoSizeOption.Disabled };
 	private readonly FluentIconButton connect = new() { Icon = "PlugConnected", Description = "Connect OneDrive" };
@@ -126,7 +130,12 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		layout.Add(setup, 0, 1);
 		layout.Add(this.direction, 0, 2);
 		layout.Add(this.report, 0, ReportRow);
-		layout.Add(this.status, 0, StatusRow);
+		VerticalStackLayout progressStatus = new()
+		{
+			Spacing = ControlSpacing,
+			Children = { this.transferBar, this.working, this.status },
+		};
+		layout.Add(progressStatus, 0, StatusRow);
 		return layout;
 	}
 
@@ -182,7 +191,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			BookSyncPreview confirmed;
 			(FileSystemBookStore store, BookLocation location) = this.session.GetSyncBook();
 			BookSyncResult result;
-			Progress<string> progress = this.CreateProgress();
+			Progress<BookSyncProgress> progress = this.CreateTransferProgress();
 			try
 			{
 				await this.ReviewAsync(token).ConfigureAwait(true);
@@ -194,7 +203,8 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 				}
 
 				result = await Task.Run(
-					() => BookSyncCoordinator.ExecuteAsync(store, location, this.replica!, this.lease!, confirmed, progress, token),
+					() => BookSyncCoordinator.ExecuteWithProgressAsync(
+						store, location, this.replica!, this.lease!, confirmed, progress, WindowsTransferConcurrency, token),
 					token).ConfigureAwait(true);
 				this.ReleaseReview();
 			}
@@ -203,6 +213,8 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 				await this.session.ReloadAfterSyncAsync(CancellationToken.None).ConfigureAwait(true);
 			}
 
+			this.transferBar.Progress = 1;
+			this.transferBar.IsVisible = true;
 			timer.Stop();
 			string elapsed = FormatElapsed(timer.Elapsed);
 			this.report.Text += $"\n\nCompleted {result.CompletedUtc.ToLocalTime():g}. Elapsed {elapsed}. "
@@ -278,6 +290,9 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		{
 			using CancellationTokenSource cancellation = new();
 			this.operation = cancellation;
+			this.transferBar.Progress = 0;
+			this.transferBar.IsVisible = false;
+			this.working.IsVisible = this.working.IsRunning = true;
 			this.UpdateControls();
 			try
 			{
@@ -296,9 +311,30 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			finally
 			{
 				this.operation = null;
+				this.working.IsVisible = this.working.IsRunning = false;
 				this.UpdateControls();
 			}
 		}
+	}
+
+	private Progress<BookSyncProgress> CreateTransferProgress()
+	{
+		CancellationTokenSource? owner = this.operation;
+		return new Progress<BookSyncProgress>(update =>
+		{
+			if (ReferenceEquals(owner, this.operation) && owner?.IsCancellationRequested == false)
+			{
+				this.status.Text = update.Message;
+				bool counted = update.TotalSheets is > 0 && update.CompletedSheets.HasValue;
+				this.transferBar.IsVisible = counted;
+				SemanticProperties.SetDescription(this.transferBar, update.Message);
+				this.working.IsVisible = this.working.IsRunning = !counted;
+				if (counted)
+				{
+					this.transferBar.Progress = (double)update.CompletedSheets!.Value / update.TotalSheets!.Value;
+				}
+			}
+		});
 	}
 
 	private Progress<string> CreateProgress()
@@ -306,7 +342,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		CancellationTokenSource? owner = this.operation;
 		return new Progress<string>(message =>
 		{
-			if (ReferenceEquals(owner, this.operation))
+			if (ReferenceEquals(owner, this.operation) && owner?.IsCancellationRequested == false)
 			{
 				this.status.Text = message;
 			}

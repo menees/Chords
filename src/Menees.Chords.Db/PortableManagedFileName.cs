@@ -25,6 +25,8 @@ public static class PortableManagedFileName
 	private const int HighestNumberedDevice = 9;
 	private static readonly SearchValues<char> InvalidCharacters = SearchValues.Create("<>:\"/\\|?*");
 	private static readonly HashSet<string> ReservedBaseNames = CreateReservedBaseNames();
+	private static readonly string[] ReservedCloudSuffixes =
+		["desktop.ini", "thumbs.db", ".ds_store", ".dropbox", ".dropbox.attr", ".tmp", ".nosync", ".icloud"];
 
 	#endregion
 
@@ -93,9 +95,9 @@ public static class PortableManagedFileName
 				errors.Add("A managed filename contains a non-portable character.");
 			}
 
-			if (relativePath.EndsWith(' ') || relativePath.EndsWith('.'))
+			if (relativePath.StartsWith(' ') || relativePath.EndsWith(' ') || relativePath.EndsWith('.'))
 			{
-				errors.Add("A managed filename cannot end with a space or period.");
+				errors.Add("A managed filename cannot start with a space or end with a space or period.");
 			}
 
 			string baseName = relativePath;
@@ -105,9 +107,14 @@ public static class PortableManagedFileName
 				baseName = baseName[..period];
 			}
 
-			if (ReservedBaseNames.Contains(baseName))
+			if (ReservedBaseNames.Contains(baseName.TrimEnd(' ', '.')))
 			{
 				errors.Add("A managed filename cannot use a reserved Windows basename.");
+			}
+
+			if (HasReservedCloudName(relativePath))
+			{
+				errors.Add("A managed filename uses a reserved cloud name.");
 			}
 
 			if (relativePath.Length > MaxUtf16Length)
@@ -148,8 +155,30 @@ public static class PortableManagedFileName
 			result.Append(char.IsControl(character) || InvalidCharacters.Contains(character) ? '_' : character);
 		}
 
-		return result.ToString().Trim().TrimEnd('.');
+		string prefix = result.ToString().Trim().TrimEnd('.').TrimStart('.');
+		prefix = prefix.Replace("_vti_", "_vti-", StringComparison.OrdinalIgnoreCase);
+		if (prefix.StartsWith("~$", StringComparison.Ordinal))
+		{
+			prefix = "_" + prefix[1..];
+		}
+
+		// The permanent GUID usually avoids device names, except before the first period.
+		int period = prefix.IndexOf('.');
+		string baseName = period >= 0 ? prefix[..period] : prefix;
+		if (ReservedBaseNames.Contains(baseName.TrimEnd(' ', '.')))
+		{
+			prefix = "_" + prefix;
+		}
+
+		return prefix;
 	}
+
+	private static bool HasReservedCloudName(string value)
+		=> value.StartsWith("~$", StringComparison.Ordinal)
+			|| value.Contains("_vti_", StringComparison.OrdinalIgnoreCase)
+			|| value.Equals(".lock", StringComparison.OrdinalIgnoreCase)
+			|| value.StartsWith('.')
+			|| ReservedCloudSuffixes.Any(suffix => value.EndsWith(suffix, StringComparison.OrdinalIgnoreCase));
 
 	private static string NormalizeExtension(string? extension)
 	{
@@ -159,7 +188,9 @@ public static class PortableManagedFileName
 			result = extension.StartsWith('.') ? extension : "." + extension;
 			result = result.Normalize(NormalizationForm.FormC);
 			if (result.Length == 1 || result.AsSpan().IndexOfAny(InvalidCharacters) >= 0 || result.Any(char.IsControl)
-				|| result.EndsWith(' ') || result.EndsWith('.'))
+				|| result.EndsWith(' ') || result.EndsWith('.')
+				|| result.Contains("_vti_", StringComparison.OrdinalIgnoreCase)
+				|| ReservedCloudSuffixes.Any(suffix => result.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)))
 			{
 				throw new ArgumentException("The extension is not portable.", nameof(extension));
 			}
@@ -190,10 +221,16 @@ public static class PortableManagedFileName
 	private static HashSet<string> CreateReservedBaseNames()
 	{
 		HashSet<string> result = new(StringComparer.OrdinalIgnoreCase) { "CON", "PRN", "AUX", "NUL" };
-		for (int index = 1; index <= HighestNumberedDevice; index++)
+		for (int index = 0; index <= HighestNumberedDevice; index++)
 		{
 			result.Add("COM" + index.ToString(CultureInfo.InvariantCulture));
 			result.Add("LPT" + index.ToString(CultureInfo.InvariantCulture));
+		}
+
+		foreach (string digit in new[] { "¹", "²", "³" })
+		{
+			result.Add("COM" + digit);
+			result.Add("LPT" + digit);
 		}
 
 		return result;

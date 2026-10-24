@@ -1,5 +1,6 @@
 #region Using Directives
 
+using System.Collections.Concurrent;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -15,6 +16,12 @@ namespace Menees.Chords.Sync;
 /// <summary>Confirmed, durable synchronization of one local book with one cloud replica.</summary>
 public static class BookSyncCoordinator
 {
+	#region Private Data
+
+	private const int MaximumTransferConcurrency = 16;
+
+	#endregion
+
 	#region Public Methods
 
 	/// <summary>Resumes a valid interrupted transfer or preserves its sheets and compares current books afresh.</summary>
@@ -118,7 +125,33 @@ public static class BookSyncCoordinator
 		return result;
 	}
 
-	public static async Task<BookSyncResult> ExecuteAsync(
+	public static Task<BookSyncResult> ExecuteWithProgressAsync(
+		IBookStore store,
+		BookLocation location,
+		ICloudReplica replica,
+		ReplicaStateLease lease,
+		BookSyncPreview confirmed,
+		IProgress<BookSyncProgress> progress,
+		CancellationToken cancellationToken = default)
+		=> ExecuteWithProgressAsync(store, location, replica, lease, confirmed, progress, 1, cancellationToken);
+
+	/// <summary>Executes with phase-aware sheet progress; counts advance only after successful work.</summary>
+	/// <remarks>A concurrency limit above one requires a replica supporting concurrent independent transfers.</remarks>
+	public static Task<BookSyncResult> ExecuteWithProgressAsync(
+		IBookStore store,
+		BookLocation location,
+		ICloudReplica replica,
+		ReplicaStateLease lease,
+		BookSyncPreview confirmed,
+		IProgress<BookSyncProgress> progress,
+		int maximumConcurrentTransfers,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(progress);
+		return ExecuteAsync(store, location, replica, lease, confirmed, new BookSyncProgressAdapter(progress), maximumConcurrentTransfers, cancellationToken);
+	}
+
+	public static Task<BookSyncResult> ExecuteAsync(
 		IBookStore store,
 		BookLocation location,
 		ICloudReplica replica,
@@ -126,9 +159,22 @@ public static class BookSyncCoordinator
 		BookSyncPreview confirmed,
 		IProgress<string>? progress = null,
 		CancellationToken cancellationToken = default)
+		=> ExecuteAsync(store, location, replica, lease, confirmed, progress, 1, cancellationToken);
+
+	public static async Task<BookSyncResult> ExecuteAsync(
+		IBookStore store,
+		BookLocation location,
+		ICloudReplica replica,
+		ReplicaStateLease lease,
+		BookSyncPreview confirmed,
+		IProgress<string>? progress,
+		int maximumConcurrentTransfers,
+		CancellationToken cancellationToken = default)
 	{
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(confirmed);
+		ArgumentOutOfRangeException.ThrowIfLessThan(maximumConcurrentTransfers, 1);
+		ArgumentOutOfRangeException.ThrowIfGreaterThan(maximumConcurrentTransfers, MaximumTransferConcurrency);
 		RequireTarget(replica, lease);
 		RequireCapabilities(replica);
 		SyncTransferJournal journal = new(lease);
@@ -150,7 +196,7 @@ public static class BookSyncCoordinator
 			await journal.SaveAsync(document, cancellationToken).ConfigureAwait(false);
 		}
 
-		await PublishAsync(store, location, replica, journal, document, progress, cancellationToken).ConfigureAwait(false);
+		await PublishAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken).ConfigureAwait(false);
 
 		if (localJson != document.TargetJson)
 		{
@@ -176,6 +222,19 @@ public static class BookSyncCoordinator
 
 	#region Private Methods
 
+	private static void ReportSheets(IProgress<string>? progress, string phase, int completed, int total)
+	{
+		string message = $"{phase}: {completed} of {total} sheets completed.";
+		if (progress is IProgress<BookSyncProgress> structured)
+		{
+			structured.Report(new(message, completed, total));
+		}
+		else
+		{
+			progress?.Report(message);
+		}
+	}
+
 	private static Task PublishAsync(
 		IBookStore store,
 		BookLocation location,
@@ -183,10 +242,11 @@ public static class BookSyncCoordinator
 		SyncTransferJournal journal,
 		SyncTransferDocument document,
 		IProgress<string>? progress,
+		int maximumConcurrentTransfers,
 		CancellationToken cancellationToken)
 		=> document.Direction == SyncDirection.UpdateThisDevice
-			? DownloadOnlyAsync(store, location, replica, journal, document, progress, cancellationToken)
-			: PublishWritableAsync(store, location, replica, journal, document, progress, cancellationToken);
+			? DownloadOnlyAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken)
+			: PublishWritableAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken);
 
 	private static async Task DownloadOnlyAsync(
 		IBookStore store,
@@ -195,6 +255,7 @@ public static class BookSyncCoordinator
 		SyncTransferJournal journal,
 		SyncTransferDocument document,
 		IProgress<string>? progress,
+		int maximumConcurrentTransfers,
 		CancellationToken cancellationToken)
 	{
 		SyncItemReceipt? receipt = await journal.ReadReceiptAsync(document, Guid.Empty, cancellationToken).ConfigureAwait(false);
@@ -202,7 +263,7 @@ public static class BookSyncCoordinator
 		{
 			CloudBookSnapshot? before = await CloudBookReader.ReadAsync(replica, cancellationToken).ConfigureAwait(false);
 			RequireCloudBaseline(document, before);
-			await StageAssetsAsync(store, location, replica, journal, document, progress, cancellationToken).ConfigureAwait(false);
+			await StageAssetsAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken).ConfigureAwait(false);
 			CloudBookSnapshot? after = await CloudBookReader.ReadAsync(replica, cancellationToken).ConfigureAwait(false);
 			RequireCloudBaseline(document, after);
 			RequireReusedAssets(document, after);
@@ -221,18 +282,45 @@ public static class BookSyncCoordinator
 		SyncTransferJournal journal,
 		SyncTransferDocument document,
 		IProgress<string>? progress,
+		int maximumConcurrentTransfers,
 		CancellationToken cancellationToken)
 	{
-		progress?.Report("Preserving and verifying changed sheets…");
-		foreach (SyncTransferAsset asset in document.Assets.Where(asset => asset.Stage))
+		int total = document.Assets.Count(asset => asset.Stage);
+		int completed = 0;
+		ReportSheets(progress, "Preparing changed sheets", completed, total);
+		object progressGate = new();
+		async Task StageAsync(SyncTransferAsset asset, CancellationToken token)
 		{
-			cancellationToken.ThrowIfCancellationRequested();
+			token.ThrowIfCancellationRequested();
 			string path = journal.AssetPath(document, asset.FileId);
 			if (!File.Exists(path))
 			{
-				await SyncAssetStager.StageAsync(store, location, replica, asset, path, cancellationToken).ConfigureAwait(false);
+				await RetryAsync(
+					async () =>
+					{
+						await SyncAssetStager.StageAsync(store, location, replica, asset, path, token).ConfigureAwait(false);
+						return true;
+					},
+					token).ConfigureAwait(false);
+			}
+
+			lock (progressGate)
+			{
+				ReportSheets(progress, "Preparing changed sheets", ++completed, total);
 			}
 		}
+
+		// Local store contracts remain serialized; only independent cloud downloads overlap.
+		await TransferSheetsAsync(
+			document.Assets.Where(asset => asset.Stage && asset.LocalSourceId != Guid.Empty),
+			1,
+			StageAsync,
+			cancellationToken).ConfigureAwait(false);
+		await TransferSheetsAsync(
+			document.Assets.Where(asset => asset.Stage && asset.LocalSourceId == Guid.Empty),
+			maximumConcurrentTransfers,
+			StageAsync,
+			cancellationToken).ConfigureAwait(false);
 
 		// Recheck after staging and before any upload. A stale review never writes a new catalog.
 		if (await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false) != document.LocalJson)
@@ -248,6 +336,7 @@ public static class BookSyncCoordinator
 		SyncTransferJournal journal,
 		SyncTransferDocument document,
 		IProgress<string>? progress,
+		int maximumConcurrentTransfers,
 		CancellationToken cancellationToken)
 	{
 		progress?.Report("Checking interrupted cloud operations…");
@@ -265,21 +354,32 @@ public static class BookSyncCoordinator
 		if (!cloudCommitted)
 		{
 			RequireCloudBaseline(document, current);
-			await StageAssetsAsync(store, location, replica, journal, document, progress, cancellationToken).ConfigureAwait(false);
+			await StageAssetsAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken).ConfigureAwait(false);
 
 			CloudChangeSet inventory = await replica.ListOrGetChangesAsync(null, cancellationToken).ConfigureAwait(false);
-			Dictionary<string, CloudReplicaItem> uploadItems = CloudBookReader.IndexItems(inventory);
-			foreach (SyncTransferAsset asset in document.Assets.Where(asset => asset.Upload))
-			{
-				progress?.Report($"Uploading sheet {asset.Name}…");
-				await RetryAsync(
-				async () =>
+			ConcurrentDictionary<string, CloudReplicaItem> uploadItems = new(CloudBookReader.IndexItems(inventory), StringComparer.OrdinalIgnoreCase);
+			int total = document.Assets.Count(asset => asset.Upload);
+			int completed = 0;
+			ReportSheets(progress, "Uploading", completed, total);
+			object progressGate = new();
+			await TransferSheetsAsync(
+				document.Assets.Where(asset => asset.Upload),
+				maximumConcurrentTransfers,
+				async (asset, token) =>
 				{
-					await PublishAssetAsync(replica, journal, document, asset, uploadItems, cancellationToken).ConfigureAwait(false);
-					return true;
+					await RetryAsync(
+						async () =>
+						{
+							await PublishAssetAsync(replica, journal, document, asset, uploadItems, token).ConfigureAwait(false);
+							return true;
+						},
+						token).ConfigureAwait(false);
+					lock (progressGate)
+					{
+						ReportSheets(progress, "Uploading", ++completed, total);
+					}
 				},
 				cancellationToken).ConfigureAwait(false);
-			}
 
 			progress?.Report("Saving the cloud book…");
 			CloudReplicaItem committed = await RetryAsync(
@@ -503,7 +603,7 @@ public static class BookSyncCoordinator
 		SyncTransferJournal journal,
 		SyncTransferDocument document,
 		SyncTransferAsset asset,
-		Dictionary<string, CloudReplicaItem> items,
+		ConcurrentDictionary<string, CloudReplicaItem> items,
 		CancellationToken cancellationToken)
 	{
 		SyncItemReceipt? receipt = await journal.ReadReceiptAsync(document, asset.FileId, cancellationToken).ConfigureAwait(false);
@@ -552,6 +652,30 @@ public static class BookSyncCoordinator
 		await journal.SaveReceiptAsync(document, asset.FileId, item, cancellationToken).ConfigureAwait(false);
 	}
 
+	private static async Task TransferSheetsAsync(
+		IEnumerable<SyncTransferAsset> assets,
+		int maximumConcurrency,
+		Func<SyncTransferAsset, CancellationToken, Task> transfer,
+		CancellationToken cancellationToken)
+	{
+		if (maximumConcurrency == 1)
+		{
+			foreach (SyncTransferAsset asset in assets)
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				await transfer(asset, cancellationToken).ConfigureAwait(false);
+			}
+		}
+		else
+		{
+			// Failure cancels siblings and awaits them before catalog mutation or journal cleanup.
+			await Parallel.ForEachAsync(
+				assets,
+				new ParallelOptions { MaxDegreeOfParallelism = maximumConcurrency, CancellationToken = cancellationToken },
+				async (asset, token) => await transfer(asset, token).ConfigureAwait(false)).ConfigureAwait(false);
+		}
+	}
+
 	private static async Task<T> RetryAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken)
 	{
 		const int MaximumRetries = 2;
@@ -563,9 +687,7 @@ public static class BookSyncCoordinator
 			}
 			catch (CloudRequestException exception) when (exception.IsTransient && attempt < MaximumRetries)
 			{
-				const int MaximumDelaySeconds = 30;
 				TimeSpan delay = exception.RetryAfter ?? TimeSpan.FromSeconds(attempt + 1);
-				delay = TimeSpan.FromSeconds(Math.Clamp(delay.TotalSeconds, 0, MaximumDelaySeconds));
 				await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
 			}
 		}

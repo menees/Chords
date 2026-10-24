@@ -17,6 +17,13 @@
 		<ApplicationId>com.menees.chords.book</ApplicationId>
 		<ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
+		<ApplicationIcon>Resources\AppIcon\Generated\chordbook.ico</ApplicationIcon>
+		<!-- Maintainer-owned release languages. Resource selection does not constrain song Unicode or regional formatting. -->
+		<DefaultLanguage>en-US</DefaultLanguage>
+		<NeutralLanguage>$(DefaultLanguage)</NeutralLanguage>
+		<SupportedResourceLanguages>en-US;en-GB</SupportedResourceLanguages>
+		<SatelliteResourceLanguages>$(SupportedResourceLanguages)</SatelliteResourceLanguages>
+		<PublishDocumentationFiles>false</PublishDocumentationFiles>
 	</PropertyGroup>
 	<ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
 		<PackageReference Include="Microsoft.Identity.Client" />
@@ -24,6 +31,7 @@
 		<PackageReference Include="Microsoft.Maui.Controls" />
 		<PackageReference Include="Microsoft.Web.LibraryManager.Build" PrivateAssets="all" />
 		<UpToDateCheckInput Include="libman.json" />
+		<Content Include="Resources\AppIcon\Generated\chordbook.ico" Link="Assets\ChordBook.ico" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<MauiCss Remove="Resources\Editor\**\*.css" />
 		<Content Include="Resources\Editor\**\*" Exclude="Resources\Editor\vendor\**\*" Link="Editor\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
 		<EmbeddedResource Include="Resources\Fluent\*.svg" />
@@ -54,5 +62,37 @@
 		</ItemGroup>
 		<Error Condition="!Exists('Resources\Viewer\pdfjs\build\pdf.worker.mjs')" Text="PDF.js assets are missing. Restore the pinned libman.json dependencies before building." />
 		<Error Condition="!Exists('Resources\Editor\vendor\view\dist\index.js')" Text="CodeMirror assets are missing. Restore the pinned libman.json dependencies before building." />
+	</Target>
+	<!-- The .NET satellite filter does not cover native Windows App SDK MUI payloads. Exclude before copying. -->
+	<Target Name="SelectSupportedWindowsResourceLanguages" BeforeTargets="AddMicrosoftWindowsAppSDKPayloadFiles"
+		DependsOnTargets="ExtractMicrosoftWindowsAppSDKMsixFiles"
+		Condition="$([MSBuild]::IsOSPlatform('Windows')) And '$(WindowsAppSDKSelfContained)' == 'true'">
+		<ItemGroup>
+			<_SupportedWindowsResourceLanguage Include="$(SupportedResourceLanguages)" />
+			<_SupportedWindowsMui Include="@(_SupportedWindowsResourceLanguage->'$(MicrosoftWindowsAppSDKMsixContent)\%(Identity)\*.mui')" />
+			<MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\*.mui" Exclude="@(_SupportedWindowsMui)" />
+			<MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\RestartAgent.exe;$(MicrosoftWindowsAppSDKMsixContent)\**\NPUDetect.dll" />
+			<MicrosoftWindowsAppSDKFilesExcluded Include="$(MicrosoftWindowsAppSDKMsixContent)\**\WindowsAppRuntime.png;$(MicrosoftWindowsAppSDKMsixContent)\**\workloads*.json" />
+		</ItemGroup>
+		<Error Condition="!$([System.String]::Copy(';$(SupportedResourceLanguages);').Contains(';$(DefaultLanguage);'))"
+			Text="The default resource language must be included in SupportedResourceLanguages." />
+		<Error Condition="!Exists('$(MicrosoftWindowsAppSDKMsixContent)\en-us\Microsoft.ui.xaml.dll.mui')"
+			Text="The Windows App SDK English fallback resources are missing." />
+	</Target>
+	<!-- Remove unused SDK assets and API documentation from every Windows publish, including direct dotnet publish. -->
+	<Target Name="ExcludeUnusedPublishedAssets" AfterTargets="ComputeFilesToPublish"
+		Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+		<ItemGroup>
+			<ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+				Condition="'%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'RestartAgent.exe'
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'NPUDetect.dll'
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'createdump.exe'
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'WindowsAppRuntime.png'
+					Or ('%(ResolvedFileToPublish.Extension)' == '.json' And $([System.String]::Copy('%(ResolvedFileToPublish.Filename)').StartsWith('workloads')))
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Menees.Chords.Db.xml'
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Menees.Chords.Sync.OneDrive.xml'
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Menees.Chords.Sync.xml'
+					Or '%(ResolvedFileToPublish.Filename)%(ResolvedFileToPublish.Extension)' == 'Menees.Chords.xml'" />
+		</ItemGroup>
 	</Target>
 </Project>

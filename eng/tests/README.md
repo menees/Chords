@@ -27,7 +27,29 @@ PDF.js is restored from the pinned app libman.json into a Git-ignored directory.
 A first restore needs access to jsDelivr; the installed app remains fully offline.
 Do not commit the restored dependency files.
 
+## Native published resource languages
+
+After publishing, run:
+
+    powershell -ExecutionPolicy Bypass -File eng/tests/Test-NativeMuiResources.ps1 -PublishedDirectory artifacts/ChordBook-win-x64-<timestamp>
+
+This read-only Windows MUI lookup probe uses the actual published WinUI DLLs and sets English and French thread UI preferences in its own PowerShell process. Both DLLs must resolve existing English MUI files through Windows' native resource lookup. It opens no books or app windows. Publish-ChordBook.ps1 separately validates the full native/managed resource allowlist and required English files. This establishes native file lookup/fallback, not visual control rendering or non-English Windows installation acceptance.
+
 ## Native icons
+
+For the executable/window branding assets after a Windows build:
+
+    pwsh -NoProfile -File eng/Export-ChordBookIcons.ps1 -Check
+
+    pwsh -File eng/tests/Test-AppIcons.ps1 -Executable src/Menees.Chords.Book.Maui/bin/Release/net10.0-windows10.0.19041.0/win-x64/Menees.Chords.Book.Maui.exe
+
+This read-only Win32 probe checks all 15 embedded icon images against the deployed
+ICO, then loads each requested size with Windows. It opens no windows or books.
+The exporter's separate read-only -Check rerenders the SVGs using the restored
+MAUI graphics libraries and verifies the checked-in PNG/ICO bytes.
+See [application icon sources and regeneration](../../src/Menees.Chords.Book.Maui/Resources/AppIcon/README.md).
+
+For the in-app Fluent/custom action icons:
 
     powershell -ExecutionPolicy Bypass -File eng/tests/Test-NativeIcons.ps1
 

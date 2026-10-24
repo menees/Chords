@@ -27,10 +27,44 @@ try
         -r $RuntimeIdentifier --self-contained true -p:IsPublishable=true -p:WindowsPackageType=None `
         -p:WindowsAppSDKSelfContained=true -p:PublishSingleFile=false -p:PublishTrimmed=false -o $outputPath
     if ($LASTEXITCODE -ne 0) { throw 'ChordBook publish failed. Do not distribute the incomplete output.' }
-    foreach ($required in @('Menees.Chords.Book.Maui.exe', 'Editor\editor.html', 'Viewer\viewer.html', 'Viewer\pdfjs\build\pdf.worker.mjs'))
+    foreach ($required in @('Menees.Chords.Book.Maui.exe', 'Assets\ChordBook.ico', 'Editor\editor.html', 'Viewer\viewer.html', 'Viewer\pdfjs\build\pdf.worker.mjs'))
     {
         if (!(Test-Path -LiteralPath (Join-Path $outputPath $required))) { throw "Published asset is missing: $required" }
     }
+    $publishedFiles = @(Get-ChildItem -LiteralPath $outputPath -Recurse -File)
+    $excludedNames = @('RestartAgent.exe', 'NPUDetect.dll', 'createdump.exe', 'WindowsAppRuntime.png',
+        'Menees.Chords.Db.xml', 'Menees.Chords.Sync.OneDrive.xml', 'Menees.Chords.Sync.xml', 'Menees.Chords.xml')
+    foreach ($unexpected in $publishedFiles | Where-Object { $_.Name -in $excludedNames -or $_.Name -like 'workloads*.json' })
+    {
+        throw "Excluded asset was unexpectedly published: $($unexpected.FullName)"
+    }
+    # Both native MUI and managed satellites must obey the project's maintainer-owned language allowlist.
+    $languageOutput = & dotnet msbuild src/Menees.Chords.Book.Maui/Menees.Chords.Book.Maui.csproj -getProperty:DefaultLanguage,SupportedResourceLanguages
+    if ($LASTEXITCODE -ne 0) { throw 'Could not resolve the published resource language policy.' }
+    $languagePolicy = ($languageOutput -join [Environment]::NewLine | ConvertFrom-Json).Properties
+    $supportedLanguages = @($languagePolicy.SupportedResourceLanguages.Split(';', [StringSplitOptions]::RemoveEmptyEntries))
+    if (!$supportedLanguages.Count -or $supportedLanguages -notcontains $languagePolicy.DefaultLanguage)
+    {
+        throw 'The default resource language must be included in the supported resource languages.'
+    }
+    foreach ($resource in $publishedFiles | Where-Object { $_.Extension -eq '.mui' -or $_.Name.EndsWith('.resources.dll') })
+    {
+        if ($supportedLanguages -notcontains $resource.Directory.Name)
+        {
+            throw "Published resource has an unsupported language: $($resource.FullName)"
+        }
+    }
+    foreach ($language in $supportedLanguages)
+    {
+        foreach ($resourceName in @('Microsoft.ui.xaml.dll.mui', 'Microsoft.UI.Xaml.Phone.dll.mui'))
+        {
+            if (!(Test-Path -LiteralPath (Join-Path $outputPath "$language\$resourceName")))
+            {
+                throw "Published WinUI resource is missing: $language\$resourceName"
+            }
+        }
+    }
+    Write-Output "Published resource languages: $($supportedLanguages -join ', '); default: $($languagePolicy.DefaultLanguage)."
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'ONEDRIVE.md') -Destination (Join-Path $outputPath 'ONEDRIVE.md')
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'WINDOWS_DEPLOYMENT.md') -Destination (Join-Path $outputPath 'WINDOWS_DEPLOYMENT.md')
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'RECOVERY.md') -Destination (Join-Path $outputPath 'RECOVERY.md')

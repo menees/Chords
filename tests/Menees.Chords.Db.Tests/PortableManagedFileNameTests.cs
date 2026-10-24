@@ -1,11 +1,16 @@
+#region Using Directives
+
 using System.IO;
 using System.Text;
+
+#endregion
 
 namespace Menees.Chords.Db.Tests;
 
 [TestClass]
 public sealed class PortableManagedFileNameTests
 {
+	#region Public Methods
 	[TestMethod]
 	public void ExtensionlessOpenSongNameEndsAtGuidSuffix()
 	{
@@ -54,4 +59,64 @@ public sealed class PortableManagedFileNameTests
 	{
 		PortableManagedFileName.Validate(filename).ShouldNotBeEmpty();
 	}
+
+	[TestMethod]
+	[DataRow("~$Song", "_$Song")]
+	[DataRow(".~Song", "~Song")]
+	[DataRow(".hidden", "hidden")]
+	[DataRow("A_VTI_B", "A_vti-B")]
+	[DataRow("CON.txt", "_CON.txt")]
+	[DataRow("COM¹.cho", "_COM¹.cho")]
+	[DataRow("LPT0.txt", "_LPT0.txt")]
+	public void ReservedPrefixesAreMadePortableBeforeAddingTheGuid(string title, string expectedPrefix)
+	{
+		string filename = PortableManagedFileName.Create(title, Guid.NewGuid(), ".cho");
+		filename.ShouldStartWith(expectedPrefix);
+		PortableManagedFileName.Validate(filename).ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	[DataRow("~$Song.cho")]
+	[DataRow(".hidden.cho")]
+	[DataRow("song.icloud")]
+	[DataRow("song.nosync")]
+	[DataRow("song.tmp")]
+	[DataRow("song.desktop.ini")]
+	[DataRow("song.thumbs.db")]
+	[DataRow("song.dropbox")]
+	[DataRow("song.dropbox.attr")]
+	[DataRow("Song_vti_title.cho")]
+	[DataRow("COM0.cho")]
+	[DataRow("COM¹.txt")]
+	[DataRow("LPT³.txt")]
+	[DataRow("CON .cho")]
+	[DataRow(" song.cho")]
+	[DataRow(".lock")]
+	[DataRow("desktop.ini")]
+	[DataRow(".DS_Store")]
+	public void CloudAndDeviceReservedNamesAreRejected(string filename)
+	{
+		PortableManagedFileName.Validate(filename).ShouldNotBeEmpty();
+	}
+
+	[TestMethod]
+	[DataRow(".tmp")]
+	[DataRow(".nosync")]
+	[DataRow(".icloud")]
+	[DataRow(".dropbox")]
+	[DataRow(".thumbs.db")]
+	public void ReservedExtensionsCannotBeIntroducedByGeneration(string extension)
+	{
+		Should.Throw<ArgumentException>(() => PortableManagedFileName.Create("Song", Guid.NewGuid(), extension));
+	}
+
+	[TestMethod]
+	public void SafeUnicodeAndPunctuationRemainUnchanged()
+	{
+		const string Title = "Beyoncé & AC# 100% 🎸";
+		string filename = PortableManagedFileName.Create(Title, Guid.NewGuid(), ".cho");
+		filename.ShouldStartWith(Title);
+		PortableManagedFileName.Validate(filename).ShouldBeEmpty();
+	}
+	#endregion
 }
