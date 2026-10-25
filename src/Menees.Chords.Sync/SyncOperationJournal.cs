@@ -1,5 +1,7 @@
 namespace Menees.Chords.Sync;
 
+/// <summary>Legacy operation-plan receipts retained for checkpoint compatibility and caller-owned execution.</summary>
+/// <remarks>Application clients use <see cref="BookSyncCoordinator"/> and its captured transfer journal for resumable sync.</remarks>
 public sealed class SyncOperationJournal
 {
 	private readonly HashSet<string> completedOperationIds;

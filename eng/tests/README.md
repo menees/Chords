@@ -18,7 +18,7 @@ rapid paging, zoom/resize, normalized scroll restoration, both boundaries,
 last-page loading, invalid PDF errors, streamed delivery and keyboard routing.
 It also tests the production tablature stylesheet and proves the fixture catches
 the original individual-line scrollbar regression. JavaScript assertions execute
-inside WebView2; the test runner and PDF generator are .NET.
+inside WebView2; the test runner and PDF generator are .NET. The editor checks also verify that Ctrl+S consumes the browser shortcut and sends one Save request without modifying the buffer. Interactive MAUI save/close routing from native metadata controls remains a separate acceptance check.
 
 The script prints the temporary fixture/capture directory. These checks do not
 establish interactive MAUI, Surface, touch or physical pedal quality.

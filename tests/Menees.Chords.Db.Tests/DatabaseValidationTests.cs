@@ -6,6 +6,23 @@ namespace Menees.Chords.Db.Tests;
 public sealed class DatabaseValidationTests
 {
 	[TestMethod]
+	[DataRow("KEY")]
+	[DataRow(" key")]
+	[DataRow("key ")]
+	[DataRow("ǅcustom")]
+	public void NoncanonicalMetadataNamesAreRejectedWithoutMergingValues(string key)
+	{
+		ChordDatabase database = TestData.CreateDatabase();
+		Song song = database.Songs[0];
+		song.MetadataOverrides["key"] = ["C"];
+		song.MetadataOverrides[key] = ["G"];
+		DatabaseValidation.Validate(database).ShouldContain(problem => problem.Path.EndsWith(".metadataOverrides", StringComparison.Ordinal));
+		Should.Throw<DatabaseFormatException>(() => DatabaseJson.Serialize(database));
+		song.MetadataOverrides[key].ShouldBe(["G"]);
+		SongMetadata.GetValues(song, "key").ShouldBe(["C"]);
+	}
+
+	[TestMethod]
 	public void MissingReferencesAndTraversalAreReported()
 	{
 		ChordDatabase database = TestData.CreateDatabase();

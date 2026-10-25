@@ -3,7 +3,6 @@
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
@@ -38,7 +37,7 @@ internal sealed class SyncTransferJournal
 
 	public async Task<SyncTransferDocument?> LoadAsync(CancellationToken cancellationToken)
 	{
-		SyncTransferDocument? document = await ReadAsync<SyncTransferDocument>(this.planPath, cancellationToken).ConfigureAwait(false);
+		SyncTransferDocument? document = await ReplicaJsonFile.ReadAsync<SyncTransferDocument>(this.planPath, cancellationToken).ConfigureAwait(false);
 		if (document is not null)
 		{
 			this.RequireIdentity(document);
@@ -61,21 +60,21 @@ internal sealed class SyncTransferJournal
 		document.TargetCatalogHash = await this.SaveCatalogAsync(document, document.TargetJson, cancellationToken).ConfigureAwait(false);
 		document.CloudCatalogHash = document.CloudJson is null ? null
 			: await this.SaveCatalogAsync(document, document.CloudJson, cancellationToken).ConfigureAwait(false);
-		await WriteAsync(this.planPath, document, cancellationToken).ConfigureAwait(false);
+		await ReplicaJsonFile.WriteAsync(this.planPath, document, cancellationToken).ConfigureAwait(false);
 	}
 
 	public string AssetPath(SyncTransferDocument document, Guid fileId) => Path.Combine(this.WorkDirectory(document), fileId.ToString("N") + ".asset");
 
 	public Task<SyncItemReceipt?> ReadReceiptAsync(SyncTransferDocument document, Guid fileId, CancellationToken cancellationToken)
-		=> ReadAsync<SyncItemReceipt>(this.ReceiptPath(document, fileId), cancellationToken);
+		=> ReplicaJsonFile.ReadAsync<SyncItemReceipt>(this.ReceiptPath(document, fileId), cancellationToken);
 
 	public Task SaveReceiptAsync(SyncTransferDocument document, Guid fileId, CloudReplicaItem item, CancellationToken cancellationToken)
-		=> WriteAsync(this.ReceiptPath(document, fileId), SyncItemReceipt.From(item), cancellationToken);
+		=> ReplicaJsonFile.WriteAsync(this.ReceiptPath(document, fileId), SyncItemReceipt.From(item), cancellationToken);
 
 	public async Task RetireAsync(SyncTransferDocument document, CancellationToken cancellationToken)
 	{
 		this.Validate(document);
-		await WriteAsync(Path.Combine(this.WorkDirectory(document), "retired-review.json"), document, cancellationToken).ConfigureAwait(false);
+		await ReplicaJsonFile.WriteAsync(Path.Combine(this.WorkDirectory(document), "retired-review.json"), document, cancellationToken).ConfigureAwait(false);
 		cancellationToken.ThrowIfCancellationRequested();
 		File.Delete(this.planPath);
 	}
@@ -89,58 +88,6 @@ internal sealed class SyncTransferJournal
 		if (Directory.Exists(work))
 		{
 			Directory.Delete(work, recursive: true);
-		}
-	}
-
-	internal static async Task<T?> ReadAsync<T>(string path, CancellationToken cancellationToken)
-		where T : class
-	{
-		T? result = null;
-		if (File.Exists(path))
-		{
-			await using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-			if (stream.Length > MaximumDocumentBytes)
-			{
-				throw new InvalidDataException("The synchronization checkpoint exceeds its size limit.");
-			}
-
-			try
-			{
-				result = await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cancellationToken).ConfigureAwait(false)
-					?? throw new InvalidDataException("The synchronization checkpoint is empty.");
-			}
-			catch (JsonException exception)
-			{
-				throw new InvalidDataException("The synchronization checkpoint is corrupt. It was retained for recovery.", exception);
-			}
-		}
-
-		return result;
-	}
-
-	internal static async Task WriteAsync<T>(string path, T value, CancellationToken cancellationToken)
-	{
-		Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-		string temporary = path + ".tmp";
-		try
-		{
-			await using (FileStream stream = new(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-			{
-				await JsonSerializer.SerializeAsync(stream, value, cancellationToken: cancellationToken).ConfigureAwait(false);
-				if (stream.Length > MaximumDocumentBytes)
-				{
-					throw new InvalidDataException("The synchronization checkpoint exceeds its size limit.");
-				}
-
-				stream.Flush(flushToDisk: true);
-			}
-
-			cancellationToken.ThrowIfCancellationRequested();
-			File.Move(temporary, path, overwrite: true);
-		}
-		finally
-		{
-			File.Delete(temporary);
 		}
 	}
 

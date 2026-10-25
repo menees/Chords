@@ -9,6 +9,8 @@ public class ChordProGridLineTests
 	[TestMethod]
 	public void TryParseInvalidTest()
 	{
+		Test("[*|] [C] [*/] [*|]");
+		Test("[*|] [*|]");
 		Test("| A . . . "); // Too short; not enough separators or chords
 		Test(" A . . . |"); // Too short; not enough separators or chords
 		Test("|--1-2-3---|--1-2-3---|"); // Tab line

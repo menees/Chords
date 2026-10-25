@@ -491,8 +491,10 @@ public sealed partial class BookApplicationSession
 		Guid? instrumentId = instrumentOverride ?? entry?.InstrumentProfileId
 			?? new InstrumentSettingsService(this).ResolveInstrument(songId, activeInstrumentId);
 		InstrumentProfile? instrument = instrumentId is Guid profileId ? database.InstrumentProfiles.Single(item => item.Id == profileId) : null;
-		SongInstrumentSetting? setting = instrumentId is Guid selectedId ? this.GetInstrumentSetting(songId, selectedId) : null;
-		if (setting?.PreferredSongFileId is Guid instrumentFileId)
+		SongInstrumentOptions setting = instrument is not null
+			? new InstrumentSettingsService(this).GetEffectiveOptions(song, instrument) : new();
+		int? capoFret = setting.CapoFret ?? InstrumentSettingsService.GetCatalogCapo(song);
+		if (setting.PreferredSongFileId is Guid instrumentFileId)
 		{
 			file = activeFiles.FirstOrDefault(item => item.Id == instrumentFileId) ?? file;
 		}
@@ -521,10 +523,10 @@ public sealed partial class BookApplicationSession
 
 			SongDisplaySettings.Validate(profile);
 			int transpose = transposeOffset + PerformanceTranspose.GetShownSemitones(
-				entry?.TransposeSemitones ?? setting?.TransposeSemitones ?? 0,
-				setting?.CapoFret,
-				setting?.CapoBehavior == CapoBehavior.AffectsShownChords);
-			AccidentalPreference spelling = InstrumentSettingsService.ParseSpelling(setting?.ChordSpellingPreference);
+				entry?.TransposeSemitones ?? setting.TransposeSemitones,
+				capoFret,
+				setting.CapoBehavior);
+			AccidentalPreference spelling = setting.Spelling;
 			string cacheKey = System.Text.Json.JsonSerializer.Serialize(new
 			{
 				Book = database.Id, File = file.Id, file.ContentHash, file.ContentRevision, Profile = profile, Transpose = transpose, Spelling = spelling,
@@ -558,15 +560,18 @@ public sealed partial class BookApplicationSession
 		List<string> description = [];
 		if (instrument is not null)
 		{
-			int soundingTranspose = entry?.TransposeSemitones ?? setting?.TransposeSemitones ?? 0;
+			int soundingTranspose = entry?.TransposeSemitones ?? setting.TransposeSemitones;
 			if (soundingTranspose != 0)
 			{
 				description.Add(FormattableString.Invariant($"Transpose {soundingTranspose:+0;-0;0}"));
 			}
 
-			if (setting?.CapoFret is int capo)
+			if (capoFret is int capo && capo > 0)
 			{
-				description.Add($"Capo {capo} ({(setting.CapoBehavior == CapoBehavior.AffectsShownChords ? "chord shapes" : "display only")})");
+				description.Add($"Capo {capo} ({setting.CapoBehavior switch
+				{
+					CapoBehavior.AffectsShownChords => "Down", CapoBehavior.RaiseShownChords => "Up", _ => "None",
+				}})");
 			}
 
 			if (file?.MediaKind == MediaKind.Pdf)

@@ -63,7 +63,7 @@ public class HtmlFormatterTests
 		const string Text = "[C] [F]\n[C][F]\n  [C]   [F]  \n\n[C]hoo![F]\n[C] [F]Now";
 		DocumentParser parser = new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped);
 		Document document = Document.Parse(Text, parser);
-		string? original = document.ToString();
+		string original = new TextFormatter(document).ToString();
 		XDocument html = new HtmlFormatter(document).ToXDocument();
 		XElement[] lines = [.. GetClassElements(html, "chord-line")];
 
@@ -77,20 +77,20 @@ public class HtmlFormatterTests
 		GetClassElements(html, "blank-line").Count().ShouldBe(1);
 		GetClassElements(lines[3], "lyric").Select(element => element.Value).ShouldBe(["hoo!", "\u00A0"]);
 		GetClassElements(lines[4], "lyric").Select(element => element.Value).ShouldBe(["\u00A0", "Now"]);
-		document.ToString().ShouldBe(original);
+		new TextFormatter(document).ToString().ShouldBe(original);
 	}
 
 	[TestMethod]
 	public void ChordOnlyPlainLinesRemainSingleRowsTest()
 	{
 		Document document = Document.Parse("C F\nC F\nC F\nhoo!");
-		string? original = document.ToString();
+		string original = new TextFormatter(document).ToString();
 		XDocument html = new HtmlFormatter(document).ToXDocument();
 
 		GetClassElements(html, "chord-only-line").Count().ShouldBe(2);
 		GetClassElements(html, "chord-line").Count().ShouldBe(1);
 		GetClassElements(html, "lyric").Select(element => element.Value).ShouldBe(["ho", "o!"]);
-		document.ToString().ShouldBe(original);
+		new TextFormatter(document).ToString().ShouldBe(original);
 	}
 
 	[TestMethod]
@@ -137,6 +137,51 @@ public class HtmlFormatterTests
 		annotation.Attribute("aria-hidden").ShouldBeNull();
 		((string?)annotation.Attribute("role")).ShouldBe("note");
 		GetClassElements(html, "lyric-line").ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public void AnnotationWithoutChordsRendersAboveLyricsTest()
+	{
+		foreach (DocumentParser parser in new[] { new DocumentParser(), new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped) })
+		{
+			const string Text = "[*NC]Sing freely\n[*NC]\n[C]*literal text";
+			Document document = Document.Parse(Text, parser);
+			string original = new TextFormatter(document).ToString();
+			XDocument html = new HtmlFormatter(new TransposeTransformer(document, 2).Transform().Document).ToXDocument();
+			XElement[] lines = [.. GetClassElements(html, "chord-line")];
+
+			lines.Length.ShouldBe(3);
+			GetClassElements(lines[0], "chord-annotation").Single().Value.ShouldBe("NC");
+			GetClassElements(lines[0], "lyric").Single().Value.ShouldBe("Sing freely");
+			GetClassElements(lines[1], "chord-annotation").Single().Value.ShouldBe("NC");
+			GetClassElements(lines[1], "lyric").ShouldBeEmpty();
+			GetClassElements(lines[2], "chord").Single().Value.ShouldBe("D");
+			GetClassElements(lines[2], "lyric").Single().Value.ShouldBe("*literal text");
+			new TextFormatter(document).ToString().ShouldBe(original);
+		}
+	}
+
+	[TestMethod]
+	public void BracketedBarAnnotationsRemainChordProLinesTest()
+	{
+		const string Text = "[*|] [C] [G/B] [Am] [*/] [*|] [F] [*/] [C] [*/] [*|]\n[*|] [C] [*|] [G] [*|] [D] [*|] [Em7] [*|]\n[*|] [*/] [*NC] [*4x]";
+		foreach (DocumentParser parser in new[] { new DocumentParser(), new(DocumentParser.ChordProLineParsers) })
+		{
+			Document document = Document.Parse(Text, parser);
+			string original = new TextFormatter(document).ToString();
+			XDocument html = new HtmlFormatter(new TransposeTransformer(document, 2).Transform().Document).ToXDocument();
+			XElement[] lines = [.. GetClassElements(html, "chord-line")];
+
+			lines.Length.ShouldBe(3);
+			GetClassElements(html, "grid-line").ShouldBeEmpty();
+			GetClassElements(html, "lyric").ShouldBeEmpty();
+			GetClassElements(lines[0], "chord").Where(element => !HasClass(element, "chord-annotation"))
+				.Select(element => element.Value).ShouldBe(["D", "A/C#", "Bm", "G", "D"]);
+			GetClassElements(lines[1], "chord-annotation").Select(element => element.Value).ShouldBe(["|", "|", "|", "|", "|"]);
+			GetClassElements(lines[2], "chord-annotation").Select(element => element.Value).ShouldBe(["|", "/", "NC", "4x"]);
+			GetClassElements(html, "chord-annotation").ShouldAllBe(element => (string?)element.Attribute("role") == "note");
+			new TextFormatter(document).ToString().ShouldBe(original);
+		}
 	}
 
 	[TestMethod]
@@ -247,6 +292,54 @@ public class HtmlFormatterTests
 		GetClassElements(html, "lyric")
 			.Select(element => element.Value)
 			.ShouldBe(["If God had", "known", "J say love's"]);
+	}
+
+	[TestMethod]
+	public void UnnamedVersesOmitHeadersAtAnyDepthTest()
+	{
+		foreach (string start in new[] { "{sov}", "{start_of_verse}", "{sov: label=\"\"}", "{sov: label=\" \"}", "{sov: part=\"guitar\"}" })
+		{
+			string verse = $"{start}\n[C]Sing freely\n{{eov}}";
+			foreach (DocumentParser parser in new[] { new DocumentParser(), new(DocumentParser.ChordProLineParsers, DocumentParser.Ungrouped) })
+			{
+				foreach (bool nested in new[] { false, true })
+				{
+					string text = nested ? $"{{soc: Refrain}}\n{verse}\n{{eoc}}" : verse;
+					Document document = Document.Parse(text, parser);
+					string original = new TextFormatter(document).ToString();
+					XDocument html = new HtmlFormatter(document).ToXDocument();
+
+					GetClassElements(html, "section-header").Select(element => element.Value)
+						.ShouldBe(nested ? ["Refrain"] : Array.Empty<string>(), text);
+					GetClassElements(html, "chord").Single().Value.ShouldBe("C");
+					GetClassElements(html, "lyric").Single().Value.ShouldBe("Sing freely");
+					new TextFormatter(document).ToString().ShouldBe(original);
+				}
+			}
+		}
+	}
+
+	[TestMethod]
+	public void ExplicitVerseLabelsAndOtherSectionDefaultsRemainTest()
+	{
+		const string Text = """
+			{sov: Verse}
+			[C]One
+			{eov}
+			{start_of_verse: label="Verse 2" part="guitar"}
+			[D]Two
+			{end_of_verse}
+			{soc}
+			[E]Three
+			{eoc}
+			{sob}
+			[F]Four
+			{eob}
+			""";
+		XDocument html = new HtmlFormatter(Document.Parse(Text)).ToXDocument();
+
+		GetClassElements(html, "section-header").Select(element => element.Value)
+			.ShouldBe(["Verse", "Verse 2", "Chorus", "Bridge"]);
 	}
 
 	[TestMethod]
@@ -373,7 +466,7 @@ public class HtmlFormatterTests
 			.Select(element => (string?)element.Attribute("aria-label"))
 			.ShouldBe(["C7 chord diagram", "C7 chord diagram", "D chord diagram", "G chord diagram", "D² chord diagram"]);
 		GetClassElements(images.First(), "diagram-fret").Count().ShouldBe(6);
-		((string?)images.First().Attribute("viewBox")).ShouldBe("-10 0 80 72");
+		((string?)images.First().Attribute("viewBox")).ShouldBe("-10 0 80 77");
 		images.ElementAt(2).Descendants()
 			.Where(element => element.Name.LocalName == "rect" && HasClass(element, "selected"))
 			.Select(element => (string?)element.Attribute("x"))
@@ -417,6 +510,8 @@ public class HtmlFormatterTests
 		GetClassElements(shifted, "diagram-barre").Count().ShouldBe(1);
 		GetClassElements(shifted, "diagram-dot").Count().ShouldBe(3);
 		GetClassElements(shifted, "diagram-string-state").ShouldBeEmpty();
+		double bottom = GetClassElements(shifted, "diagram-string").Max(element => (double)element.Attribute("y2")!);
+		GetClassElements(shifted, "diagram-finger-position").ShouldAllBe(element => (double)element.Attribute("y")! - bottom >= 10);
 
 		XElement barre = GetClassElements(images.ElementAt(1), "diagram-barre").Single();
 		barre.Name.LocalName.ShouldBe("rect");
@@ -436,6 +531,39 @@ public class HtmlFormatterTests
 		IEnumerable<XElement> gridLines = images.ElementAt(2).Elements().Where(element => HasClass(element, "diagram-line"));
 		gridLines.Take(6).ShouldAllBe(element => HasClass(element, "diagram-fret"));
 		gridLines.Skip(6).ShouldAllBe(element => HasClass(element, "diagram-string"));
+	}
+
+	[TestMethod]
+	public void FretDiagramHasEqualClearGapsAndDotClearanceTest()
+	{
+		const string Text = "{chord: Csus base-fret 1 frets x 3 3 0 1 1}";
+		Document document = Document.Parse(Text);
+		string original = new TextFormatter(document).ToString();
+		XDocument html = new HtmlFormatter(document).ToXDocument();
+		XElement image = html.Descendants().Single(element => element.Name.LocalName == "svg");
+		XElement[] frets = [.. GetClassElements(image, "diagram-fret")];
+		double[] tops = [.. frets.Select(fret => fret.Name.LocalName == "rect"
+			? (double)fret.Attribute("y")! : (double)fret.Attribute("y1")! - 0.5)];
+		double[] bottoms = [.. frets.Select((fret, index) => fret.Name.LocalName == "rect"
+			? tops[index] + (double)fret.Attribute("height")! : tops[index] + 1)];
+
+		frets.Length.ShouldBe(6);
+		Enumerable.Range(1, frets.Length - 1).Select(index => tops[index] - bottoms[index - 1])
+			.ShouldAllBe(gap => gap == 9);
+		GetClassElements(image, "diagram-nut").Single().Attribute("height")!.Value.ShouldBe("3");
+		foreach (XElement dot in GetClassElements(image, "diagram-dot"))
+		{
+			double y = (double)dot.Attribute("cy")!;
+			double radius = (double)dot.Attribute("r")!;
+			int fret = Array.FindIndex(tops, top => top > y);
+			fret.ShouldBeGreaterThan(0);
+			(y - radius - bottoms[fret - 1]).ShouldBeGreaterThanOrEqualTo(1.5);
+			(tops[fret] - y - radius).ShouldBeGreaterThanOrEqualTo(1.5);
+		}
+
+		GetClassElements(image, "diagram-dot").Count().ShouldBe(4);
+		GetDefaultStyles(html).ShouldContain("shape-rendering: geometricPrecision");
+		new TextFormatter(document).ToString().ShouldBe(original);
 	}
 
 	[TestMethod]

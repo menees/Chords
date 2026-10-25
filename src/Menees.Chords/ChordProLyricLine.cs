@@ -162,9 +162,9 @@ public sealed class ChordProLyricLine : SegmentedEntry
 			token => token.Type == TokenType.Text ? new TextSegment(token.Text) : null,
 			out IReadOnlyList<Entry> annotations);
 
-		// If there are no chords, then skip this line.
+		// An annotation such as [*NC] belongs in the chord row even without a chord.
 		ChordProLyricLine? result = null;
-		if (segments.OfType<ChordSegment>().Any())
+		if (segments.Any(segment => segment is ChordSegment or ChordAnnotationSegment))
 		{
 			result = new(segments);
 			result.AddAnnotations(annotations);

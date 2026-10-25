@@ -43,8 +43,8 @@ public static class DatabaseValidation
 
 			foreach (Song song in database.Songs)
 			{
-				if (song.MetadataOverrides is null || song.MetadataOverrides.Any(pair => string.IsNullOrWhiteSpace(pair.Key)
-					|| !pair.Key.Equals(pair.Key, StringComparison.InvariantCultureIgnoreCase) || pair.Value is null || pair.Value.Any(value => value is null)))
+				if (song.MetadataOverrides is null || song.MetadataOverrides.Any(pair => !IsCanonicalMetadataName(pair.Key)
+					|| pair.Value is null || pair.Value.Any(value => value is null)))
 				{
 					problems.Add(new($"songs[{song.Id}].metadataOverrides", "Catalog metadata requires normalized names and non-null value lists."));
 				}
@@ -146,6 +146,9 @@ public static class DatabaseValidation
 	#endregion
 
 	#region Private Methods
+
+	private static bool IsCanonicalMetadataName(string name)
+		=> !string.IsNullOrWhiteSpace(name) && name.Equals(name.Trim().ToLowerInvariant(), StringComparison.Ordinal);
 
 	private static void RequireId(Guid id, string path, List<ValidationProblem> problems)
 	{

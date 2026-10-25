@@ -112,11 +112,16 @@ public sealed class SavedSongVersionTests
 		await this.SaveAsync(await this.session.GetSongEditAsync(this.songId, token), "Second\n", token);
 		SongEditDocument edit = await this.session.GetSongEditAsync(this.songId, token);
 		SongFile previous = this.session.Database!.SongFiles.Single(file => file.IsArchived);
+		var sourceMetadata = this.session.Database.Songs.Single().SourceMetadata;
+		List<SourceMetadataValue> observation = [new() { Value = "preserved", SourceName = "custom" }];
+		sourceMetadata["custom"] = observation;
 		using FileStream locked = File.Open(this.PathFor(previous), FileMode.Open, FileAccess.Read, FileShare.None);
 		await this.session.SaveSongEditAsync(edit, "New catalog title", [], [], edit.Text, this.device, token);
 		this.session.Database!.SongFiles.Count.ShouldBe(2);
 		this.session.Database.SongFiles.Single(file => file.IsArchived).Id.ShouldBe(previous.Id);
 		this.session.Database.Tombstones.ShouldBeEmpty();
+		this.session.Database.Songs.Single().SourceMetadata.ShouldBeSameAs(sourceMetadata);
+		sourceMetadata["custom"].ShouldBeSameAs(observation);
 	}
 
 	[TestMethod]

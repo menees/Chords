@@ -3,15 +3,14 @@
 	xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
 	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
 	xmlns:local="clr-namespace:Menees.Chords.Book.Maui" Title="Review Folder Changes">
-	<Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
-		<FlexLayout Wrap="Wrap" AlignItems="Center">
+	<Grid Padding="8" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
+		<local:ScreenHeader BackRequested="HandleClose">
 			<Label Text="Review Folder Changes" FontSize="22" VerticalOptions="Center" />
-			<local:FluentIconButton Icon="Dismiss" Description="Close" Clicked="HandleClose" Margin="8,0,0,0" />
 			<HorizontalStackLayout x:Name="actions" Spacing="0">
 				<local:FluentIconButton x:Name="apply" Icon="Checkmark" Description="Apply Reviewed Changes" Clicked="HandleApply" Margin="8,0,0,0" />
 				<local:FluentIconButton Icon="ArrowClockwise" Description="Refresh Review" Clicked="HandleRefresh" Margin="8,0,0,0" />
 			</HorizontalStackLayout>
-		</FlexLayout>
+		</local:ScreenHeader>
 		<Label Grid.Row="1" Text="Applying updates the book catalog; it never rewrites your sheets. Catalog conflicts keep your edits unless you select Use source value. Missing files are not deleted." />
 		<CollectionView x:Name="items" Grid.Row="2" SelectionMode="None">
 			<CollectionView.ItemTemplate>

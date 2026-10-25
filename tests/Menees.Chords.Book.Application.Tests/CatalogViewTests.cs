@@ -65,6 +65,43 @@ public sealed class CatalogViewTests
 	}
 
 	[TestMethod]
+	[DataRow("filter")]
+	[DataRow("sort")]
+	[DataRow("group")]
+	public async Task UnsupportedSavedViewUpdatePreservesDefinition(string unsupported)
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Views", device, token);
+		string original = await store.ReadDatabaseJsonAsync(location, token);
+		ChordDatabase database = DatabaseJson.Deserialize(original);
+		CustomTab tab = new() { Id = Guid.NewGuid(), Name = "Advanced", Filter = new() { Operator = "search", Value = "Song" } };
+		if (unsupported == "filter")
+		{
+			tab.Filter = new() { Operator = "and", Children = [new() { Operator = "eq", Field = "key", Value = "G" }] };
+		}
+		else if (unsupported == "sort")
+		{
+			tab.Sort = [new() { Field = "artist", Descending = true }];
+		}
+		else
+		{
+			tab.GroupBy = "genre";
+		}
+
+		database.CustomTabs.Add(tab);
+		await store.CommitMetadataAsync(location, original, database, token);
+		BookApplicationSession session = new();
+		await session.ActivateAsync(store, location, token);
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		session.GetCustomTabs().Single().IsSupported.ShouldBeFalse();
+		await Should.ThrowAsync<InvalidOperationException>(() => session.SaveCustomTabAsync(tab.Id, "Rename", string.Empty, "title", device, token));
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		DatabaseJson.Serialize(session.Database!).ShouldBe(before);
+	}
+
+	[TestMethod]
 	public async Task SavedViewsRoundTripAndDeletionRetainsSongsAndRecordsTombstone()
 	{
 		var token = this.TestContext.CancellationToken;

@@ -6,13 +6,11 @@ namespace Menees.Chords.Book.Maui;
 public sealed partial class InstrumentSelector : ContentView
 {
 	private readonly FluentIconSplitButton button = new();
-	private readonly FluentIconButton single = new();
 	private IReadOnlyList<InstrumentProfileInfo> profiles = [];
 
 	public InstrumentSelector()
 	{
-		this.Content = new Grid { Children = { this.button, this.single } };
-		this.single.Clicked += (_, _) => this.SettingsRequested?.Invoke(this, EventArgs.Empty);
+		this.Content = this.button;
 		this.button.Clicked += (_, _) =>
 		{
 			int index = this.profiles.ToList().FindIndex(profile => profile.Id == this.SelectedId);
@@ -25,21 +23,13 @@ public sealed partial class InstrumentSelector : ContentView
 
 	public event EventHandler? Changed;
 
-	public event EventHandler? SettingsRequested;
-
 	public Guid? SelectedId { get; private set; }
 
 	public void Update(IReadOnlyList<InstrumentProfileInfo> instruments, InstrumentProfileInfo? current)
 	{
 		this.profiles = instruments;
 		this.SelectedId = current?.Id;
-		this.IsVisible = current is not null;
-		this.button.IsVisible = instruments.Count > 1;
-		this.single.IsVisible = !this.button.IsVisible;
-		string icon = current is null ? string.Empty : GetIcon(current);
-		this.single.Text = string.IsNullOrEmpty(icon) ? current?.Name : string.Empty;
-		this.single.WidthRequest = string.IsNullOrEmpty(icon) ? -1 : this.single.HeightRequest;
-		this.single.SetIcon(icon, current?.Name + " — instrument settings");
+		this.IsVisible = instruments.Count > 1;
 		this.button.Icon = current is null ? string.Empty : GetIcon(current);
 		this.button.Description = current is null ? "Instrument" : current.Name + " — next instrument";
 		this.button.MenuItems = [.. instruments.Select(profile => new FluentMenuItem(

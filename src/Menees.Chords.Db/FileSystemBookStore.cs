@@ -239,6 +239,32 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		return Task.FromResult<IStagedBookWrite>(new StagedWrite(this, location, directory, stageDirectory, json, assets, json));
 	}
 
+	/// <summary>Stages a verified replica into an unchanged empty placeholder, retaining its folder and unrelated files.</summary>
+	public async Task<BookLocation> PopulateEmptyReplicaAsync(
+		BookLocation location,
+		string expectedJson,
+		string replicaJson,
+		Func<SongFile, CancellationToken, Task<Stream>> openSource,
+		CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(openSource);
+		ChordDatabase replica = DatabaseJson.Deserialize(replicaJson);
+		EmptyBookAdoption.Validate(location, expectedJson, replica.Id);
+		this.RequireUnusedReplicaIdentity(replica.Id);
+		string directory = this.GetPath(location);
+		await using StagedWrite write = (StagedWrite)await this.StageWriteAsync(location, expectedJson, cancellationToken).ConfigureAwait(false);
+		write.ReplicaBookId = replica.Id;
+		foreach (SongFile file in replica.SongFiles)
+		{
+			await using Stream source = await openSource(file, cancellationToken).ConfigureAwait(false);
+			await write.WriteManagedAssetAsync(file.Id, file.RelativePath, source, cancellationToken).ConfigureAwait(false);
+		}
+
+		await write.WriteDatabaseJsonAsync(replicaJson, cancellationToken).ConfigureAwait(false);
+		await write.CommitAsync(cancellationToken).ConfigureAwait(false);
+		return this.Register(directory, replica.Id);
+	}
+
 	/// <summary>Reads the local recovery generation that invalidates every replica's previous comparison state.</summary>
 	public async Task<Guid> ReadRecoveryEpochAsync(BookLocation location, CancellationToken cancellationToken = default)
 	{
@@ -522,22 +548,11 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 		string expectedDatabaseJson,
 		string? recoveryBackupPath,
 		bool verifyOriginalAssets,
+		Guid? replicaBookId,
 		CancellationToken cancellationToken)
 	{
-		ChordDatabase next;
-		try
-		{
-			next = DatabaseJson.Deserialize(databaseJson);
-		}
-		catch (DatabaseFormatException exception)
-		{
-			throw new BookStoreValidationException("The staged database is invalid.", exception);
-		}
-
-		if (next.Id != location.Token || !next.SongFiles.Select(file => file.Id).ToHashSet().SetEquals(assets.Keys))
-		{
-			throw new BookStoreValidationException("The staged database identity or asset set does not match the transaction.");
-		}
+		ChordDatabase next = ReadStagedCatalog(location, databaseJson, assets, replicaBookId);
+		ValidateEmptyReplica(location, expectedDatabaseJson, replicaBookId);
 
 		ChordDatabase current = DatabaseJson.Deserialize(expectedDatabaseJson);
 		Dictionary<Guid, SongFile> previousFiles = current.SongFiles.ToDictionary(file => file.Id);
@@ -571,6 +586,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				throw new BookStoreConcurrencyException();
 			}
 
+			this.ValidateReplicaIdentity(replicaBookId);
 			HashSet<string> affectedPaths = new(affected.Select(file => file.RelativePath), PortableManagedFileName.Comparer);
 			List<SongFile> installed = GetInstalledFiles(next, previousFiles, writtenHashes);
 			foreach (SongFile file in installed)
@@ -611,6 +627,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				databaseReplaced = true;
 				this.faultInjector?.Invoke(FileSystemCommitStep.DatabaseReplaced);
 				journal.Complete();
+				this.RetirePlaceholderLocation(location, replicaBookId);
 			}
 			catch
 			{
@@ -675,6 +692,59 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 	}
 
 #pragma warning restore SA1204
+
+	private static ChordDatabase ReadStagedCatalog(
+		BookLocation location, string databaseJson, Dictionary<Guid, string> assets, Guid? replicaBookId)
+	{
+		ChordDatabase next;
+		try
+		{
+			next = DatabaseJson.Deserialize(databaseJson);
+		}
+		catch (DatabaseFormatException exception)
+		{
+			throw new BookStoreValidationException("The staged database is invalid.", exception);
+		}
+
+		if (next.Id != (replicaBookId ?? location.Token) || !next.SongFiles.Select(file => file.Id).ToHashSet().SetEquals(assets.Keys))
+		{
+			throw new BookStoreValidationException("The staged database identity or asset set does not match the transaction.");
+		}
+
+		return next;
+	}
+
+	private static void ValidateEmptyReplica(BookLocation location, string expectedJson, Guid? replicaBookId)
+	{
+		if (replicaBookId is Guid id)
+		{
+			EmptyBookAdoption.Validate(location, expectedJson, id);
+		}
+	}
+
+	private void RetirePlaceholderLocation(BookLocation location, Guid? replicaBookId)
+	{
+		if (replicaBookId.HasValue)
+		{
+			this.paths.Remove(location.Token);
+		}
+	}
+
+	private void ValidateReplicaIdentity(Guid? bookId)
+	{
+		if (bookId is Guid id)
+		{
+			this.RequireUnusedReplicaIdentity(id);
+		}
+	}
+
+	private void RequireUnusedReplicaIdentity(Guid bookId)
+	{
+		if (this.paths.ContainsKey(bookId))
+		{
+			throw new BookStoreValidationException("This cloud book already has an open local copy.");
+		}
+	}
 
 	private string GetPath(BookLocation location)
 	{
@@ -752,6 +822,8 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 
 		internal string? RecoveryBackupPath { get; set; }
 
+		internal Guid? ReplicaBookId { get; set; }
+
 		public Task WriteDatabaseJsonAsync(string json, CancellationToken cancellationToken = default)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
@@ -828,6 +900,7 @@ public sealed class FileSystemBookStore : IBookStore, IExternalBookReconciler, I
 				this.expectedDatabaseJson,
 				this.RecoveryBackupPath,
 				this.VerifyOriginalAssets,
+				this.ReplicaBookId,
 				cancellationToken).ConfigureAwait(false);
 			this.assets = null;
 			Directory.Delete(this.stageDirectory, recursive: true);

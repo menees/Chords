@@ -51,7 +51,8 @@ public partial class MainPage
 		{
 			CustomTabCatalogItem? current = this.CurrentCustomTab;
 			string[] choices = current is null ? ["Save as New Tab", "Search Help"]
-				: ["Save as New Tab", "Update This Tab", "Delete This Tab", "Search Help"];
+				: current.IsSupported ? ["Save as New Tab", "Update This Tab", "Delete This Tab", "Search Help"]
+				: ["Save as New Tab", "Delete This Tab", "Search Help"];
 			string? action = await this.DisplayActionSheetAsync("Song Views", "Cancel", null, choices).ConfigureAwait(true);
 			if (action == "Search Help")
 			{

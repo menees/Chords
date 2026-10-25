@@ -39,7 +39,11 @@ public partial class App : global::Microsoft.Maui.Controls.Application
 
 	protected override Window CreateWindow(IActivationState? activationState)
 	{
-		Window window = new(this.mainPage)
+		NavigationPage.SetHasNavigationBar(this.mainPage, false);
+		NavigationPage.SetHasBackButton(this.mainPage, false);
+		NavigationPage navigation = new(this.mainPage);
+		Platforms.Windows.WindowsNavigationChrome.Attach(navigation);
+		Window window = new(navigation)
 		{
 			Title = "Menees ChordBook",
 			Width = InitialWindowWidth,

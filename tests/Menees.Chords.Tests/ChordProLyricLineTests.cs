@@ -1,9 +1,11 @@
-﻿namespace Menees.Chords;
+namespace Menees.Chords;
 
 #region Using Directives
 
 using System.Diagnostics;
+using Menees.Chords.Formatters;
 using Menees.Chords.Parsers;
+using Menees.Chords.Transformers;
 
 #endregion
 
@@ -39,6 +41,25 @@ public class ChordProLyricLineTests
 				.All(pair => pair.first.Chord.Name == pair.second).ShouldBeTrue();
 			return line;
 		}
+	}
+
+	[TestMethod]
+	public void AnnotationOnlyLineTest()
+	{
+		foreach (string text in new[] { "[*NC]", "[*NC]Sing freely", "Sing [*NC]freely", "[*4x] [*↓]" })
+		{
+			ChordProLyricLine line = ChordProLyricLine.TryParse(LineContextTests.Create(text)).ShouldNotBeNull();
+			line.Segments.OfType<ChordSegment>().ShouldBeEmpty();
+			line.Segments.OfType<ChordAnnotationSegment>().ShouldNotBeEmpty();
+			line.ToString().ShouldBe(text);
+			Document document = Document.Parse(text);
+			new TextFormatter(new ChordProTransformer(document).Transform().Document).ToString().ShouldBe(text);
+		}
+
+		ChordProLyricLine literal = ChordProLyricLine.TryParse(LineContextTests.Create("[C]*literal text")).ShouldNotBeNull();
+		literal.Segments.OfType<ChordAnnotationSegment>().ShouldBeEmpty();
+		literal.ToString().ShouldBe("[C]*literal text");
+		ChordProLyricLine.TryParse(LineContextTests.Create("*literal text")).ShouldBeNull();
 	}
 
 	[TestMethod]
@@ -160,6 +181,8 @@ public class ChordProLyricLineTests
 	public void SplitTest()
 	{
 		// Test some simple lines with no lyrics.
+		Test("[*NC]Sing freely", "NC", "Sing freely");
+		Test("[*NC]", "NC");
 		Test("[G]  [*4x]", "G 4x");
 		Test("[C] [Em] [D] [D]", "C Em D D");
 		Test("[C] [Em] [D] [D]  [*2x]", "C Em D D 2x");

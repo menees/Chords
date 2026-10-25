@@ -25,6 +25,7 @@ public sealed partial class PerformanceInputPage : ContentPage
 	private PerformanceKeyGesture? learned;
 	private bool listening;
 	private bool busy;
+	private bool leaving;
 
 	#endregion
 
@@ -61,7 +62,7 @@ public sealed partial class PerformanceInputPage : ContentPage
 		};
 		FluentIconButton save = new() { Icon = "Save", Description = "Save" };
 		save.Clicked += async (_, _) => await this.SaveAsync().ConfigureAwait(true);
-		FluentIconButton cancel = new() { Icon = "Dismiss", Description = "Cancel" };
+		FluentIconButton cancel = new() { Icon = "ArrowLeft", Description = "Back" };
 		cancel.Clicked += async (_, _) => await this.CloseAsync(false).ConfigureAwait(true);
 		this.capture.Navigating += this.HandleNavigating;
 		this.capture.Navigated += (_, _) => this.capture.Focus();
@@ -78,7 +79,7 @@ public sealed partial class PerformanceInputPage : ContentPage
 				},
 			},
 		};
-		this.Content = DialogLayout.Create("Keyboard and Pedal Commands", body, save, cancel, remove, reset, learn, assign);
+		this.Content = ScreenLayout.Create("Keyboard and Pedal Commands", body, cancel, save, remove, reset, learn, assign);
 		this.RefreshBindings();
 	}
 
@@ -183,7 +184,7 @@ public sealed partial class PerformanceInputPage : ContentPage
 			try
 			{
 				await Task.Run(() => this.session.Input.SaveBindingsAsync(this.original, this.bindings, this.session.DeviceId)).ConfigureAwait(true);
-				await this.Navigation.PopModalAsync().ConfigureAwait(true);
+				await this.Navigation.PopAsync().ConfigureAwait(true);
 				this.completion.TrySetResult(true);
 			}
 			catch (Exception exception) when (exception is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
@@ -199,10 +200,27 @@ public sealed partial class PerformanceInputPage : ContentPage
 
 	private async Task CloseAsync(bool saved)
 	{
-		if (!this.busy)
+		if (!this.busy && !this.leaving)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
-			this.completion.TrySetResult(saved);
+			this.leaving = true;
+			this.IsEnabled = false;
+			try
+			{
+				await ScreenNavigation.LeaveEditorAsync(
+					this,
+					!this.bindings.SequenceEqual(this.original.Bindings),
+					this.SaveAsync,
+					async () =>
+					{
+						await this.Navigation.PopAsync().ConfigureAwait(true);
+						this.completion.TrySetResult(saved);
+					}).ConfigureAwait(true);
+			}
+			finally
+			{
+				this.IsEnabled = true;
+				this.leaving = false;
+			}
 		}
 	}
 

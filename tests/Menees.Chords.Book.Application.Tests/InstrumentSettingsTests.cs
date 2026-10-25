@@ -114,6 +114,93 @@ public sealed class InstrumentSettingsTests
 	}
 
 	[TestMethod]
+	public async Task SourceCapoShapesSeedPianoAtSoundingPitch()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, _, _, device, _, guitar) = await CreateAsync(token);
+		const string Source = "{key: Db}\r\n{capo: 1}\r\n[C]Words";
+		Guid song = await session.CreateSongAsync("Capo shapes", [], [], Source, device, token);
+		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
+		await service.SaveSongSettingsBatchAsync(
+			[
+				(service.GetSongSettings(song, guitar), new()),
+				(service.GetSongSettings(song, piano), service.GetSongSettings(song, piano).Options),
+			],
+			device,
+			cancellationToken: token);
+		BookSongPresentation acoustic = await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token);
+		service.GetSongSettings(song, piano).Options.TransposeSemitones.ShouldBe(1);
+		await service.SaveSongSettingsAsync(
+			service.GetSongSettings(song, piano), new(1, Spelling: AccidentalPreference.Flats), device, cancellationToken: token);
+		(await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token)).Html!.ShouldContain(">Db</span>");
+		(await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token)).Html.ShouldBe(acoustic.Html);
+		(await session.GetSongEditAsync(song, token)).Text.ShouldBe(Source);
+	}
+
+	[TestMethod]
+	[DataRow(CapoBehavior.DisplayOnly, 4, "E")]
+	[DataRow(CapoBehavior.AffectsShownChords, 2, "D")]
+	[DataRow(CapoBehavior.RaiseShownChords, 6, "F#")]
+	public async Task PianoDefaultsMatchCapoedDefaultInstrument(
+		CapoBehavior behavior, int pianoTranspose, string pianoChord)
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, store, location, device, song, guitar) = await CreateAsync(token);
+		await service.SaveDefaultAsync(session.Database!.Id, session.Database.BookSettings.Revision.Revision, guitar, device, token);
+		await service.SaveSongSettingsAsync(service.GetSongSettings(song, guitar), new(2, 2, behavior), device, cancellationToken: token);
+		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
+		SongInstrumentSnapshot seed = service.GetSongSettings(song, piano);
+		seed.Options.TransposeSemitones.ShouldBe(pianoTranspose);
+		seed.Options.CapoFret.ShouldBe(0);
+		seed.Options.CapoBehavior.ShouldBe(CapoBehavior.DisplayOnly);
+		await service.SaveSongSettingsAsync(seed, seed.Options, device, cancellationToken: token);
+		(await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token)).Html!.ShouldContain(">" + pianoChord + "</span>");
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		service.GetSongSettings(song, piano).Options.TransposeSemitones.ShouldBe(pianoTranspose);
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		(await session.GetSongEditAsync(song, token)).Text.ShouldBe("{key: C}\r\n[C]Words");
+	}
+
+	[TestMethod]
+	[DataRow(CapoBehavior.DisplayOnly, 3, "D")]
+	[DataRow(CapoBehavior.AffectsShownChords, 3, "B")]
+	[DataRow(CapoBehavior.RaiseShownChords, 3, "F")]
+	[DataRow(CapoBehavior.RaiseShownChords, 0, "D")]
+	public async Task CapoModesApplyAfterIndependentTransposeAndRoundTrip(CapoBehavior behavior, int capo, string expectedChord)
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, store, location, device, song, guitar) = await CreateAsync(token);
+		await service.SaveSongSettingsAsync(service.GetSongSettings(song, guitar), new(2, capo, behavior), device, cancellationToken: token);
+		(await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token)).Html!.ShouldContain(">" + expectedChord + "</span>");
+		ChordDatabase saved = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
+		saved.SongInstrumentSettings.Single().CapoBehavior.ShouldBe(behavior);
+		await Should.ThrowAsync<ArgumentOutOfRangeException>(() => service.SaveSongSettingsAsync(
+			service.GetSongSettings(song, guitar), new(0, 2, (CapoBehavior)99), device, cancellationToken: token));
+	}
+
+	[TestMethod]
+	public async Task PianoDefaultsInheritCatalogCapoAndPendingReferenceWithoutOverwritingSavedSettings()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, _, _, device, _, guitar) = await CreateAsync(token);
+		Guid song = await session.CreateSongAsync("Inherited capo", [], [], "{capo: 3}\r\n[C]Words", device, token);
+		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
+		await service.SaveDefaultAsync(session.Database!.Id, session.Database.BookSettings.Revision.Revision, guitar, device, token);
+		await service.SaveSongSettingsAsync(
+			service.GetSongSettings(song, guitar), new(1, null, CapoBehavior.AffectsShownChords), device, cancellationToken: token);
+		SongInstrumentSnapshot seed = service.GetSongSettings(song, piano);
+		seed.Options.TransposeSemitones.ShouldBe(1);
+		service.GetNewAssignmentOptions(song, piano, new(1, null, CapoBehavior.RaiseShownChords)).TransposeSemitones.ShouldBe(7);
+		await service.SaveSongSettingsAsync(seed, seed.Options, device, cancellationToken: token);
+		await service.SaveSongSettingsAsync(
+			service.GetSongSettings(song, guitar), new(1, null, CapoBehavior.RaiseShownChords), device, cancellationToken: token);
+		service.GetSongSettings(song, piano).Options.TransposeSemitones.ShouldBe(1);
+		await service.SaveDefaultAsync(session.Database.Id, session.Database.BookSettings.Revision.Revision, piano, device, token);
+		await service.SaveSongSettingsAsync(service.GetSongSettings(song, piano), null, device, cancellationToken: token);
+		service.GetSongSettings(song, piano).Options.TransposeSemitones.ShouldBe(7);
+	}
+
+	[TestMethod]
 	public async Task EntryTransposeReplacesSongOffsetAndCapoOnlyChangesShapesWhenRequested()
 	{
 		var token = this.TestContext.CancellationToken;
@@ -122,7 +209,7 @@ public sealed class InstrumentSettingsTests
 		await service.SaveSongSettingsAsync(original, new(2, 2, CapoBehavior.DisplayOnly), device, cancellationToken: token);
 		BookSongPresentation sounding = await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token);
 		sounding.Html!.ShouldContain(">D</span>");
-		sounding.PerformanceDescription!.ShouldContain("Capo 2 (display only)");
+		sounding.PerformanceDescription!.ShouldContain("Capo 2 (None)");
 		await service.SaveSongSettingsAsync(
 			service.GetSongSettings(song, guitar), new(2, 2, CapoBehavior.AffectsShownChords), device, cancellationToken: token);
 		(await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token)).Html!.ShouldContain(">C</span>");

@@ -18,7 +18,9 @@ public static class CloudBookPublisher
 
 	/// <summary>The caller must supply verified-source candidates from the confirmed merge and retain its local baseline.</summary>
 	/// <remarks>
-	/// This is one executor step, not end-to-end sync. Failures may leave unreferenced uploads, which must be reconciled by a durable executor.
+	/// Application clients should use <see cref="BookSyncCoordinator"/> for durable, resumable synchronization.
+	/// This low-level step requires caller-owned durable execution and checkpoints.
+	/// Failures may leave unreferenced uploads, which must be reconciled by that executor.
 	/// A successful cloud commit must be checkpointed even if later local application fails; never blindly replay a stale publication.
 	/// </remarks>
 	public static async Task<CloudBookPublication> PublishAsync(

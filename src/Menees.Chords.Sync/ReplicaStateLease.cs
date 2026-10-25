@@ -1,7 +1,6 @@
 #region Using Directives
 
 using System.IO;
-using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
@@ -223,62 +222,21 @@ public sealed class ReplicaStateLease : IDisposable
 	private async Task<ReplicaStateDocument?> ReadAsync(string name, CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(this.disposed, this);
-		cancellationToken.ThrowIfCancellationRequested();
-		string path = Path.Combine(this.directory, name);
-		ReplicaStateDocument? result = null;
-		if (File.Exists(path))
+		ReplicaStateDocument? result = await ReplicaJsonFile.ReadAsync<ReplicaStateDocument>(
+			Path.Combine(this.directory, name), cancellationToken, MaximumFileSize).ConfigureAwait(false);
+		if (result is not null && (!result.Matches(this.key) || result.DocumentKind != name || result.Items is null || result.Operations is null
+			|| result.Conflicts is null || result.CompletedOperationIds is null))
 		{
-			try
-			{
-				await using FileStream input = new(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-				if (input.Length > MaximumFileSize)
-				{
-					throw new InvalidDataException("The replica checkpoint exceeds its size limit.");
-				}
-
-				result = await JsonSerializer.DeserializeAsync<ReplicaStateDocument>(
-					input, cancellationToken: cancellationToken).ConfigureAwait(false);
-				if (result is null || !result.Matches(this.key) || result.DocumentKind != name || result.Items is null || result.Operations is null
-					|| result.Conflicts is null || result.CompletedOperationIds is null)
-				{
-					throw new InvalidDataException("Invalid, unsupported, or mismatched replica checkpoint. Existing state was retained.");
-				}
-			}
-			catch (Exception exception) when (exception is JsonException or ArgumentException)
-			{
-				throw new InvalidDataException("The replica checkpoint is corrupt. Existing state was retained.", exception);
-			}
+			throw new InvalidDataException("Invalid, unsupported, or mismatched replica checkpoint. Existing state was retained.");
 		}
 
 		return result;
 	}
 
-	private async Task WriteAsync(string name, ReplicaStateDocument document, CancellationToken cancellationToken)
+	private Task WriteAsync(string name, ReplicaStateDocument document, CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(this.disposed, this);
-		cancellationToken.ThrowIfCancellationRequested();
-		string target = Path.Combine(this.directory, name);
-		string temporary = target + ".tmp";
-		try
-		{
-			await using (FileStream output = new(temporary, FileMode.Create, FileAccess.Write, FileShare.None))
-			{
-				await JsonSerializer.SerializeAsync(output, document, cancellationToken: cancellationToken).ConfigureAwait(false);
-				if (output.Length > MaximumFileSize)
-				{
-					throw new InvalidDataException("The replica checkpoint exceeds its size limit.");
-				}
-
-				output.Flush(flushToDisk: true);
-			}
-
-			cancellationToken.ThrowIfCancellationRequested();
-			File.Move(temporary, target, overwrite: true);
-		}
-		finally
-		{
-			File.Delete(temporary);
-		}
+		return ReplicaJsonFile.WriteAsync(Path.Combine(this.directory, name), document, cancellationToken, MaximumFileSize);
 	}
 
 	#endregion

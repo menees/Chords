@@ -321,8 +321,6 @@ public partial class MainPage : ContentPage
 
 	private void HandleSelectSongsClicked(object? sender, EventArgs e) => this.BeginSongSelection(null);
 
-	private void HandleCancelSongSelectionClicked(object? sender, EventArgs e) => this.EndSongSelection();
-
 	private async void HandleAddSelectedSongsClicked(object? sender, EventArgs e)
 	{
 		IReadOnlyList<SongRow> selected = [.. this.visibleSongs.Where(song => song.IsSelected)];
@@ -454,8 +452,9 @@ public partial class MainPage : ContentPage
 	{
 		if (this.currentSetlist is SetlistRow setlist)
 		{
-			this.BeginSongSelection(setlist.Id);
+			// Changing tabs ends the previous selection; enter selection after that transition.
 			this.ShowManagementTab(showSetlists: false);
+			this.BeginSongSelection(setlist.Id);
 		}
 	}
 
@@ -773,6 +772,22 @@ public partial class MainPage : ContentPage
 		return result;
 	}
 
+	private void LeaveSongSelection()
+	{
+		Guid? target = this.bulkTargetSetlistId;
+		bool editing = this.editingSetlist;
+		this.EndSongSelection();
+		if (target is Guid id && this.allSetlists.Any(list => list.Id == id))
+		{
+			this.ShowManagementTab(showSetlists: true);
+			this.OpenSetlist(id);
+			if (editing)
+			{
+				this.HandleEditSetlistClicked(this, EventArgs.Empty);
+			}
+		}
+	}
+
 	private void EndSongSelection()
 	{
 		foreach (SongRow song in this.visibleSongs)
@@ -922,7 +937,7 @@ public partial class MainPage : ContentPage
 		}
 		else if (this.selectingSongs)
 		{
-			this.EndSongSelection();
+			this.LeaveSongSelection();
 		}
 		else if (this.SetlistDetail.IsVisible)
 		{
@@ -1024,14 +1039,6 @@ public partial class MainPage : ContentPage
 			this.Status.Text = exception.Message;
 		}
 #pragma warning restore CA1031
-	}
-
-	private async void HandleInstrumentSettingsRequested(object? sender, EventArgs e)
-	{
-		if (!this.performanceLocked && this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
-		{
-			await this.ManageSongAsync(this.performanceSongs[this.currentSongIndex].Id, "Instrument Settings").ConfigureAwait(true);
-		}
 	}
 
 	private async void HandleQuickInstrumentChanged(object? sender, EventArgs e)

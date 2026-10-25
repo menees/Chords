@@ -4,15 +4,15 @@ ChordBook now has manual OneDrive sync under **Options > OneDrive**: choose a di
 
 During Sync Now, the bottom status shows preparation/upload counts (for example, **Uploading: 237 of 531 sheets completed**) with a progress bar. The bar measures completed sheets in the current phase, not estimated time or bytes. Sign-in, comparison and catalog saves use an activity indicator; the sync finishes only after both catalog/state work and the local reload complete. Retries and resumed verified uploads count once, and Cancel retains recoverable transfer progress.
 
-Windows Sync Now transfers up to four independent sheets concurrently during upload or cloud-download preparation. Local staging and catalog commits remain serialized; the cloud catalog is published only after all required uploads and receipts succeed. A failed/canceled batch waits for active transfers to stop and retains its journal for automatic recovery. Provider-neutral callers retain a serial default and can select a limit from 1 to 16 when their provider supports concurrent transfers; future mobile clients can use a lower limit. Retries respect the provider Retry-After delay. This limit is currently a Windows policy, not a user setting or adaptive throttle. The separate Download Book operation remains serial.
+Windows Sync Now transfers up to four independent sheets concurrently during upload or cloud-download preparation. Local staging and catalog commits remain serialized; the cloud catalog is published only after all required uploads and receipts succeed. A failed/canceled batch waits for active transfers to stop and retains its journal for automatic recovery. Provider-neutral callers retain a serial default and can select a limit from 1 to 16 when their provider supports concurrent transfers; future mobile clients can use a lower limit. Retries respect the provider Retry-After delay. This limit is currently a Windows policy, not a user setting or adaptive throttle. Download Book also uses four concurrent transfers with bounded, length/hash-verified temporary streams and serial local writes. Its progress bar shows downloaded and verified sheets (for example, 237 of 531), followed by sync-state and opening phases. A canceled first download discards its temporary sheets and retains the current book; choose Download Book again to retry.
 
 ## Connect as a user
 
 The app includes ChordBook's public application ID. Users do not register their own application or enter a GUID.
 
-1. Open **Options > OneDrive**, choose a direction (normally **Two-Way**), and press **Sync Now**.
+1. Open **Options > OneDrive**, choose a direction (normally **Two-Way**), and press **Sync Now**. If the current book is an empty placeholder, choose an existing nonempty cloud book; an empty book is not uploaded.
 2. Sign in with your Microsoft account and approve OneDrive app-folder access.
-3. Use that same account on each PC. Sync a disposable book on the first PC, then use Download Book on the second PC.
+3. Use that same account on each PC. Sync a disposable book containing songs on the first PC. On the second PC, Sync Now in its empty book offers cloud books, or use Download Book explicitly. Confirm the choice to reuse the current empty folder; its placeholder settings are replaced by the cloud settings.
 4. Follow the two-PC acceptance steps below before adopting a personal book.
 
 ## App registration (maintainer only)
@@ -34,7 +34,7 @@ OneDrive stores books beneath its application folder, usually `Apps/<registratio
 ## Start with a disposable book
 
 1. On PC A, create a test book and add a text song plus a small PDF. Open OneDrive, select Two-Way and press Sync Now. Complete Microsoft sign-in if prompted. Check the resulting book/account, counts and conflicts.
-2. On PC B, run the complete published folder, Connect with the same Microsoft account, then Download Book. Select the uploaded test book. The independent local copy keeps the same book identity.
+2. On PC B, run the complete published folder and sign in with the same Microsoft account. With an empty placeholder open, press Sync Now and select the uploaded test book. Confirm downloading it into the current empty book. Verify sheet-count progress, the original local folder and the cloud book identity; no duplicate empty cloud book should be created. A populated local book still uses a separate local copy when Download Book selects another identity.
 3. Edit a song and add another on PC B. Press Sync Now there, then on PC A. Check titles, authored text bytes and PDF viewing. Reverse the sequence with edits on PC A.
 4. Edit the same text sheet independently on both PCs before syncing. Sync A, then B, then A. Inspect the archived recovery sheet in Song Sheets; verify both versions survive.
 5. Cancel a sync after a sheet upload, close/relaunch and press Sync Now to resume. Repeat after editing locally before resuming: Sync Now automatically preserves captured sheets as archived recoveries and compares current books again.
@@ -43,6 +43,8 @@ OneDrive stores books beneath its application folder, usually `Apps/<registratio
 8. Start a sync on A and publish a new edit from B during A's comparison/transfer. A must refuse a stale cloud catalog. Press Sync Now again; it automatically preserves and replaces a stale pending transfer.
 
 Run the portable deployment checks in [WINDOWS_DEPLOYMENT.md](WINDOWS_DEPLOYMENT.md) on PC B. Record OS/architecture, build folder, result and any failure before adopting a personal book.
+
+A placeholder must have no songs, sheets, setlists, song/instrument assignments, custom tabs or deletion history. Empty books that contain deletion history keep their ordinary sync behavior. Reusing an empty folder stages and verifies all incoming sheets before replacing its catalog and identity; cancellation, corruption and concurrent edits retain the original. Unrelated local files are preserved. Existing empty copies already uploaded by an older build are retained.
 
 ## Review, interruption and current limits
 

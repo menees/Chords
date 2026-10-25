@@ -92,7 +92,7 @@ public abstract class SegmentedEntry : Entry
 			{
 				result.Add(new WhiteSpaceSegment(lexer.Token.Text));
 			}
-			else if (requiredBracketedChords && chordTokenType == TokenType.Bracketed && lexer.Token.Text.StartsWith('*'))
+			else if (requiredBracketedChords && lexer.Token.Type == TokenType.Bracketed && lexer.Token.Text.StartsWith('*'))
 			{
 				// Handle ChordPro [*Xxx] annotations before punctuation-only tokens such as [*↓].
 				result.Add(new ChordAnnotationSegment($"[{lexer.Token.Text}]"));

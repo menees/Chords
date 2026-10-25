@@ -26,7 +26,8 @@ public sealed class BookSyncPreview
 		HashSet<Guid> targetFiles = [.. target.SongFiles.Select(file => file.Id)];
 		this.LocalRemovedSheetCount = local.SongFiles.Count(file => !targetFiles.Contains(file.Id));
 		this.CloudRemovedSheetCount = cloud?.SongFiles.Count(file => !targetFiles.Contains(file.Id)) ?? 0;
-		this.ConflictDescriptions = DescribeConflicts(document.Conflicts, target, local, cloud);
+		this.ConflictDescriptions = document.Conflicts.Count == 0 ? Array.Empty<string>()
+			: DescribeConflicts(document.Conflicts, target, local, cloud);
 		bool localChanged = document.TargetJson != document.LocalJson
 			&& document.TargetJson != (canonicalLocal ??= DatabaseJson.Serialize(local));
 		bool cloudChanged = cloud is null || (document.Direction != SyncDirection.UpdateThisDevice

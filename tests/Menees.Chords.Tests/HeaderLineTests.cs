@@ -40,6 +40,8 @@ public class HeaderLineTests
 		Test("[]");
 		Test("[ \t ]");
 		Test("[A#]");
+		Test("[*NC]");
+		Test("[*4x]");
 		Test("[Test] Plus");
 		Test("[Verse][Chorus]");
 

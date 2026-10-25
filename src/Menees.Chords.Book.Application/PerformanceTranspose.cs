@@ -1,10 +1,12 @@
+using Menees.Chords.Db;
+
 namespace Menees.Chords.Book.Application;
 
 /// <summary>Resolves sounding-key transposition separately from capo chord shapes.</summary>
 internal static class PerformanceTranspose
 {
-	/// <summary>Returns the source-to-displayed chord offset, subtracting capo only for chord-shape mode.</summary>
-	public static int GetShownSemitones(int soundingTranspose, int? capoFret, bool showCapoShapes)
+	/// <summary>Returns the source-to-displayed chord offset, applying the selected capo direction.</summary>
+	public static int GetShownSemitones(int soundingTranspose, int? capoFret, CapoBehavior behavior)
 	{
 		const int MaximumTranspose = 24;
 		const int MaximumCapo = 24;
@@ -15,6 +17,13 @@ internal static class PerformanceTranspose
 			throw new ArgumentOutOfRangeException(nameof(capoFret));
 		}
 
-		return soundingTranspose - (showCapoShapes ? capoFret ?? 0 : 0);
+		int capo = capoFret ?? 0;
+		return soundingTranspose + behavior switch
+		{
+			CapoBehavior.DisplayOnly => 0,
+			CapoBehavior.AffectsShownChords => -capo,
+			CapoBehavior.RaiseShownChords => capo,
+			_ => throw new ArgumentOutOfRangeException(nameof(behavior)),
+		};
 	}
 }

@@ -1,6 +1,8 @@
 #region Using Directives
 
+using System.Buffers;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -50,8 +52,8 @@ public static class BookImportService
 			throw new InvalidOperationException("Paste ChordPro, chord-over-text, or mixed song text. Import PDF and OpenSong files instead.");
 		}
 
-		PendingImport import = new("New Song.txt", bytes, analysis);
-		Task<PendingImport> Read() => Task.FromResult(import);
+		Task<PendingImport> Read() => Task.FromResult(new PendingImport(
+			"New Song.txt", new MemoryStream(bytes, writable: false), SongFileAnalyzer.Hash(bytes), analysis));
 		void Initialize(Song song)
 		{
 			song.Title = title.Trim();
@@ -135,8 +137,7 @@ public static class BookImportService
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentException.ThrowIfNullOrWhiteSpace(sourceName);
 		ArgumentNullException.ThrowIfNull(source);
-		PendingImport import = await ReadAsync(sourceName, source, cancellationToken).ConfigureAwait(false);
-		Task<PendingImport> Read() => Task.FromResult(import);
+		Task<PendingImport> Read() => ReadAsync(sourceName, source, cancellationToken);
 		IReadOnlyList<BookImportResult> results = await ImportAsync(
 			store,
 			location,
@@ -192,7 +193,8 @@ public static class BookImportService
 		foreach (Func<Task<PendingImport>> read in imports)
 		{
 			PendingImport import = await read().ConfigureAwait(false);
-			string contentHash = SongFileAnalyzer.Hash(import.Content);
+			await using Stream content = import.Content;
+			string contentHash = import.ContentHash;
 			if (!skipDuplicates || identities.Add(CreateIdentity(targetSong?.Title ?? import.Analysis.Title, contentHash)))
 			{
 				Guid songId = targetSong?.Id ?? Guid.CreateVersion7();
@@ -239,7 +241,6 @@ public static class BookImportService
 				};
 				database.SongFiles.Add(file);
 				additions.Add(new BookImportResult(songId, songFileId, relativePath, import.Analysis));
-				using MemoryStream content = new(import.Content, writable: false);
 				await write.WriteManagedAssetAsync(songFileId, relativePath, content, cancellationToken).ConfigureAwait(false);
 			}
 		}
@@ -281,18 +282,68 @@ public static class BookImportService
 		Stream source,
 		CancellationToken cancellationToken)
 	{
-		using MemoryStream content = new();
-		await source.CopyToAsync(content, cancellationToken).ConfigureAwait(false);
-		byte[] bytes = content.ToArray();
-		SongFileAnalysis analysis = SongFileAnalyzer.Analyze(bytes, sourceName);
-		return new PendingImport(sourceName, bytes, analysis);
+		const int PrefixBytes = 4096;
+		const int BufferSize = 81920;
+		const int MaximumTextBytes = 16 * 1024 * 1024;
+		byte[] prefix = new byte[PrefixBytes];
+		int prefixLength = await source.ReadAtLeastAsync(prefix, PrefixBytes, throwOnEndOfStream: false, cancellationToken).ConfigureAwait(false);
+		bool pdf = prefix.AsSpan(0, prefixLength).StartsWith("%PDF-"u8);
+		if (!pdf)
+		{
+			SongFileAnalyzer.ValidateTextPrefix(prefix.AsSpan(0, prefixLength));
+		}
+
+		Stream content = pdf
+			? new FileStream(
+				Path.Combine(Path.GetTempPath(), "ChordBookImport-" + Guid.NewGuid().ToString("N") + ".tmp"),
+				FileMode.CreateNew,
+				FileAccess.ReadWrite,
+				FileShare.None,
+				BufferSize,
+				FileOptions.Asynchronous | FileOptions.SequentialScan | FileOptions.DeleteOnClose)
+			: new MemoryStream();
+		try
+		{
+			using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+			hash.AppendData(prefix, 0, prefixLength);
+			await content.WriteAsync(prefix.AsMemory(0, prefixLength), cancellationToken).ConfigureAwait(false);
+			byte[] buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
+			try
+			{
+				int count;
+				while ((count = await source.ReadAsync(buffer.AsMemory(0, BufferSize), cancellationToken).ConfigureAwait(false)) > 0)
+				{
+					if (!pdf && count > MaximumTextBytes - content.Length)
+					{
+						throw new BookStoreValidationException("Song text exceeds the 16 MB import limit. PDF files are streamed separately.");
+					}
+
+					hash.AppendData(buffer, 0, count);
+					await content.WriteAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
+				}
+			}
+			finally
+			{
+				ArrayPool<byte>.Shared.Return(buffer);
+			}
+
+			SongFileAnalysis analysis = pdf ? SongFileAnalyzer.Analyze(prefix.AsMemory(0, prefixLength), sourceName)
+				: SongFileAnalyzer.Analyze(((MemoryStream)content).GetBuffer().AsMemory(0, checked((int)content.Length)), sourceName);
+			content.Position = 0;
+			return new PendingImport(sourceName, content, Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant(), analysis);
+		}
+		catch
+		{
+			await content.DisposeAsync().ConfigureAwait(false);
+			throw;
+		}
 	}
 
 	#endregion
 
 	#region Private Types
 
-	private sealed record PendingImport(string SourceName, byte[] Content, SongFileAnalysis Analysis);
+	private sealed record PendingImport(string SourceName, Stream Content, string ContentHash, SongFileAnalysis Analysis);
 
 	#endregion
 }

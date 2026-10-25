@@ -74,7 +74,7 @@ public sealed partial class MetadataImportPage : ContentPage
 		layout.Add(new ScrollView { Content = fields }, 0, 1);
 		layout.Add(new Label { Text = "Text changes (− before, + after)" }, 0, 2);
 		layout.Add(new ScrollView { Content = this.diff }, 0, DiffRow);
-		FluentIconButton cancel = new() { Icon = "Dismiss", Description = "Cancel" };
+		FluentIconButton cancel = new() { Icon = "ArrowLeft", Description = "Back" };
 		cancel.Clicked += async (_, _) => await this.CloseAsync(null).ConfigureAwait(true);
 		this.apply.Clicked += this.HandleApply;
 		VerticalStackLayout actions = new()
@@ -82,7 +82,7 @@ public sealed partial class MetadataImportPage : ContentPage
 			Children = { this.status },
 		};
 		layout.Add(actions, 0, ActionRow);
-		this.Content = DialogLayout.Create(this.Title, layout, this.apply, cancel);
+		this.Content = ScreenLayout.Create(this.Title, layout, cancel, this.apply);
 		this.UpdatePreview();
 	}
 
@@ -141,7 +141,7 @@ public sealed partial class MetadataImportPage : ContentPage
 		if (!this.completion.Task.IsCompleted)
 		{
 			this.IsEnabled = false;
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult(result);
 		}
 	}

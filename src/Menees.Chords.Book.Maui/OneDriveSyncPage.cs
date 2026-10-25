@@ -18,7 +18,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 
 	private const int WindowsTransferConcurrency = 4;
 
-	private const int PaddingSize = 16;
+	private const int PaddingSize = 8;
 	private const int ControlSpacing = 8;
 	private const int HeadingSize = 18;
 	private const int ReportRow = 3;
@@ -37,13 +37,14 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 	private readonly FluentIconButton download = new() { Icon = "CloudArrowDown", Description = "Download Book…" };
 	private readonly FluentIconButton apply = new() { Icon = "ArrowSync", Description = "Sync Now", IsEnabled = false };
 	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Operation", IsVisible = false };
-	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
+	private readonly FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 	private readonly TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private OneDriveHttpTransport? replica;
 	private ReplicaStateLease? lease;
 	private BookSyncPreview? preview;
 	private CancellationTokenSource? operation;
 	private bool loaded;
+	private bool downloading;
 
 	#endregion
 
@@ -115,7 +116,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			RowSpacing = ControlSpacing,
 			RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) },
 		};
-		layout.Add(DialogLayout.Header("OneDrive", this.close, this.apply, this.cancel));
+		layout.Add(ScreenLayout.Header("OneDrive", this.close, this.apply, this.cancel));
 		VerticalStackLayout setup = new()
 		{
 			Spacing = ControlSpacing,
@@ -187,82 +188,121 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			this.status.Text = "Checking OneDrive sign-in…";
 			await Task.Run(() => this.connection.EnsureConnectedAsync(token), token).ConfigureAwait(true);
 			this.account.Text = this.connection.AccountName;
-			Stopwatch timer = Stopwatch.StartNew();
-			BookSyncPreview confirmed;
-			(FileSystemBookStore store, BookLocation location) = this.session.GetSyncBook();
-			BookSyncResult result;
-			Progress<BookSyncProgress> progress = this.CreateTransferProgress();
-			try
+			if (EmptyBookAdoption.IsEligible(this.session.Database!))
 			{
-				await this.ReviewAsync(token).ConfigureAwait(true);
-				confirmed = this.preview!;
-				Guid epoch = await store.ReadRecoveryEpochAsync(location, token).ConfigureAwait(true);
-				if (epoch != confirmed.RecoveryEpoch)
-				{
-					throw new InvalidOperationException("This book was restored during comparison. Use Sync Now again.");
-				}
-
-				result = await Task.Run(
-					() => BookSyncCoordinator.ExecuteWithProgressAsync(
-						store, location, this.replica!, this.lease!, confirmed, progress, WindowsTransferConcurrency, token),
-					token).ConfigureAwait(true);
-				this.ReleaseReview();
-			}
-			finally
-			{
-				await this.session.ReloadAfterSyncAsync(CancellationToken.None).ConfigureAwait(true);
-			}
-
-			this.transferBar.Progress = 1;
-			this.transferBar.IsVisible = true;
-			timer.Stop();
-			string elapsed = FormatElapsed(timer.Elapsed);
-			this.report.Text += $"\n\nCompleted {result.CompletedUtc.ToLocalTime():g}. Elapsed {elapsed}. "
-				+ $"Uploaded {result.UploadedSheets}, downloaded {result.DownloadedSheets}, retained {result.RecoveredSheets} recovery sheets.";
-			this.status.Text = confirmed.HasChanges ? $"Sync completed in {elapsed}." : $"Already up to date. Elapsed {elapsed}.";
-		}).ConfigureAwait(true);
-
-	private async void HandleDownload(object? sender, EventArgs e)
-		=> await this.RunAsync(async token =>
-		{
-			this.ReleaseReview();
-			this.status.Text = "Finding cloud books…";
-			IReadOnlyList<OneDriveBookChoice> books = await Task.Run(() => this.connection.ListBooksAsync(token), token).ConfigureAwait(true);
-			if (books.Count == 0)
-			{
-				this.status.Text = "No uploaded books found. On the other PC, use Sync Now first.";
+				await this.DownloadBookAsync(token).ConfigureAwait(true);
 			}
 			else
 			{
-				string[] choices = [.. books.Select((book, index) => $"{index + 1}. {book}")];
-				string? chosen = await this.DisplayActionSheetAsync("Download a cloud book", "Cancel", null, choices).ConfigureAwait(true);
-				int index = Array.IndexOf(choices, chosen);
-				if (index >= 0)
+				await this.SyncCurrentBookAsync(token).ConfigureAwait(true);
+			}
+		}).ConfigureAwait(true);
+
+	private async Task SyncCurrentBookAsync(CancellationToken token)
+	{
+		Stopwatch timer = Stopwatch.StartNew();
+		BookSyncPreview confirmed;
+		(FileSystemBookStore store, BookLocation location) = this.session.GetSyncBook();
+		BookSyncResult result;
+		Progress<BookSyncProgress> progress = this.CreateTransferProgress();
+		try
+		{
+			await this.ReviewAsync(token).ConfigureAwait(true);
+			confirmed = this.preview!;
+			Guid epoch = await store.ReadRecoveryEpochAsync(location, token).ConfigureAwait(true);
+			if (epoch != confirmed.RecoveryEpoch)
+			{
+				throw new InvalidOperationException("This book was restored during comparison. Use Sync Now again.");
+			}
+
+			result = await Task.Run(
+				() => BookSyncCoordinator.ExecuteWithProgressAsync(
+					store, location, this.replica!, this.lease!, confirmed, progress, WindowsTransferConcurrency, token),
+				token).ConfigureAwait(true);
+			this.ReleaseReview();
+		}
+		finally
+		{
+			await this.session.ReloadAfterSyncAsync(CancellationToken.None).ConfigureAwait(true);
+		}
+
+		this.transferBar.Progress = 1;
+		this.transferBar.IsVisible = true;
+		timer.Stop();
+		string elapsed = FormatElapsed(timer.Elapsed);
+		this.report.Text += $"\n\nCompleted {result.CompletedUtc.ToLocalTime():g}. Elapsed {elapsed}. "
+			+ $"Uploaded {result.UploadedSheets}, downloaded {result.DownloadedSheets}, retained {result.RecoveredSheets} recovery sheets.";
+		this.status.Text = confirmed.HasChanges ? $"Sync completed in {elapsed}." : $"Already up to date. Elapsed {elapsed}.";
+	}
+
+	private async void HandleDownload(object? sender, EventArgs e)
+		=> await this.RunAsync(this.DownloadBookAsync).ConfigureAwait(true);
+
+	private async Task DownloadBookAsync(CancellationToken token)
+	{
+		this.ReleaseReview();
+		this.report.Text = string.Empty;
+		this.status.Text = "Finding cloud books…";
+		await Task.Run(() => this.connection.EnsureConnectedAsync(token), token).ConfigureAwait(true);
+		bool replaceEmpty = EmptyBookAdoption.IsEligible(this.session.Database!);
+		IReadOnlyList<OneDriveBookChoice> available = await Task.Run(() => this.connection.ListBooksAsync(token), token).ConfigureAwait(true);
+		OneDriveBookChoice[] books = [.. available.Where(book => !replaceEmpty || book.SongCount > 0)
+			.OrderByDescending(book => book.SongCount)];
+		if (books.Length == 0)
+		{
+			this.status.Text = replaceEmpty
+				? "No cloud songs found. Import songs into this book first, or upload a book from the other PC. No empty book was uploaded."
+				: "No uploaded books found. On the other PC, use Sync Now first.";
+		}
+		else
+		{
+			string[] choices = [.. books.Select((book, index) => $"{index + 1}. {book}")];
+			string? chosen = await this.DisplayActionSheetAsync(
+				replaceEmpty ? "Use a cloud book in this empty book" : "Download a cloud book", "Cancel", null, choices).ConfigureAwait(true);
+			int index = Array.IndexOf(choices, chosen);
+			if (index >= 0)
+			{
+				OneDriveBookChoice selected = books[index];
+				if (selected.Id == this.session.Database!.Id)
 				{
-					OneDriveBookChoice selected = books[index];
-					if (selected.Id == this.session.Database!.Id)
+					if (replaceEmpty)
 					{
-						throw new InvalidOperationException("This book is already open. Use Sync Now to update it.");
+						this.direction.SelectedIndex = (int)SyncDirection.UpdateThisDevice;
 					}
 
-					string confirmation = $"Download {selected.Name} ({selected.SongCount} songs) and open its local copy?";
+					await this.SyncCurrentBookAsync(token).ConfigureAwait(true);
+				}
+				else
+				{
+					string confirmation = replaceEmpty
+						? $"Download {selected.Name} ({selected.SongCount} songs) into the current empty book? "
+							+ "Its settings will replace the empty book's settings."
+						: $"Download {selected.Name} ({selected.SongCount} songs) and open a new local copy?";
 					if (await this.DisplayAlertAsync("Download book?", confirmation, "Download", "Cancel").ConfigureAwait(true))
 					{
+						this.downloading = true;
+						Stopwatch timer = Stopwatch.StartNew();
 						using OneDriveHttpTransport transport = this.connection.OpenFolder(selected.FolderId);
-						Progress<string> progress = this.CreateProgress();
 						await this.session.DownloadCloudBookAsync(
 							transport,
 							selected.Id,
 							this.states,
 							Path.Combine(WindowsOneDriveConnection.LocalDirectory, "Temporary"),
-							progress,
+							this.CreateTransferProgress(),
+							replaceEmpty,
+							WindowsTransferConcurrency,
 							token).ConfigureAwait(true);
-						this.status.Text = $"Downloaded and opened {selected.Name}.";
-						this.report.Text = string.Empty;
+						timer.Stop();
+						this.transferBar.Progress = 1;
+						this.transferBar.IsVisible = true;
+						this.working.IsVisible = this.working.IsRunning = false;
+						this.status.Text = $"Downloaded and opened {selected.Name} in {FormatElapsed(timer.Elapsed)}.";
+						this.report.Text = $"Book: {selected.Name}\nDownloaded {selected.SongCount} songs. Elapsed {FormatElapsed(timer.Elapsed)}.";
 					}
 				}
 			}
-		}).ConfigureAwait(true);
+		}
+	}
 
 	private string CreateReviewText(BookSyncPreview review)
 	{
@@ -290,6 +330,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		{
 			using CancellationTokenSource cancellation = new();
 			this.operation = cancellation;
+			this.downloading = false;
 			this.transferBar.Progress = 0;
 			this.transferBar.IsVisible = false;
 			this.working.IsVisible = this.working.IsRunning = true;
@@ -300,7 +341,8 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			}
 			catch (OperationCanceledException)
 			{
-				this.status.Text = "Canceled. Transfer progress was retained; use Sync Now to resume.";
+				this.status.Text = this.downloading ? "Download canceled. Your current book was retained; choose Download Book to try again."
+					: "Canceled. Transfer progress was retained; use Sync Now to resume.";
 			}
 #pragma warning disable CA1031 // Report authentication, provider and persistence failures at the UI boundary.
 			catch (Exception exception)
@@ -337,18 +379,6 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		});
 	}
 
-	private Progress<string> CreateProgress()
-	{
-		CancellationTokenSource? owner = this.operation;
-		return new Progress<string>(message =>
-		{
-			if (ReferenceEquals(owner, this.operation) && owner?.IsCancellationRequested == false)
-			{
-				this.status.Text = message;
-			}
-		});
-	}
-
 	private void UpdateControls()
 	{
 		bool idle = this.operation is null;
@@ -376,7 +406,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		{
 			this.ReleaseReview();
 			this.connection.Dispose();
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult();
 		}
 	}

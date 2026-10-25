@@ -17,6 +17,7 @@ public sealed partial class SongEditorPage : ContentPage
 	private readonly SongEditDocument original;
 	private readonly BookSession session;
 	private readonly WindowsSongTextEditor editor;
+	private readonly WindowsSaveShortcut saveShortcut;
 	private readonly IDispatcherTimer previewTimer;
 	private readonly CancellationTokenSource lifetime = new();
 	private readonly TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -73,6 +74,8 @@ public sealed partial class SongEditorPage : ContentPage
 			: string.Empty;
 		this.editingHint.IsVisible = original.Text is null;
 		this.editor = new WindowsSongTextEditor(this.text);
+		this.editor.SaveRequested += this.HandleSave;
+		this.saveShortcut = new(this, () => this.HandleSave(this, EventArgs.Empty));
 		this.editor.PreviewChanged += (_, _) => this.QueuePreview();
 		this.previewTimer = this.Dispatcher.CreateTimer();
 		this.previewTimer.Interval = TimeSpan.FromMilliseconds(350);
@@ -318,7 +321,7 @@ public sealed partial class SongEditorPage : ContentPage
 			SongEditMetadata metadata = this.GetMetadata();
 			MetadataDirectiveImport import = await Task.Run(() => new MetadataDirectiveImport(source, metadata), this.lifetime.Token).ConfigureAwait(true);
 			MetadataImportPage page = new(import);
-			await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+			await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 			string? updated = await page.Completion.ConfigureAwait(true);
 			if (updated is not null)
 			{
@@ -333,27 +336,29 @@ public sealed partial class SongEditorPage : ContentPage
 		}).ConfigureAwait(true);
 
 	private async void HandleSave(object? sender, EventArgs e)
-		=> await this.RunOperationAsync(async () =>
-		{
-			string? source = this.original.Text is null ? null : await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true);
-			if (this.original.SongId == Guid.Empty)
-			{
-				this.SavedSongId = await this.session.CreateSongAsync(
-					this.GetMetadata(), source ?? string.Empty).ConfigureAwait(true);
-			}
-			else
-			{
-				IReadOnlyList<string> warnings = await this.session.SaveSongEditAsync(this.original, this.GetMetadata(), source)
-					.ConfigureAwait(true);
-				this.SavedSongId = this.original.SongId;
-				if (warnings.Count > 0)
-				{
-					await this.DisplayAlertAsync("Saved with metadata warnings", string.Join(Environment.NewLine, warnings), "OK").ConfigureAwait(true);
-				}
-			}
+		=> await this.RunOperationAsync(this.SaveAndCloseAsync).ConfigureAwait(true);
 
-			await this.CloseAsync(true).ConfigureAwait(true);
-		}).ConfigureAwait(true);
+	private async Task SaveAndCloseAsync()
+	{
+		string? source = this.original.Text is null ? null : await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true);
+		if (this.original.SongId == Guid.Empty)
+		{
+			this.SavedSongId = await this.session.CreateSongAsync(
+				this.GetMetadata(), source ?? string.Empty).ConfigureAwait(true);
+		}
+		else
+		{
+			IReadOnlyList<string> warnings = await this.session.SaveSongEditAsync(this.original, this.GetMetadata(), source)
+				.ConfigureAwait(true);
+			this.SavedSongId = this.original.SongId;
+			if (warnings.Count > 0)
+			{
+				await this.DisplayAlertAsync("Saved with metadata warnings", string.Join(Environment.NewLine, warnings), "OK").ConfigureAwait(true);
+			}
+		}
+
+		await this.CloseAsync(true).ConfigureAwait(true);
+	}
 
 	private async void HandleCancel(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(
@@ -362,11 +367,7 @@ public sealed partial class SongEditorPage : ContentPage
 			string? source = this.ready ? await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true) : this.original.Text;
 			bool changed = this.songTitle.Text != this.original.Title || this.artists.Text != CatalogValueList.Format(this.original.Artists)
 				|| this.tags.Text != CatalogValueList.Format(this.original.Tags) || source != this.original.Text || this.scalarMetadata.HasChanges;
-			if (!changed || await this.DisplayAlertAsync("Discard changes?", "Your unsaved song edits will be lost.", "Discard", "Keep Editing")
-				.ConfigureAwait(true))
-			{
-				await this.CloseAsync(false).ConfigureAwait(true);
-			}
+			await ScreenNavigation.LeaveEditorAsync(this, changed, this.SaveAndCloseAsync, () => this.CloseAsync(false)).ConfigureAwait(true);
 		},
 		requireEditor: false).ConfigureAwait(true);
 
@@ -375,8 +376,9 @@ public sealed partial class SongEditorPage : ContentPage
 		this.closed = true;
 		this.previewTimer.Stop();
 		await this.lifetime.CancelAsync().ConfigureAwait(true);
+		this.saveShortcut.Dispose();
 		this.editor.Dispose();
-		await this.Navigation.PopModalAsync().ConfigureAwait(true);
+		await this.Navigation.PopAsync().ConfigureAwait(true);
 		this.completion.TrySetResult(saved);
 		this.lifetime.Dispose();
 	}

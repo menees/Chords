@@ -23,7 +23,7 @@ public sealed partial class BookBackupPage : ContentPage
 	private readonly Button backupSettings = new() { Text = "Backup Settings…" };
 	private readonly Button restoreSettings = new() { Text = "Restore Settings…" };
 	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Operation", IsVisible = false };
-	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
+	private readonly FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 	private readonly Label status = new();
 	private readonly ActivityIndicator progress = new();
 	private readonly TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -54,7 +54,7 @@ public sealed partial class BookBackupPage : ContentPage
 				},
 			},
 		};
-		this.Content = DialogLayout.Create(
+		this.Content = ScreenLayout.Create(
 			this.Title, body, this.close, this.backup, this.restore, this.replace, this.backupSettings, this.restoreSettings, this.cancel);
 		this.backup.Clicked += this.HandleBackup;
 		this.restore.Clicked += this.HandleRestore;
@@ -227,7 +227,7 @@ public sealed partial class BookBackupPage : ContentPage
 	{
 		if (this.operation is null)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult(this.changedBook);
 		}
 	}

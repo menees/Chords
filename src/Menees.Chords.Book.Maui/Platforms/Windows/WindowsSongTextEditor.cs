@@ -23,6 +23,8 @@ public sealed partial class WindowsSongTextEditor(WebView view) : ISongTextEdito
 
 	#region Public Methods
 
+	public event EventHandler? SaveRequested;
+
 	public event EventHandler? TextChanged;
 
 	public event EventHandler? PreviewChanged;
@@ -156,6 +158,10 @@ public sealed partial class WindowsSongTextEditor(WebView view) : ISongTextEdito
 			else if (message == "preview")
 			{
 				this.PreviewChanged?.Invoke(this, EventArgs.Empty);
+			}
+			else if (message == "save")
+			{
+				this.SaveRequested?.Invoke(this, EventArgs.Empty);
 			}
 			else if (message == "changed")
 			{

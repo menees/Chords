@@ -26,12 +26,13 @@ public sealed partial class MetronomePanel : ContentView
 	private bool loading;
 	private bool liveUpdating;
 	private bool liveUpdatePending;
+	private string[] savedValues = [];
 
 	#endregion
 
 	#region Public API
 
-	public MetronomePanel(Guid? songId, BookSession session, IMetronomeEngine engine)
+	public MetronomePanel(Guid? songId, BookSession session, IMetronomeEngine engine, bool fullPage = false)
 	{
 		this.songId = songId;
 		this.session = session;
@@ -39,12 +40,14 @@ public sealed partial class MetronomePanel : ContentView
 		this.InitializeComponent();
 		this.saveSettings.SetIcon(FluentIconButton.Save, songId.HasValue ? "Save for This Song" : "Save Book Defaults");
 		this.closePanel.SetIcon(FluentIconButton.Close, "Close metronome controls");
-		this.resetSettings.IsVisible = songId.HasValue;
+		this.closePanel.IsVisible = this.saveSettings.IsVisible = !fullPage;
+		this.resetSettings.IsVisible = songId.HasValue && !fullPage;
 		this.beatUnit.ItemsSource = new[] { "2", "4", "8", "16" };
 		this.subdivision.ItemsSource = new[] { "1", "2", "3 (triplets)", "4" };
 		this.sound.ItemsSource = new[] { "Kick and hi-hat", "Kick", "Hi-hat", "Woodblock", "Cowbell", "Legacy click" };
 		this.transitionSettings.IsVisible = !songId.HasValue;
-		this.LoadSettings(usePlayback: true);
+		this.LoadSettings(usePlayback: !fullPage);
+		this.savedValues = this.ReadValues();
 		this.bpm.TextChanged += this.HandleLiveSettingsChanged;
 		this.beats.TextChanged += this.HandleLiveSettingsChanged;
 		this.beatUnit.SelectedIndexChanged += this.HandleLiveSettingsChanged;
@@ -75,7 +78,33 @@ public sealed partial class MetronomePanel : ContentView
 
 	public bool IsBusy => this.busy || this.liveUpdating;
 
+	public bool HasChanges => !this.ReadValues().SequenceEqual(this.savedValues);
+
 	public int BeatCount => int.TryParse(this.beats.Text, out int value) ? Math.Clamp(value, 1, MaximumBeats) : DefaultBeats;
+
+	public async Task<bool> SaveAsync(CancellationToken cancellationToken = default)
+	{
+		cancellationToken.ThrowIfCancellationRequested();
+		bool saved = false;
+		await this.RunAsync(async () =>
+		{
+			MetronomeSettings settings = this.ReadSettings();
+			if (this.songId is Guid id)
+			{
+				await this.session.SaveSongMetronomeAsync(id, settings).ConfigureAwait(true);
+			}
+			else
+			{
+				await this.session.SaveBookMetronomeAsync(settings, this.stopOnTransition.IsChecked).ConfigureAwait(true);
+			}
+
+			this.SettingsSaved?.Invoke(this, EventArgs.Empty);
+			this.status.Text = this.songId.HasValue ? "Saved metronome settings for this song." : "Saved book metronome defaults.";
+			this.savedValues = this.ReadValues();
+			saved = true;
+		}).ConfigureAwait(true);
+		return saved;
+	}
 
 	public void Detach()
 	{
@@ -163,6 +192,15 @@ public sealed partial class MetronomePanel : ContentView
 		this.loading = false;
 	}
 
+	private string[] ReadValues() =>
+	[
+		this.bpm.Text ?? string.Empty, this.beats.Text ?? string.Empty,
+		(string?)this.beatUnit.SelectedItem ?? string.Empty,
+		this.subdivision.SelectedIndex.ToString(CultureInfo.InvariantCulture), this.sound.SelectedIndex.ToString(CultureInfo.InvariantCulture),
+		this.volume.Value.ToString("R", CultureInfo.InvariantCulture), this.audio.IsChecked.ToString(),
+		this.visual.IsChecked.ToString(), this.accent.IsChecked.ToString(), this.stopOnTransition.IsChecked.ToString(),
+	];
+
 	private MetronomeSettings ReadSettings()
 	{
 		if (!int.TryParse(this.bpm.Text, out int tempo) || !int.TryParse(this.beats.Text, out int meter))
@@ -195,22 +233,7 @@ public sealed partial class MetronomePanel : ContentView
 			}
 		}).ConfigureAwait(true);
 
-	private async void HandleSave(object? sender, EventArgs e)
-		=> await this.RunAsync(async () =>
-		{
-			MetronomeSettings settings = this.ReadSettings();
-			if (this.songId is Guid id)
-			{
-				await this.session.SaveSongMetronomeAsync(id, settings).ConfigureAwait(true);
-			}
-			else
-			{
-				await this.session.SaveBookMetronomeAsync(settings, this.stopOnTransition.IsChecked).ConfigureAwait(true);
-			}
-
-			this.SettingsSaved?.Invoke(this, EventArgs.Empty);
-			this.status.Text = this.songId.HasValue ? "Saved metronome settings for this song." : "Saved book metronome defaults.";
-		}).ConfigureAwait(true);
+	private async void HandleSave(object? sender, EventArgs e) => await this.SaveAsync().ConfigureAwait(true);
 
 	private async void HandleReset(object? sender, EventArgs e)
 		=> await this.RunAsync(async () =>
@@ -222,6 +245,7 @@ public sealed partial class MetronomePanel : ContentView
 				await this.ApplyPlaybackAsync().ConfigureAwait(true);
 			}
 
+			this.savedValues = this.ReadValues();
 			this.status.Text = "This song now uses the book defaults.";
 			this.SettingsSaved?.Invoke(this, EventArgs.Empty);
 		}).ConfigureAwait(true);

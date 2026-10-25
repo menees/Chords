@@ -9,6 +9,7 @@ using Menees.Chords.Db;
 namespace Menees.Chords.Sync;
 
 /// <summary>Reads only cloud catalog metadata. Never authenticates interactively or reads/writes song assets.</summary>
+/// <remarks>Application clients should use <see cref="BookSyncCoordinator"/> to review and execute a durable sync.</remarks>
 public static class CloudBookComparisonService
 {
 	#region Public Methods

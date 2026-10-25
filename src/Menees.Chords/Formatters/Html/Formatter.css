@@ -328,7 +328,8 @@ body {
 }
 
 .fret-diagram .diagram-line {
-	shape-rendering: crispEdges;
+	/* Avoid uneven pixel-snapped spacing when the diagram scales with the song font. */
+	shape-rendering: geometricPrecision;
 	stroke-linecap: butt;
 }
 

@@ -55,6 +55,7 @@ public static class SongFileAnalyzer
 			(Encoding encoding, ByteOrderMarkKind bom) = DetectEncoding(content.Span);
 			int preambleLength = GetPreambleLength(bom);
 			string text = encoding.GetString(content.Span[preambleLength..]);
+			ValidateTextCharacters(text);
 			using StringReader reader = new(text);
 			Document document = Document.Load(reader);
 			bool openSong = OpenSongParser.LooksLikeOpenSong(text);
@@ -95,9 +96,22 @@ public static class SongFileAnalyzer
 
 	#endregion
 
+	#region Internal Methods
+
+	/// <summary>Rejects binary controls in a bounded prefix without rejecting a partial final Unicode character.</summary>
+	internal static void ValidateTextPrefix(ReadOnlySpan<byte> content)
+	{
+		(Encoding encoding, ByteOrderMarkKind bom) = DetectEncoding(content, finalBlock: false);
+		Span<char> text = stackalloc char[content.Length];
+		int count = encoding.GetDecoder().GetChars(content[GetPreambleLength(bom)..], text, flush: false);
+		ValidateTextCharacters(text[..count]);
+	}
+
+	#endregion
+
 	#region Private Methods
 
-	private static (Encoding Encoding, ByteOrderMarkKind Bom) DetectEncoding(ReadOnlySpan<byte> content)
+	private static (Encoding Encoding, ByteOrderMarkKind Bom) DetectEncoding(ReadOnlySpan<byte> content, bool finalBlock = true)
 	{
 		(Encoding Encoding, ByteOrderMarkKind Bom) result;
 		if (content.StartsWith(Utf32BigEndianPreamble))
@@ -124,7 +138,7 @@ public static class SongFileAnalyzer
 		{
 			try
 			{
-				_ = StrictUtf8.GetString(content);
+				_ = StrictUtf8.GetDecoder().GetCharCount(content, flush: finalBlock);
 				result = (StrictUtf8, ByteOrderMarkKind.None);
 			}
 			catch (DecoderFallbackException)
@@ -134,6 +148,17 @@ public static class SongFileAnalyzer
 		}
 
 		return result;
+	}
+
+	private static void ValidateTextCharacters(ReadOnlySpan<char> text)
+	{
+		foreach (char character in text)
+		{
+			if (char.IsControl(character) && character is not ('\t' or '\r' or '\n' or '\f'))
+			{
+				throw new BookStoreValidationException("The source contains binary control characters. Import song text, OpenSong XML, or a PDF.");
+			}
+		}
 	}
 
 	private static SourceFormat DetectTextFormat(IEntryContainer container)

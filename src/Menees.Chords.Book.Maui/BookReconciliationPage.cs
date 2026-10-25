@@ -120,7 +120,7 @@ public sealed partial class BookReconciliationPage : ContentPage
 	{
 		if (!this.busy)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult(this.changed);
 		}
 	}

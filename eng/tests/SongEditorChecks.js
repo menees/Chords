@@ -32,6 +32,19 @@
 			const text = element.textContent.trim();
 			check(!/^[a-z]/.test(text), 'Search UI caption is not capitalized: ' + text);
 		}
+		editor.load('[C]Save me\r\n');
+		editor.focus();
+		const saves = [];
+		const originalPostMessage = window.chrome.webview.postMessage;
+		window.chrome.webview.postMessage = message => { if (message === 'save') saves.push(message); else originalPostMessage.call(window.chrome.webview, message); };
+		try {
+			const saveKey = new KeyboardEvent('keydown', {key:'s', code:'KeyS', ctrlKey:true, bubbles:true, cancelable:true});
+			document.activeElement.dispatchEvent(saveKey);
+			check(saveKey.defaultPrevented && saves.length === 1, 'Ctrl+S did not consume the browser shortcut and request Save');
+			check(editor.getText() === '[C]Save me\r\n', 'Ctrl+S changed the unsaved source');
+		} finally {
+			window.chrome.webview.postMessage = originalPostMessage;
+		}
 		editor.load('Before redo');
 		editor.replaceText('After redo');
 		editor.undo();

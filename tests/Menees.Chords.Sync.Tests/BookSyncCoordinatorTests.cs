@@ -705,6 +705,223 @@ public sealed class BookSyncCoordinatorTests
 		Directory.EnumerateDirectories(Path.Combine(this.root, "b")).ShouldBeEmpty();
 	}
 
+	[TestMethod]
+	[DataRow(false, 12)]
+	[DataRow(true, 12)]
+	[DataRow(true, 531)]
+	public async Task FirstDownloadHasBoundedVerifiedProgressAndCanAdoptEmptyFolder(bool adopt, int addedSheets)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		for (int index = 0; index < addedSheets; index++)
+		{
+			using MemoryStream source = new(Encoding.UTF8.GetBytes($"[C]Disposable {index}\r\n"));
+			await BookImportService.ImportAsync(this.storeA, this.bookA, $"sheet{index}.cho", source, this.deviceA, token);
+		}
+
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		BookLocation empty = await this.storeB.CreateBookAsync("Placeholder", this.deviceB, token);
+		string before = await this.storeB.ReadDatabaseJsonAsync(empty, token);
+		string directory = this.storeB.GetDirectory(empty);
+		string note = Path.Combine(directory, "keep.txt");
+		await File.WriteAllTextAsync(note, "Unrelated bytes", token);
+		using ConcurrentTransferReplica replica = new(this.cloud);
+		TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		int entered = 0;
+		replica.BeforeTransfer = async (_, cancellation) =>
+		{
+			if (Interlocked.Increment(ref entered) == 4)
+			{
+				ready.TrySetResult();
+			}
+
+			await release.Task.WaitAsync(cancellation);
+		};
+		RecordingSyncProgress progress = new();
+		int mutations = this.cloud.Mutations.Count;
+		System.Diagnostics.Stopwatch elapsed = System.Diagnostics.Stopwatch.StartNew();
+		Task<BookLocation> downloading = CloudBookDownloader.DownloadWithProgressAsync(
+			this.storeB,
+			replica,
+			this.deviceB,
+			this.States(this.deviceB),
+			Path.Combine(this.root, "first-download-stage"),
+			progress,
+			maximumConcurrentTransfers: 4,
+			emptyBook: adopt ? empty : null,
+			expectedEmptyJson: adopt ? before : null,
+			cancellationToken: token);
+		try
+		{
+			await ready.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+			(await this.storeB.ReadDatabaseJsonAsync(empty, token)).ShouldBe(before);
+			replica.Active.ShouldBe(4);
+		}
+		finally
+		{
+			release.TrySetResult();
+		}
+
+		BookLocation result = await downloading;
+		elapsed.Stop();
+		int total = addedSheets + 1;
+		replica.Active.ShouldBe(0);
+		replica.MaximumActive.ShouldBe(4);
+		progress.Values.Where(value => value.TotalSheets.HasValue).Select(value => value.CompletedSheets)
+			.ShouldBe(Enumerable.Range(0, total + 1).Select(value => (int?)value));
+		progress.Values.Where(value => value.TotalSheets.HasValue).ShouldAllBe(value => value.TotalSheets == total);
+		ChordDatabase original = await this.ReadAsync(this.storeA, this.bookA);
+		ChordDatabase actual = await this.ReadAsync(this.storeB, result);
+		actual.Id.ShouldBe(original.Id);
+		actual.SongFiles.Count.ShouldBe(total);
+		if (adopt)
+		{
+			this.storeB.GetDirectory(result).ShouldBe(directory);
+			Directory.EnumerateDirectories(Path.Combine(this.root, "b")).Count().ShouldBe(1);
+			BookLocation reopened = await this.storeB.OpenBookAsync(directory, token);
+			(await this.ReadAsync(this.storeB, reopened)).Id.ShouldBe(original.Id);
+		}
+
+		(await File.ReadAllTextAsync(note, token)).ShouldBe("Unrelated bytes");
+		this.cloud.Mutations.Count.ShouldBe(mutations);
+		Directory.EnumerateFileSystemEntries(Path.Combine(this.root, "first-download-stage")).ShouldBeEmpty();
+		using ReplicaStateLease lease = this.States(this.deviceB).Acquire(new(original.Id, this.deviceB, this.cloud.Identity));
+		(await lease.LoadStateAsync(token)).MergeBase.ShouldNotBeNull();
+		this.TestContext.WriteLine($"{total} sheets, four first-download workers, adopt={adopt}: {elapsed.ElapsedMilliseconds} ms.");
+	}
+
+	[TestMethod]
+	[DataRow(true)]
+	[DataRow(false)]
+	public async Task CanceledOrFailedEmptyAdoptionRetainsOriginalAndJoinsAllWorkers(bool cancel)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		for (int index = 0; index < 5; index++)
+		{
+			using MemoryStream source = new(Encoding.UTF8.GetBytes("[G]Disposable"));
+			await BookImportService.ImportAsync(this.storeA, this.bookA, $"sheet{index}.cho", source, this.deviceA, token);
+		}
+
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		BookLocation empty = await this.storeB.CreateBookAsync("Placeholder", this.deviceB, token);
+		string before = await this.storeB.ReadDatabaseJsonAsync(empty, token);
+		using ConcurrentTransferReplica replica = new(this.cloud);
+		using CancellationTokenSource stop = CancellationTokenSource.CreateLinkedTokenSource(token);
+		TaskCompletionSource ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		int entered = 0;
+		replica.BeforeTransfer = async (_, cancellation) =>
+		{
+			if (Interlocked.Increment(ref entered) == 4)
+			{
+				ready.TrySetResult();
+			}
+
+			await release.Task.WaitAsync(cancellation);
+			throw new IOException("Synthetic transfer failure");
+		};
+		Task<BookLocation> downloading = CloudBookDownloader.DownloadWithProgressAsync(
+			this.storeB,
+			replica,
+			this.deviceB,
+			this.States(this.deviceB),
+			Path.Combine(this.root, "cancel-stage"),
+			new RecordingSyncProgress(),
+			maximumConcurrentTransfers: 4,
+			emptyBook: empty,
+			expectedEmptyJson: before,
+			cancellationToken: stop.Token);
+		await ready.Task.WaitAsync(TimeSpan.FromSeconds(10), token);
+		if (cancel)
+		{
+			await stop.CancelAsync();
+			await Should.ThrowAsync<OperationCanceledException>(() => downloading);
+		}
+		else
+		{
+			release.TrySetResult();
+			await Should.ThrowAsync<IOException>(() => downloading);
+		}
+
+		replica.Active.ShouldBe(0);
+		(await this.storeB.ReadDatabaseJsonAsync(empty, token)).ShouldBe(before);
+		Directory.EnumerateDirectories(Path.Combine(this.root, "b")).Count().ShouldBe(1);
+		Directory.EnumerateFiles(this.storeB.GetDirectory(empty), "*.cho").ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public async Task EmptyAdoptionRejectsContentAndConcurrentCatalogEdits()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		BookLocation empty = await this.storeB.CreateBookAsync("Placeholder", this.deviceB, token);
+		string before = await this.storeB.ReadDatabaseJsonAsync(empty, token);
+		ChordDatabase changed = DatabaseJson.Deserialize(before);
+		changed.Name = "Concurrent edit";
+		string updated = DatabaseJson.Serialize(changed);
+		await this.storeB.CommitMetadataAsync(empty, before, updated, token);
+		await Should.ThrowAsync<BookStoreConcurrencyException>(() => CloudBookDownloader.DownloadWithProgressAsync(
+			this.storeB,
+			this.cloud,
+			this.deviceB,
+			this.States(this.deviceB),
+			Path.Combine(this.root, "stale-stage"),
+			new RecordingSyncProgress(),
+			emptyBook: empty,
+			expectedEmptyJson: before,
+			cancellationToken: token));
+		(await this.storeB.ReadDatabaseJsonAsync(empty, token)).ShouldBe(updated);
+		using MemoryStream source = new(Encoding.UTF8.GetBytes("[C]Existing local content"));
+		await BookImportService.ImportAsync(this.storeB, empty, "keep.cho", source, this.deviceB, token);
+		string populated = await this.storeB.ReadDatabaseJsonAsync(empty, token);
+		int downloads = this.cloud.AssetDownloads;
+		await Should.ThrowAsync<SyncMergeException>(() => CloudBookDownloader.DownloadWithProgressAsync(
+			this.storeB,
+			this.cloud,
+			this.deviceB,
+			this.States(this.deviceB),
+			Path.Combine(this.root, "stale-stage"),
+			new RecordingSyncProgress(),
+			emptyBook: empty,
+			expectedEmptyJson: populated,
+			cancellationToken: token));
+		this.cloud.AssetDownloads.ShouldBe(downloads);
+		(await this.storeB.ReadDatabaseJsonAsync(empty, token)).ShouldBe(populated);
+	}
+
+	[TestMethod]
+	public async Task CorruptFirstDownloadRetainsEmptyBookAndDoesNotCountAnUnverifiedSheet()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		CloudChangeSet items = await this.cloud.ListOrGetChangesAsync(null, token);
+		CloudReplicaItem asset = items.Items.Single(item => item.Name != "database.json");
+		using MemoryStream corrupt = new([.. Enumerable.Repeat((byte)'X', (int)asset.Length)]);
+		await this.cloud.ReplaceAsync(asset.Id, asset.Version, corrupt, token);
+		BookLocation empty = await this.storeB.CreateBookAsync("Placeholder", this.deviceB, token);
+		string before = await this.storeB.ReadDatabaseJsonAsync(empty, token);
+		RecordingSyncProgress progress = new();
+		string staging = Path.Combine(this.root, "corrupt-stage");
+		await Should.ThrowAsync<InvalidDataException>(() => CloudBookDownloader.DownloadWithProgressAsync(
+			this.storeB,
+			this.cloud,
+			this.deviceB,
+			this.States(this.deviceB),
+			staging,
+			progress,
+			emptyBook: empty,
+			expectedEmptyJson: before,
+			cancellationToken: token));
+		(await this.storeB.ReadDatabaseJsonAsync(empty, token)).ShouldBe(before);
+		progress.Values.Where(value => value.TotalSheets.HasValue).Select(value => value.CompletedSheets).ShouldBe([0]);
+		Directory.EnumerateFileSystemEntries(staging).ShouldBeEmpty();
+		Directory.EnumerateFiles(this.storeB.GetDirectory(empty), "*.cho").ShouldBeEmpty();
+	}
+
 	#endregion
 
 	#region Private Methods

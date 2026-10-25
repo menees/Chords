@@ -39,6 +39,10 @@ public sealed partial class BookApplicationSession
 				else
 				{
 					tab = database.CustomTabs.Single(item => item.Id == savedId);
+					if (!IsSupported(tab))
+					{
+						throw new InvalidOperationException("This saved tab uses an unsupported filter or sort. Save a new tab instead.");
+					}
 				}
 
 				tab.Name = name.Trim();

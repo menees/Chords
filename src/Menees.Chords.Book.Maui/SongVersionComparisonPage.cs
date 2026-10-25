@@ -16,13 +16,13 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 	#region Private Data
 
 	private const int Gap = 8;
-	private const int PaddingSize = 16;
+	private const int PaddingSize = 8;
 	private const int ContentRow = 2;
 	private const int StatusRow = 3;
 	private readonly SongVersionComparison comparison;
 	private readonly BookSession session;
 	private readonly TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close Comparison" };
+	private readonly FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Operation", IsVisible = false };
 	private readonly Button keepLeft = new() { Text = "Keep Left" };
 	private readonly Button keepRight = new() { Text = "Keep Right" };
@@ -120,7 +120,7 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 			RowSpacing = Gap,
 			RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) },
 		};
-		layout.Add(DialogLayout.Header(
+		layout.Add(ScreenLayout.Header(
 			"Compare Sheets",
 			this.close,
 			this.keepLeft,
@@ -249,7 +249,7 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 	{
 		if (this.operation is null)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult(this.changed);
 		}
 	}

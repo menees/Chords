@@ -46,10 +46,11 @@ public sealed class HeaderLine : TextEntry
 			string headerText = lexer.Token.Text;
 
 			// Since annotations were removed earlier, make sure there's nothing else on the line.
-			// And make sure the header text isn't a chord. We won't look for specific header values
+			// And make sure the header text isn't a chord or ChordPro annotation. We won't look for specific header values
 			// since Ultimate Guitar has many header variations:
 			// Intro, Outro, Verse, Verse #, Chorus, Interlude, Bridge, Pre-Chorus, Solo, Solo #, Break, Post-Chorus, Pre-Verse
-			if ((!lexer.Read() || string.IsNullOrEmpty(lexer.ReadToEnd(skipTrailingWhiteSpace: true))) && !Chord.TryParse(headerText, out _))
+			if ((!lexer.Read() || string.IsNullOrEmpty(lexer.ReadToEnd(skipTrailingWhiteSpace: true)))
+				&& !headerText.StartsWith('*') && !Chord.TryParse(headerText, out _))
 			{
 				result = new(headerText);
 				result.AddAnnotations(annotations);

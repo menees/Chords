@@ -435,6 +435,59 @@ public sealed class FileSystemBookStoreTests
 		reconciled.SongFiles.Single().ContentRevision.ShouldBe(2);
 	}
 
+	[TestMethod]
+	[DataRow((int)FileSystemCommitStep.ManagedAssetReplaced)]
+	[DataRow((int)FileSystemCommitStep.DatabaseReplaced)]
+	public async Task EmptyReplicaAdoptionRollsBackIdentityAndAssetsAfterInjectedFailure(int failAt)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		using FileSystemBookStore source = new(Path.Combine(this.directory, "source"));
+		BookLocation replica = await source.CreateBookAsync("Replica", device, token);
+		using MemoryStream bytes = new(Encoding.UTF8.GetBytes("[C]Exact disposable bytes\r\n"));
+		await BookImportService.ImportAsync(source, replica, "song.cho", bytes, device, token);
+		string incoming = await source.ReadDatabaseJsonAsync(replica, token);
+		using FileSystemBookStore target = new(this.directory, step =>
+		{
+			if ((int)step == failAt)
+			{
+				throw new IOException("Synthetic adoption failure");
+			}
+		});
+		BookLocation empty = await target.CreateBookAsync("Placeholder", device, token);
+		string before = await target.ReadDatabaseJsonAsync(empty, token);
+		string directory = target.GetDirectory(empty);
+		string note = Path.Combine(directory, "notes.txt");
+		await File.WriteAllTextAsync(note, "Unrelated", token);
+		await Should.ThrowAsync<IOException>(() => target.PopulateEmptyReplicaAsync(
+			empty,
+			before,
+			incoming,
+			(file, cancellation) => source.OpenManagedAssetAsync(replica, file.Id, cancellation),
+			token));
+		(await target.ReadDatabaseJsonAsync(empty, token)).ShouldBe(before);
+		(await File.ReadAllTextAsync(note, token)).ShouldBe("Unrelated");
+		Directory.EnumerateFiles(directory, "*.cho").ShouldBeEmpty();
+		BookLocation reopened = await target.OpenBookAsync(directory, token);
+		(await target.ReadDatabaseJsonAsync(reopened, token)).ShouldBe(before);
+		Directory.EnumerateDirectories(this.directory, ".Placeholder.chordbook-stage-*").ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public void EmptyAdoptionExcludesDeletionHistorySetlistsAndCustomTabs()
+	{
+		ChordDatabase database = ChordDatabase.Create("Placeholder", Guid.NewGuid());
+		EmptyBookAdoption.IsEligible(database).ShouldBeTrue();
+		database.Tombstones.Add(new());
+		EmptyBookAdoption.IsEligible(database).ShouldBeFalse();
+		database.Tombstones.Clear();
+		database.Setlists.Add(new());
+		EmptyBookAdoption.IsEligible(database).ShouldBeFalse();
+		database.Setlists.Clear();
+		database.CustomTabs.Add(new());
+		EmptyBookAdoption.IsEligible(database).ShouldBeFalse();
+	}
+
 	#endregion
 
 	#region Private Methods

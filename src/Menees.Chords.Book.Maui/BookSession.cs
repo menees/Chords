@@ -321,27 +321,56 @@ public sealed partial class BookSession : IDisposable
 		Guid expectedBookId,
 		Sync.ReplicaStateStore states,
 		string stagingDirectory,
-		IProgress<string> progress,
+		IProgress<Sync.BookSyncProgress> progress,
+		bool replaceEmptyBook,
+		int maximumConcurrentTransfers,
 		CancellationToken cancellationToken)
 	{
 		string root = this.booksRoot ?? throw new InvalidOperationException("Open a book before downloading.");
 		await Task.Run(() => RequireNewReplicaAsync(root, expectedBookId, cancellationToken), cancellationToken).ConfigureAwait(false);
+		(FileSystemBookStore currentStore, BookLocation currentLocation) = this.GetActiveBook();
+		string directory = currentStore.GetDirectory(currentLocation);
+		string? expectedJson = replaceEmptyBook
+			? await currentStore.ReadDatabaseJsonAsync(currentLocation, cancellationToken).ConfigureAwait(false) : null;
 		FileSystemBookStore nextStore = new(root);
 		BookLocation nextLocation;
 		try
 		{
+			BookLocation? empty = replaceEmptyBook ? await nextStore.OpenBookAsync(directory, cancellationToken).ConfigureAwait(false) : null;
 			nextLocation = await Task.Run(
-				() => Sync.CloudBookDownloader.DownloadAsync(
-					nextStore, replica, this.DeviceId, states, stagingDirectory, progress, expectedBookId, cancellationToken),
+				() => Sync.CloudBookDownloader.DownloadWithProgressAsync(
+					nextStore,
+					replica,
+					this.DeviceId,
+					states,
+					stagingDirectory,
+					progress,
+					expectedBookId,
+					maximumConcurrentTransfers,
+					empty,
+					expectedJson,
+					cancellationToken),
 				cancellationToken).ConfigureAwait(false);
 		}
 		catch
 		{
+			if (replaceEmptyBook)
+			{
+				BookLocation reopened = await nextStore.OpenBookAsync(directory, CancellationToken.None).ConfigureAwait(false);
+				ChordDatabase actual = DatabaseJson.Deserialize(await nextStore.ReadDatabaseJsonAsync(reopened, CancellationToken.None).ConfigureAwait(false));
+				if (actual.Id == expectedBookId)
+				{
+					await this.SwitchAsync(nextStore, reopened, CancellationToken.None).ConfigureAwait(false);
+					throw;
+				}
+			}
+
 			nextStore.Dispose();
 			throw;
 		}
 
-		await this.SwitchAsync(nextStore, nextLocation, cancellationToken).ConfigureAwait(false);
+		progress.Report(new("Opening the downloaded book…"));
+		await this.SwitchAsync(nextStore, nextLocation, CancellationToken.None).ConfigureAwait(false);
 	}
 
 	#endregion
@@ -361,7 +390,7 @@ public sealed partial class BookSession : IDisposable
 				ChordDatabase database = DatabaseJson.Deserialize(await File.ReadAllTextAsync(catalog, cancellationToken).ConfigureAwait(false));
 				if (database.Id == bookId)
 				{
-					throw new InvalidOperationException($"This book already has a local copy. Open {directory} and use Review Sync to update it.");
+					throw new InvalidOperationException($"This book already has a local copy. Open {directory} and use Sync Now to update it.");
 				}
 			}
 		}

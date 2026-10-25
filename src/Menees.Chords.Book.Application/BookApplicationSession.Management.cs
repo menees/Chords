@@ -243,9 +243,10 @@ public sealed partial class BookApplicationSession
 			DateTimeOffset now = DateTimeOffset.UtcNow;
 			List<string> warnings = [];
 			SongFile? editedFile = original.Text is not null && text is not null ? database.SongFiles.Single(item => item.Id == original.FileId) : null;
+			bool changedText = original.Text is not null && text is not null && !StringComparer.Ordinal.Equals(original.Text, text);
 			byte[] bytes = [];
 			SongFileAnalysis? analysis = null;
-			if (editedFile is not null)
+			if (editedFile is not null && changedText)
 			{
 				Encoding encoding = GetTextEncoding(editedFile);
 				byte[] preamble = editedFile.ByteOrderMark == ByteOrderMarkKind.None ? [] : encoding.GetPreamble();
@@ -261,7 +262,6 @@ public sealed partial class BookApplicationSession
 					$"{conflict.Field}: kept the independent catalog value '{conflict.CatalogValue}'; source contains '{conflict.SourceValue}'."));
 			}
 
-			bool changedText = original.Text is not null && text is not null && !StringComparer.Ordinal.Equals(original.Text, text);
 			await using IStagedBookWrite? write = changedText
 				? await activeStore.StageWriteAsync(activeLocation, expectedJson, cancellationToken).ConfigureAwait(false) : null;
 			if (write is not null)

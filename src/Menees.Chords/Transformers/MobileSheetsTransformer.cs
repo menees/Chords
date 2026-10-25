@@ -64,12 +64,6 @@ public sealed class MobileSheetsTransformer : ChordProTransformer
 					"Bridge");
 				result.Add(transformed);
 			}
-			else if (directive.ShortName.Equals("sov", Comparison) && string.IsNullOrEmpty(directive.Argument))
-			{
-				// MobileSheets won't show a header at all for {sov}, so we'll make it {sov: Verse}.
-				ChordProDirectiveLine transformed = ChordProDirectiveLine.Create(directive.QualifiedName, "Verse", false);
-				result.Add(transformed);
-			}
 			else if (directive.ShortName.Equals("sog", Comparison) || directive.ShortName.Equals("eog", Comparison))
 			{
 				// MobileSheets v3.9.0 added support for chord grids, but they auto-size to the page width,

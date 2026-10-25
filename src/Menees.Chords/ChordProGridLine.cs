@@ -45,7 +45,7 @@ public sealed class ChordProGridLine : SegmentedEntry
 		// If we're not in an explicit grid, then we have to be careful not to match tab lines.
 		bool inExplicitGrid = context.State.TryGetValue(ChordProDirectiveLine.GridStateKey, out object? gridState) && gridState is ChordProDirectiveLine;
 		const int MinSeparators = 2;
-		if (inExplicitGrid || context.LineText.Count(ch => ch == '|') >= MinSeparators)
+		if (inExplicitGrid || (context.LineText.Count(ch => ch == '|') >= MinSeparators && HasGridSeparators(context, MinSeparators)))
 		{
 			IReadOnlyList<TextSegment> segments = TryGetSegments(
 				context,
@@ -76,6 +76,26 @@ public sealed class ChordProGridLine : SegmentedEntry
 		}
 
 		return result;
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static bool HasGridSeparators(LineContext context, int minimum)
+	{
+		// Bracketed pipes are ChordPro chord-row annotations, not implicit grid separators.
+		Lexer lexer = context.CreateLexer();
+		int count = 0;
+		while (count < minimum && lexer.Read())
+		{
+			if (lexer.Token.Type != TokenType.Bracketed)
+			{
+				count += lexer.Token.Text.Count(ch => ch == '|');
+			}
+		}
+
+		return count >= minimum;
 	}
 
 	#endregion

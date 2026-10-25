@@ -11,7 +11,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 {
 	#region Private Data
 
-	private const int PagePadding = 16;
+	private const int PagePadding = 8;
 	private const int ControlSpacing = 8;
 	private const int ReportFontSize = 14;
 	private const int FooterRow = 3;
@@ -22,7 +22,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 	private readonly FluentIconButton scan = new() { Icon = "ArrowClockwise", Description = "Validate Again" };
 	private readonly FluentIconButton save = new() { Icon = "Save", Description = "Save Report…", IsEnabled = false };
 	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Validation", IsVisible = false };
-	private readonly FluentIconButton close = new() { Icon = "Dismiss", Description = "Close" };
+	private readonly FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 	private readonly TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private CancellationTokenSource? operation;
 	private bool started;
@@ -42,7 +42,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 			RowSpacing = ControlSpacing,
 			RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) },
 		};
-		layout.Add(DialogLayout.Header("Validate Book", this.close, this.scan, this.save, this.cancel), 0, 0);
+		layout.Add(ScreenLayout.Header("Validate Book", this.close, this.scan, this.save, this.cancel), 0, 0);
 		layout.Add(new Label { Text = "Checks every recorded sheet and looks for duplicate or unreferenced files. Your files are kept unchanged." }, 0, 1);
 		layout.Add(this.report, 0, 2);
 		layout.Add(this.status, 0, FooterRow);
@@ -114,7 +114,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 	{
 		if (this.operation is null)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult();
 		}
 	}

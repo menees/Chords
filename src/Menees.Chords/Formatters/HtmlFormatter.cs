@@ -773,12 +773,14 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 			}
 			else
 			{
-				string label = directive.Args.Attributes.TryGetValue("label", out string? explicitLabel)
+				string? label = directive.Args.Attributes.TryGetValue("label", out string? explicitLabel)
 					? explicitLabel
 					: directive.Args.Attributes.Count == 0 && argument is not null
 						? argument
-						: TitleLine.ToTitleCase(suffix.Replace('_', ' '));
-				result = Element("h2", $"section-header {suffix.Replace('_', '-')}", label);
+						: suffix.Equals(ChordProEnvironment.VerseName, Comparison)
+							? null
+							: TitleLine.ToTitleCase(suffix.Replace('_', ' '));
+				result = string.IsNullOrWhiteSpace(label) ? null : Element("h2", $"section-header {suffix.Replace('_', '-')}", label);
 			}
 		}
 		else if (name.StartsWith(ChordProEnvironment.EndPrefix, Comparison))
@@ -877,14 +879,14 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 		const double Left = 10;
 		const double StringSpacing = 8;
 		const double Top = 12;
-		const double FretHeight = 9;
+		const double FretHeight = 10;
 		const double SidePadding = 20;
-		const double FingerY = 67;
 		double right = Left + ((frets.Count - 1) * StringSpacing);
 		double bottom = Top + (FretCount * FretHeight);
+		double fingerY = bottom + 10;
 		double viewBoxLeft = Left - SidePadding;
 		double viewBoxWidth = (right - Left) + (2 * SidePadding);
-		image.SetAttributeValue("viewBox", $"{viewBoxLeft} 0 {viewBoxWidth} 72");
+		image.SetAttributeValue("viewBox", $"{viewBoxLeft} 0 {viewBoxWidth} {fingerY + 5}");
 
 		for (int fret = 0; fret <= FretCount; fret++)
 		{
@@ -901,7 +903,7 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 					svg + "rect",
 					new XAttribute("class", className),
 					new XAttribute("x", Left - 0.5),
-					new XAttribute("y", y - (thickness / 2)),
+					new XAttribute("y", y + 0.5 - thickness), // Extend the nut upward to keep equal clear gaps.
 					new XAttribute("width", (right - Left) + 1),
 					new XAttribute("height", thickness)));
 			}
@@ -969,7 +971,7 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 					&& index < diagram.Fingers.Count
 					&& diagram.Fingers[index] is int finger)
 				{
-					image.Add(SvgText(svg, x, FingerY, finger.ToString(), "diagram-text diagram-finger-position"));
+					image.Add(SvgText(svg, x, fingerY, finger.ToString(), "diagram-text diagram-finger-position"));
 				}
 			}
 		}

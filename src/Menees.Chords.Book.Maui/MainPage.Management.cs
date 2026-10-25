@@ -127,7 +127,7 @@ public partial class MainPage
 			else if (action == "OneDrive")
 			{
 				OneDriveSyncPage page = new(this.session);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 				this.RefreshSongs("OneDrive review closed.");
 				this.RefreshSetlists();
@@ -135,7 +135,7 @@ public partial class MainPage
 			else if (action == "Backup and Restore")
 			{
 				BookBackupPage page = new(this.session, this.picker);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				if (await page.Completion.ConfigureAwait(true))
 				{
 					this.RefreshSongs("Restored book opened.");
@@ -144,7 +144,7 @@ public partial class MainPage
 			else if (action == "Validate Book")
 			{
 				BookIntegrityPage page = new(this.session, this.picker);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Resume Last Performance")
@@ -167,25 +167,25 @@ public partial class MainPage
 			else if (action == "Keyboard and Pedals")
 			{
 				PerformanceInputPage page = new(this.session);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Instruments")
 			{
 				InstrumentSettingsPage page = new(this.session);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Metronome Defaults")
 			{
 				MetronomePage page = new(null, this.session, this.metronome);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Display Defaults")
 			{
 				DisplaySettingsPage page = new(this.session, null);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Rename Book")
@@ -197,7 +197,7 @@ public partial class MainPage
 				this.Status.Text = "Checking the book folder…";
 				var preview = await this.session.PreviewReconcileAsync().ConfigureAwait(true);
 				BookReconciliationPage page = new(this.session, preview);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				if (await page.Completion.ConfigureAwait(true))
 				{
 					this.RefreshCatalogAfterEdit("Reviewed folder changes applied.");
@@ -209,7 +209,7 @@ public partial class MainPage
 		=> await this.RunBookMutationAsync(async () =>
 		{
 			SongEditorPage editor = new(this.session);
-			await this.Navigation.PushModalAsync(editor).ConfigureAwait(true);
+			await ScreenNavigation.PushAsync(this, editor).ConfigureAwait(true);
 			if (await editor.Completion.ConfigureAwait(true))
 			{
 				this.RefreshCatalogAfterEdit("Song created. Clear the search if it is hidden by the current filter.");
@@ -447,13 +447,13 @@ public partial class MainPage
 					&& this.currentSongIndex < this.performanceEntryIds.Count
 					? this.session.GetSetlistEntrySettings(listId, this.performanceEntryIds[this.currentSongIndex]) : null;
 				InstrumentSettingsPage page = new(this.session, songId, entry);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				saved = await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Display Settings")
 			{
 				DisplaySettingsPage page = new(this.session, songId);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				saved = await page.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Edit Song")
@@ -461,13 +461,13 @@ public partial class MainPage
 				this.metronome.Stop();
 				SongEditDocument document = await this.session.GetSongEditAsync(songId).ConfigureAwait(true);
 				SongEditorPage editor = new(document, this.session);
-				await this.Navigation.PushModalAsync(editor).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, editor).ConfigureAwait(true);
 				saved = await editor.Completion.ConfigureAwait(true);
 			}
 			else if (action == "Manage Sheets")
 			{
 				SongFilesPage page = new(songId, this.session, this.picker);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				saved = await page.Completion.ConfigureAwait(true);
 			}
 

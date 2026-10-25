@@ -22,6 +22,7 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 	private const long SimpleUploadLimit = 250_000_000;
 	private readonly OneDriveGraphClient graph;
 	private readonly IOneDriveTokenProvider tokens;
+	private readonly Lock childrenLock = new();
 	private readonly HashSet<string> knownChildren = new(StringComparer.Ordinal);
 
 	#endregion
@@ -53,7 +54,11 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 
 	public async Task DisconnectAsync(CancellationToken cancellationToken)
 	{
-		this.knownChildren.Clear();
+		lock (this.childrenLock)
+		{
+			this.knownChildren.Clear();
+		}
+
 		await this.tokens.DisconnectAsync(cancellationToken).ConfigureAwait(false);
 	}
 
@@ -84,8 +89,12 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 			next = json.RootElement.TryGetProperty("@odata.nextLink", out JsonElement link) ? ValidateGraphUri(link.GetString()!) : null;
 		}
 
-		this.knownChildren.Clear();
-		this.knownChildren.UnionWith(items.Select(item => item.Id.Value));
+		lock (this.childrenLock)
+		{
+			this.knownChildren.Clear();
+			this.knownChildren.UnionWith(items.Select(item => item.Id.Value));
+		}
+
 		return new(items, null);
 	}
 
@@ -151,7 +160,10 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 		using HttpRequestMessage request = new(HttpMethod.Delete, ItemUri(itemId));
 		request.Headers.TryAddWithoutValidation("If-Match", expectedVersion.Value);
 		using HttpResponseMessage response = await this.graph.SendAsync(request, cancellationToken).ConfigureAwait(false);
-		this.knownChildren.Remove(itemId.Value);
+		lock (this.childrenLock)
+		{
+			this.knownChildren.Remove(itemId.Value);
+		}
 	}
 
 	public void Dispose() => this.graph.Dispose();
@@ -198,7 +210,13 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 	private async Task RequireChildAsync(ProviderItemId id, CancellationToken cancellationToken)
 	{
 		this.graph.RequireAccount();
-		if (!this.knownChildren.Contains(id.Value))
+		bool known;
+		lock (this.childrenLock)
+		{
+			known = this.knownChildren.Contains(id.Value);
+		}
+
+		if (!known)
 		{
 			using HttpRequestMessage request = new(HttpMethod.Get, ItemUri(id, "?$select=id,parentReference,file"));
 			using HttpResponseMessage response = await this.graph.SendAsync(request, cancellationToken).ConfigureAwait(false);
@@ -209,7 +227,10 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 				throw new InvalidOperationException("The OneDrive item is outside the selected book folder.");
 			}
 
-			this.knownChildren.Add(id.Value);
+			lock (this.childrenLock)
+			{
+				this.knownChildren.Add(id.Value);
+			}
 		}
 	}
 
@@ -227,7 +248,11 @@ public sealed class OneDriveHttpTransport : IOneDriveTransport, IDisposable
 		using HttpResponseMessage response = await this.graph.SendAsync(request, cancellationToken).ConfigureAwait(false);
 		using JsonDocument json = await ReadJsonAsync(response, cancellationToken).ConfigureAwait(false);
 		CloudReplicaItem item = ParseItem(json.RootElement);
-		this.knownChildren.Add(item.Id.Value);
+		lock (this.childrenLock)
+		{
+			this.knownChildren.Add(item.Id.Value);
+		}
+
 		return item;
 	}
 

@@ -102,8 +102,12 @@ public sealed class ReplicaStateStoreTests
 		await File.WriteAllTextAsync(path, foreign, this.TestContext.CancellationToken);
 		await Should.ThrowAsync<InvalidDataException>(() => lease.LoadStateAsync(this.TestContext.CancellationToken));
 		(await File.ReadAllTextAsync(path, this.TestContext.CancellationToken)).ShouldBe(foreign);
-		await File.WriteAllTextAsync(path, "{broken", this.TestContext.CancellationToken);
-		await Should.ThrowAsync<InvalidDataException>(() => lease.LoadStateAsync(this.TestContext.CancellationToken));
+		foreach (string corrupt in new[] { "{broken", "null", string.Empty })
+		{
+			await File.WriteAllTextAsync(path, corrupt, this.TestContext.CancellationToken);
+			await Should.ThrowAsync<InvalidDataException>(() => lease.LoadStateAsync(this.TestContext.CancellationToken));
+			(await File.ReadAllTextAsync(path, this.TestContext.CancellationToken)).ShouldBe(corrupt);
+		}
 	}
 
 	[TestMethod]

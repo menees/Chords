@@ -14,7 +14,7 @@ public static class LocalBookSyncApplier
 {
 	#region Public Methods
 
-	public static async Task ApplyAsync(
+	public static Task ApplyAsync(
 		IBookStore store,
 		BookLocation location,
 		string expectedJson,
@@ -22,6 +22,27 @@ public static class LocalBookSyncApplier
 		Func<SongFile, CancellationToken, Task<Stream>> openSource,
 		string stagingDirectory,
 		CancellationToken cancellationToken = default)
+		=> ApplyCoreAsync(store, location, expectedJson, targetJson, openSource, stagingDirectory, false, cancellationToken);
+
+	internal static Task ApplyVerifiedAsync(
+		IBookStore store,
+		BookLocation location,
+		string expectedJson,
+		string targetJson,
+		Func<SongFile, CancellationToken, Task<Stream>> openSource,
+		string stagingDirectory,
+		CancellationToken cancellationToken)
+		=> ApplyCoreAsync(store, location, expectedJson, targetJson, openSource, stagingDirectory, true, cancellationToken);
+
+	private static async Task ApplyCoreAsync(
+		IBookStore store,
+		BookLocation location,
+		string expectedJson,
+		string targetJson,
+		Func<SongFile, CancellationToken, Task<Stream>> openSource,
+		string stagingDirectory,
+		bool sourceVerified,
+		CancellationToken cancellationToken)
 	{
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(openSource);
@@ -64,9 +85,16 @@ public static class LocalBookSyncApplier
 					await using Stream source = await openSource(file, cancellationToken).ConfigureAwait(false);
 					long length = source.CanSeek ? source.Length - source.Position
 						: file.ObservedLength ?? throw new InvalidDataException("The incoming sheet has no known length.");
-					await using Stream staged = await VerifiedAssetStage.CreateAsync(
-						source, file.ContentHash, length, stagingDirectory, cancellationToken).ConfigureAwait(false);
-					await transaction.WriteManagedAssetAsync(file.Id, file.RelativePath, staged, cancellationToken).ConfigureAwait(false);
+					if (sourceVerified)
+					{
+						await transaction.WriteManagedAssetAsync(file.Id, file.RelativePath, source, cancellationToken).ConfigureAwait(false);
+					}
+					else
+					{
+						await using Stream staged = await VerifiedAssetStage.CreateAsync(
+							source, file.ContentHash, length, stagingDirectory, cancellationToken).ConfigureAwait(false);
+						await transaction.WriteManagedAssetAsync(file.Id, file.RelativePath, staged, cancellationToken).ConfigureAwait(false);
+					}
 				}
 			}
 

@@ -21,6 +21,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 	private readonly Guid? songId;
 	private readonly SetlistEntrySettings? entry;
 	private readonly Dictionary<Guid, CheckBox> assignments = [];
+	private readonly HashSet<Guid> assignmentDefaultsApplied = [];
 	private readonly Dictionary<Guid, SongInstrumentSnapshot> snapshots = [];
 	private readonly Dictionary<Guid, SongInstrumentOptions> pendingOptions = [];
 	private readonly VerticalStackLayout songOptions;
@@ -30,17 +31,23 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 	private readonly Picker profiles = new() { Title = "Instrument" };
 	private readonly Picker files = new() { Title = "Preferred sheet" };
 	private readonly Picker spelling = new() { Title = "Chord spelling", ItemsSource = Enum.GetNames<AccidentalPreference>() };
-	private readonly Picker behavior = new() { Title = "Capo behavior", ItemsSource = new[] { "Display only", "Show chord shapes" } };
+	private readonly Picker behavior = new()
+	{
+		Title = "Capo behavior", ItemsSource = new[] { "None — record capo only", "Down — lower chords by capo", "Up — raise chords by capo" },
+	};
+
 	private readonly Microsoft.Maui.Controls.Entry transpose = new() { Keyboard = Keyboard.Default, Placeholder = "Transpose (-24 to +24)" };
 	private readonly Microsoft.Maui.Controls.Entry capo = new() { Keyboard = Keyboard.Numeric, Placeholder = "Capo (blank or 0–24)" };
 	private readonly Label status = new();
 	private readonly TaskCompletionSource<bool> completion = new();
+	private readonly Guid? initialInstrument;
 	private InstrumentProfileInfo[] instruments = [];
 	private SongFileCatalogItem[] sheets = [];
 	private SongInstrumentSnapshot? original;
 	private bool loadingProfiles;
 	private bool busy;
 	private bool changed;
+	private bool leaving;
 
 	#endregion
 
@@ -65,7 +72,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 		save.Clicked += async (_, _) => await this.SaveAsync(false).ConfigureAwait(true);
 		FluentIconButton reset = new() { Icon = "ArrowReset", Description = "Reset Song Settings", IsVisible = songId.HasValue };
 		reset.Clicked += async (_, _) => await this.SaveAsync(true).ConfigureAwait(true);
-		FluentIconButton close = new() { Icon = "Dismiss", Description = "Cancel" };
+		FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 		close.Clicked += async (_, _) => await this.CloseAsync().ConfigureAwait(true);
 		this.songOptions = new()
 		{
@@ -73,7 +80,12 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 			Spacing = ControlSpacing,
 			Children =
 			{
-				new Label { Text = "Transpose changes the sounding key. In chord-shape mode, capo is subtracted from the shown chords. Text sheets only." },
+				new Label
+				{
+					Text = "Transpose applies first. Capo None keeps those chords unchanged; Down lowers them by the capo fret; "
+						+ "Up raises them by the capo fret. Use None when the source already shows capo-relative shapes. "
+						+ "Blank capo inherits the song's capo; 0 means no capo. New Piano assignments match the capoed guitar's pitch.",
+				},
 				new Label { Text = "Transpose semitones (-24 to +24)" }, this.transpose,
 				new Label { Text = "Capo fret (blank or 0–24)" }, this.capo, this.behavior, this.spelling, this.files,
 			},
@@ -91,13 +103,15 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 						Text = songId.HasValue ? "Assign the instruments used by this song. Choose an instrument below to edit its settings."
 						: "Choose the default instrument for this book.",
 					},
+					new Label { Text = "Instrument names and deletions are saved immediately. Use Save for assignments and settings." },
 					this.assignmentRows, this.profiles,
 					this.songOptions, this.status,
 				},
 			},
 		};
-		this.Content = DialogLayout.Create(this.Title, body, save, close, reset, create, rename, delete);
+		this.Content = ScreenLayout.Create(this.Title, body, close, save, reset, create, rename, delete);
 		this.RefreshProfiles(entry?.InstrumentProfileId ?? session.Database.BookSettings.DefaultInstrumentId);
+		this.initialInstrument = this.GetSelected()?.Id;
 	}
 
 	#endregion
@@ -130,6 +144,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 		this.assignments.Clear();
 		foreach (Guid deleted in this.snapshots.Keys.Except(this.instruments.Select(item => item.Id)).ToArray())
 		{
+			this.assignmentDefaultsApplied.Remove(deleted);
 			this.snapshots.Remove(deleted);
 			this.pendingOptions.Remove(deleted);
 		}
@@ -141,7 +156,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 				SongInstrumentSnapshot snapshot = this.snapshots.TryGetValue(instrument.Id, out var previous)
 					? previous : this.session.Instruments.GetSongSettings(song, instrument.Id);
 				CheckBox assigned = new() { IsChecked = assignedStates.GetValueOrDefault(instrument.Id, snapshot.SettingId.HasValue) };
-				assigned.CheckedChanged += (_, _) => this.UpdateOptionsEnabled();
+				assigned.CheckedChanged += (_, _) => this.HandleAssignmentChanged(instrument.Id);
 				SemanticProperties.SetDescription(assigned, "Assign " + instrument.Name);
 				this.assignments.Add(instrument.Id, assigned);
 				this.snapshots[instrument.Id] = snapshot;
@@ -197,6 +212,39 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 		this.sheets = this.songId is Guid id ? [.. this.session.GetSongFiles(id).Where(file => !file.IsArchived && !file.IsRecoveryVersion)] : [];
 		this.files.ItemsSource = new List<string> { "Default sheet" }.Concat(this.sheets.Select(file => file.Name)).ToArray();
 		this.files.SelectedIndex = options.PreferredSongFileId is Guid fileId ? 1 + Array.FindIndex(this.sheets, file => file.Id == fileId) : 0;
+		this.UpdateOptionsEnabled();
+	}
+
+	private void HandleAssignmentChanged(Guid instrumentId)
+	{
+		if (!this.loadingProfiles && this.assignments[instrumentId].IsChecked && this.snapshots[instrumentId].SettingId is null
+			&& !this.assignmentDefaultsApplied.Contains(instrumentId))
+		{
+			try
+			{
+				this.CaptureOptions();
+				Guid? referenceId = this.session.Instruments.ResolveInstrument(this.songId!.Value);
+				if (referenceId == instrumentId)
+				{
+					referenceId = this.assignments.FirstOrDefault(pair => pair.Key != instrumentId && pair.Value.IsChecked).Key;
+				}
+
+				SongInstrumentOptions? reference = referenceId is Guid id && id != instrumentId
+					&& this.pendingOptions.TryGetValue(id, out SongInstrumentOptions? options) ? options : null;
+				this.pendingOptions[instrumentId] = this.session.Instruments.GetNewAssignmentOptions(this.songId!.Value, instrumentId, reference);
+				this.assignmentDefaultsApplied.Add(instrumentId);
+				if (this.original?.InstrumentId == instrumentId)
+				{
+					this.LoadSelectedOptions();
+				}
+			}
+			catch (Exception exception) when (exception is FormatException or OverflowException or ArgumentException)
+			{
+				this.status.Text = exception.Message;
+				this.assignments[instrumentId].IsChecked = false;
+			}
+		}
+
 		this.UpdateOptionsEnabled();
 	}
 
@@ -270,7 +318,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 				SongInstrumentSnapshot original = this.original;
 				if (reset)
 				{
-					this.pendingOptions[original.InstrumentId] = new();
+					this.pendingOptions[original.InstrumentId] = this.session.Instruments.GetNewAssignmentOptions(this.songId.Value, original.InstrumentId);
 				}
 				else
 				{
@@ -313,7 +361,7 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 
 			this.session.ActiveInstrumentId = null;
 			this.changed = true;
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult(true);
 		}).ConfigureAwait(true);
 
@@ -338,12 +386,44 @@ public sealed partial class InstrumentSettingsPage : ContentPage
 		}
 	}
 
+	private bool HasPendingChanges()
+	{
+		bool result;
+		try
+		{
+			this.CaptureOptions();
+			result = this.songId.HasValue ? this.snapshots.Values.Any(item =>
+				this.assignments[item.InstrumentId].IsChecked != item.SettingId.HasValue
+				|| (this.assignments[item.InstrumentId].IsChecked && this.pendingOptions[item.InstrumentId] != item.Options))
+				: this.GetSelected()?.Id != this.initialInstrument;
+		}
+		catch (Exception exception) when (exception is ArgumentException or FormatException or OverflowException)
+		{
+			result = true;
+		}
+
+		return result;
+	}
+
 	private async Task CloseAsync()
 	{
-		if (!this.busy)
+		if (!this.busy && !this.leaving)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
-			this.completion.TrySetResult(this.changed);
+			this.leaving = true;
+			this.IsEnabled = false;
+			try
+			{
+				await ScreenNavigation.LeaveEditorAsync(this, this.HasPendingChanges(), () => this.SaveAsync(false), async () =>
+				{
+					await this.Navigation.PopAsync().ConfigureAwait(true);
+					this.completion.TrySetResult(this.changed);
+				}).ConfigureAwait(true);
+			}
+			finally
+			{
+				this.IsEnabled = true;
+				this.leaving = false;
+			}
 		}
 	}
 

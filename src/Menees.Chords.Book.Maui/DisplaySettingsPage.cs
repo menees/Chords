@@ -28,7 +28,9 @@ public sealed partial class DisplaySettingsPage : ContentPage
 	private readonly Label status = new();
 	private readonly WebView preview = new() { HeightRequest = PreviewHeight };
 	private readonly IDispatcherTimer previewTimer;
+	private readonly string[] originalValues;
 	private bool busy;
+	private bool leaving;
 
 	#endregion
 
@@ -49,7 +51,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 		save.Clicked += async (_, _) => await this.SaveAsync(false).ConfigureAwait(true);
 		FluentIconButton reset = new() { Icon = "ArrowReset", Description = "Reset to Book Defaults", IsVisible = songId.HasValue };
 		reset.Clicked += async (_, _) => await this.SaveAsync(true).ConfigureAwait(true);
-		FluentIconButton cancel = new() { Icon = "Dismiss", Description = "Cancel" };
+		FluentIconButton cancel = new() { Icon = "ArrowLeft", Description = "Back" };
 		cancel.Clicked += async (_, _) => await this.CloseAsync(false).ConfigureAwait(true);
 		ScrollView body = new()
 		{
@@ -70,7 +72,8 @@ public sealed partial class DisplaySettingsPage : ContentPage
 				},
 			},
 		};
-		this.Content = DialogLayout.Create(songId.HasValue ? "Song Display" : "Book Display Defaults", body, save, cancel, reset);
+		this.originalValues = this.ReadValues();
+		this.Content = ScreenLayout.Create(songId.HasValue ? "Song Display" : "Book Display Defaults", body, cancel, save, reset);
 		this.previewTimer = this.Dispatcher.CreateTimer();
 		this.previewTimer.Interval = TimeSpan.FromMilliseconds(200);
 		this.previewTimer.Tick += (_, _) =>
@@ -151,7 +154,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 			{
 				DisplayProfile? profile = reset ? null : this.ReadProfile();
 				await this.session.SaveDisplaySettingsAsync(this.songId, profile).ConfigureAwait(true);
-				await this.Navigation.PopModalAsync().ConfigureAwait(true);
+				await this.Navigation.PopAsync().ConfigureAwait(true);
 				this.completion.TrySetResult(true);
 			}
 			catch (Exception exception) when (exception is ArgumentException or FormatException or OverflowException
@@ -166,12 +169,37 @@ public sealed partial class DisplaySettingsPage : ContentPage
 		}
 	}
 
+	private string[] ReadValues() =>
+	[
+		this.theme.SelectedIndex.ToString(CultureInfo.InvariantCulture),
+		this.size.Text ?? string.Empty, this.spacing.Text ?? string.Empty,
+		this.columns.SelectedIndex.ToString(CultureInfo.InvariantCulture), this.chords.IsChecked.ToString(),
+		this.notation.SelectedIndex.ToString(CultureInfo.InvariantCulture),
+	];
+
 	private async Task CloseAsync(bool saved)
 	{
-		if (!this.busy)
+		if (!this.busy && !this.leaving)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
-			this.completion.TrySetResult(saved);
+			this.leaving = true;
+			this.IsEnabled = false;
+			try
+			{
+				await ScreenNavigation.LeaveEditorAsync(
+					this,
+					!this.ReadValues().SequenceEqual(this.originalValues),
+					() => this.SaveAsync(false),
+					async () =>
+					{
+						await this.Navigation.PopAsync().ConfigureAwait(true);
+						this.completion.TrySetResult(saved);
+					}).ConfigureAwait(true);
+			}
+			finally
+			{
+				this.IsEnabled = true;
+				this.leaving = false;
+			}
 		}
 	}
 

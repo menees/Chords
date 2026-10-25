@@ -27,14 +27,13 @@
 				<local:FluentIconButton Grid.Column="4" Icon="DocumentOnePageAdd" Description="New Song" Clicked="HandleNewSongClicked" />
 			</Grid>
 
-			<Grid x:Name="SongSelectionToolbar" Grid.Row="2" IsVisible="False" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource AppSurface}">
+			<Grid x:Name="SongSelectionToolbar" Grid.Row="2" IsVisible="False" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource AppSurface}">
 				<Label x:Name="SelectedSongCount" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
 				<local:FluentIconButton Grid.Column="2" Icon="LayerDiagonalAdd" Description="Add to Setlist" Clicked="HandleAddSelectedSongsClicked" />
 				<local:FluentIconButton x:Name="EditSelectedSongButton" Grid.Column="3" Icon="EditLineHorizontal3" Description="Song" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
                 <local:FluentIconButton x:Name="ArchiveSelectedSongsButton" Grid.Column="4" Icon="Archive" Description="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
                 <local:FluentIconButton x:Name="RestoreSelectedSongsButton" Grid.Column="5" Icon="ArchiveArrowBack" Description="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
                 <local:FluentIconButton x:Name="DeleteSelectedSongsButton" Grid.Column="6" Icon="Delete" Description="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
-                <local:FluentIconButton Grid.Column="7" Icon="Dismiss" Description="Cancel" Clicked="HandleCancelSongSelectionClicked" />
 			</Grid>
 
 			<Grid SizeChanged="HandleJumpViewportChanged" x:Name="SongSurface" Grid.Row="3" ColumnDefinitions="*,Auto">
@@ -164,10 +163,7 @@
 		</Grid>
 
 		<Grid x:Name="PerformanceSurface" IsVisible="False" RowDefinitions="Auto,Auto,*" BackgroundColor="Black">
-			<FlexLayout Padding="8" Wrap="Wrap" AlignItems="Center" BackgroundColor="{DynamicResource AppSurface}">
-				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" Icon="ArrowLeft" Description="Back" Clicked="HandleBackClicked" />
-				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PreviousSongButton" Icon="Previous" Description="Previous" Clicked="HandlePreviousSongClicked" />
-				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceAddButton" Icon="LayerDiagonalAdd" Description="Add to Setlist" Clicked="HandleAddToSetlistClicked" />
+			<local:ScreenHeader Padding="8" BackRequested="HandleBackClicked" BackgroundColor="{DynamicResource AppSurface}">
 				<Label
 					x:Name="PerformanceTitle" FlexLayout.Grow="1" FlexLayout.Basis="160"
 					FontSize="18"
@@ -176,11 +172,13 @@
 					HorizontalTextAlignment="Center"
 					VerticalOptions="Center"
 					LineBreakMode="TailTruncation" />
-				<local:InstrumentSelector x:Name="QuickInstrument" Margin="3,0" FlexLayout.Shrink="0" IsVisible="False"
-					Changed="HandleQuickInstrumentChanged" SettingsRequested="HandleInstrumentSettingsRequested" />
 				<Label x:Name="PerformancePosition" TextColor="{DynamicResource AppMuted}" VerticalOptions="Center" />
+				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PreviousSongButton" Icon="Previous" Description="Previous" Clicked="HandlePreviousSongClicked" />
+				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceAddButton" Icon="LayerDiagonalAdd" Description="Add to Setlist" Clicked="HandleAddToSetlistClicked" />
 				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="NextSongButton" Icon="Next" Description="Next" Clicked="HandleNextSongClicked" />
                 <local:FluentIconSplitButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceSongButton" Icon="EditLineHorizontal3" Description="Edit Song" Clicked="HandleEditCurrentSongClicked" />
+				<local:InstrumentSelector x:Name="QuickInstrument" Margin="3,0" FlexLayout.Shrink="0" IsVisible="False"
+					Changed="HandleQuickInstrumentChanged" />
                 <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceMetronomeButton" Icon="Metronome" Description="Metronome" Clicked="HandleMetronomeClicked" />
 				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceLockButton" Icon="LockClosed" Description="Lock" Clicked="HandlePerformanceLockClicked" />
 				<HorizontalStackLayout Spacing="4" Margin="6,0">
@@ -189,7 +187,7 @@
 					<Picker ToolTipProperties.Text="Notation" x:Name="QuickNotation" WidthRequest="125" SelectedIndexChanged="HandleQuickDisplayChanged" />
 				</HorizontalStackLayout>
 				<local:MetronomeBeatView x:Name="PerformanceBeats" Margin="6,0" FlexLayout.Shrink="0" IsVisible="False" />
-			</FlexLayout>
+			</local:ScreenHeader>
 			<ContentView x:Name="MetronomeHost" Grid.Row="1" />
 			<WebView
 				x:Name="SongViewer"

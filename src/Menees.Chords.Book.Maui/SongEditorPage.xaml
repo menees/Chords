@@ -3,15 +3,14 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:local="clr-namespace:Menees.Chords.Book.Maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" Title="Edit Song">
-    <Grid Padding="16" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
-        <FlexLayout Wrap="Wrap" AlignItems="Center">
+    <Grid Padding="8" RowSpacing="8" RowDefinitions="Auto,Auto,*,Auto">
+        <local:ScreenHeader BackRequested="HandleCancel">
             <Label x:Name="heading" Text="Edit Song" FontSize="22" VerticalOptions="Center" />
-            <local:FluentIconButton Icon="Save" Description="Save" Clicked="HandleSave" Margin="8,0,0,0" />
-            <local:FluentIconButton Icon="Dismiss" Description="Cancel" Clicked="HandleCancel" Margin="8,0,0,0" />
+            <local:FluentIconButton Icon="Save" Description="Save and Return (Ctrl+S)" Clicked="HandleSave" Margin="8,0,0,0" />
             <HorizontalStackLayout x:Name="newSongActions" IsVisible="False">
                 <local:FluentIconButton Icon="PreviewLink" Description="Preview Metadata" Clicked="HandlePreviewMetadata" Margin="8,0,0,0" />
             </HorizontalStackLayout>
-        </FlexLayout>
+        </local:ScreenHeader>
         <VerticalStackLayout Grid.Row="1" Spacing="4">
             <Grid x:Name="metadataGrid" ColumnDefinitions="2*,1.5*,1.5*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="16" RowSpacing="4">
                 <Label Text="Catalog title" />

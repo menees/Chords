@@ -108,7 +108,7 @@ public sealed class InstrumentSettingsService
 					throw new InvalidOperationException("Book settings changed. Reopen them before saving.");
 				}
 
-				_ = database.InstrumentProfiles.Single(profile => profile.Id == instrumentId);
+				InstrumentProfile profile = database.InstrumentProfiles.Single(item => item.Id == instrumentId);
 				database.BookSettings.DefaultInstrumentId = instrumentId;
 				database.BookSettings.Revision = BookApplicationSession.NextRevision(database.BookSettings.Revision, deviceId, now);
 			},
@@ -183,13 +183,21 @@ public sealed class InstrumentSettingsService
 	public SongInstrumentSnapshot GetSongSettings(Guid songId, Guid instrumentId)
 	{
 		ChordDatabase database = this.GetDatabase();
-		_ = database.Songs.Single(song => song.Id == songId);
-		_ = database.InstrumentProfiles.Single(profile => profile.Id == instrumentId);
+		Song song = database.Songs.Single(item => item.Id == songId);
+		InstrumentProfile profile = database.InstrumentProfiles.Single(item => item.Id == instrumentId);
 		SongInstrumentSetting? setting = this.session.GetInstrumentSetting(songId, instrumentId);
-		AccidentalPreference spelling = ParseSpelling(setting?.ChordSpellingPreference);
-		SongInstrumentOptions options = setting is null ? new()
-			: new(setting.TransposeSemitones, setting.CapoFret, setting.CapoBehavior, spelling, setting.PreferredSongFileId);
+		SongInstrumentOptions options = this.GetOptions(song, profile, setting);
 		return new(database.Id, songId, instrumentId, setting?.Id, setting?.Revision.Revision ?? 0, options);
+	}
+
+	/// <summary>Seeds a new assignment from song capo metadata; Piano matches the capoed reference instrument's sounding pitch.</summary>
+	public SongInstrumentOptions GetNewAssignmentOptions(
+		Guid songId, Guid instrumentId, SongInstrumentOptions? reference = null)
+	{
+		ChordDatabase database = this.GetDatabase();
+		Song song = database.Songs.Single(item => item.Id == songId);
+		InstrumentProfile profile = database.InstrumentProfiles.Single(item => item.Id == instrumentId);
+		return this.CreateNewAssignmentOptions(song, profile, reference);
 	}
 
 	public Task SaveSongSettingsAsync(
@@ -221,7 +229,7 @@ public sealed class InstrumentSettingsService
 			if (options is not null)
 			{
 				_ = PerformanceTranspose.GetShownSemitones(
-					options.TransposeSemitones, options.CapoFret, options.CapoBehavior == CapoBehavior.AffectsShownChords);
+					options.TransposeSemitones, options.CapoFret, options.CapoBehavior);
 				if (!Enum.IsDefined(options.CapoBehavior) || !Enum.IsDefined(options.Spelling))
 				{
 					throw new ArgumentException("Choose a supported capo behavior and chord spelling.", nameof(updates));
@@ -246,13 +254,70 @@ public sealed class InstrumentSettingsService
 
 	#region Internal Methods
 
+	internal static int? GetCatalogCapo(Song song)
+	{
+		IReadOnlyList<string> values = SongMetadata.GetValues(song, "capo");
+		const int MaximumCapo = 24;
+		return values.Count > 0 && int.TryParse(
+			values[0],
+			System.Globalization.NumberStyles.Integer,
+			System.Globalization.CultureInfo.InvariantCulture,
+			out int capo) && capo is >= 0 and <= MaximumCapo ? capo : null;
+	}
+
+	internal static bool IsPiano(InstrumentProfile profile) => profile.Id == StandardInstruments.All[5].Id
+		|| profile.Name.Equals("Piano", StringComparison.OrdinalIgnoreCase);
+
 	internal static AccidentalPreference ParseSpelling(string? value)
 		=> value is null ? AccidentalPreference.Default : Enum.TryParse(value, out AccidentalPreference result) && Enum.IsDefined(result)
 			? result : throw new InvalidOperationException("This song uses an unsupported chord-spelling preference.");
 
+	internal SongInstrumentOptions GetEffectiveOptions(Song song, InstrumentProfile profile)
+		=> this.GetOptions(song, profile, this.session.GetInstrumentSetting(song.Id, profile.Id));
+
 	#endregion
 
 	#region Private Methods
+
+	private SongInstrumentOptions CreateNewAssignmentOptions(Song song, InstrumentProfile profile, SongInstrumentOptions? reference)
+	{
+		int? capo = GetCatalogCapo(song);
+		SongInstrumentOptions result = new(CapoFret: capo);
+		if (IsPiano(profile))
+		{
+			Guid? defaultId = this.ResolveInstrument(song.Id);
+			SongInstrumentSetting? setting = defaultId is Guid id && id != profile.Id
+				? this.session.GetInstrumentSetting(song.Id, id) : null;
+			reference ??= setting is null ? new(CapoFret: capo)
+				: new(
+					setting.TransposeSemitones,
+					setting.CapoFret ?? capo,
+					setting.CapoBehavior,
+					ParseSpelling(setting.ChordSpellingPreference),
+					setting.PreferredSongFileId);
+			int physicalCapo = reference.CapoFret ?? capo ?? 0;
+			int sounding = PerformanceTranspose.GetShownSemitones(reference.TransposeSemitones, physicalCapo, reference.CapoBehavior) + physicalCapo;
+			const int MaximumTranspose = 24;
+			if (sounding is < -MaximumTranspose or > MaximumTranspose)
+			{
+				const int SemitonesPerOctave = 12;
+				sounding %= SemitonesPerOctave;
+			}
+
+			result = reference with { TransposeSemitones = sounding, CapoFret = 0, CapoBehavior = CapoBehavior.DisplayOnly };
+		}
+
+		return result;
+	}
+
+	private SongInstrumentOptions GetOptions(Song song, InstrumentProfile profile, SongInstrumentSetting? setting)
+		=> setting is null ? this.CreateNewAssignmentOptions(song, profile, null)
+			: new(
+				setting.TransposeSemitones,
+				setting.CapoFret,
+				setting.CapoBehavior,
+				ParseSpelling(setting.ChordSpellingPreference),
+				setting.PreferredSongFileId);
 
 	private void UpdateSongSettings(
 		ChordDatabase database,

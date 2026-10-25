@@ -61,7 +61,7 @@ function makeState(text) {
 			'match case': 'Match case', regexp: 'Regexp', 'by word': 'By word',
 			replace: 'Replace', 'replace all': 'Replace all', close: 'Close' }),
 		lineNumbers(), history(), drawSelection(), highlightActiveLine(), search(), songLanguage,
-		syntaxHighlighting(highlights), keymap.of([{ key: 'Mod-y', run: redo }, { key: 'Mod-Shift-z', run: redo }, { key: 'Mod-h', run: editor => showSearch(editor, true) }, { key: 'Mod-f', run: editor => showSearch(editor) }, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
+		syntaxHighlighting(highlights), keymap.of([{ key: 'Mod-s', run: () => { notify('save'); return true; }, preventDefault: true }, { key: 'Mod-y', run: redo }, { key: 'Mod-Shift-z', run: redo }, { key: 'Mod-h', run: editor => showSearch(editor, true) }, { key: 'Mod-f', run: editor => showSearch(editor) }, ...defaultKeymap, ...historyKeymap, ...searchKeymap]),
 		EditorView.contentAttributes.of({ 'aria-label': 'Song source', spellcheck: 'false' }),
 		readOnly.of(EditorState.readOnly.of(false)), theme.of(dark.matches ? darkTheme : []),
 		EditorView.updateListener.of(update => {

@@ -100,7 +100,7 @@ public sealed partial class SongFilesPage : ContentPage
 			{
 				var comparison = await this.session.CompareSongVersionsAsync(this.songId, left.Id, other[index].Id).ConfigureAwait(true);
 				SongVersionComparisonPage page = new(comparison, this.session);
-				await this.Navigation.PushModalAsync(page).ConfigureAwait(true);
+				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				result = await page.Completion.ConfigureAwait(true);
 			}
 
@@ -113,7 +113,7 @@ public sealed partial class SongFilesPage : ContentPage
 			SongFileRow selected = (SongFileRow)this.files.SelectedItem;
 			var document = await this.session.GetSongFileEditAsync(this.songId, selected.Id).ConfigureAwait(true);
 			SongEditorPage editor = new(document, this.session);
-			await this.Navigation.PushModalAsync(editor).ConfigureAwait(true);
+			await ScreenNavigation.PushAsync(this, editor).ConfigureAwait(true);
 			return await editor.Completion.ConfigureAwait(true);
 		}).ConfigureAwait(true);
 
@@ -209,7 +209,7 @@ public sealed partial class SongFilesPage : ContentPage
 	{
 		if (!this.busy)
 		{
-			await this.Navigation.PopModalAsync().ConfigureAwait(true);
+			await this.Navigation.PopAsync().ConfigureAwait(true);
 			this.completion.TrySetResult(this.changed);
 		}
 	}
