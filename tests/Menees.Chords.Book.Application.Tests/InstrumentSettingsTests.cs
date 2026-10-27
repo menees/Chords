@@ -118,7 +118,7 @@ public sealed class InstrumentSettingsTests
 	{
 		var token = this.TestContext.CancellationToken;
 		var (session, service, _, _, device, _, guitar) = await CreateAsync(token);
-		const string Source = "{key: Db}\r\n{capo: 1}\r\n[C]Words";
+		const string Source = "{key: Db}\r\n{capo: 1}\r\n[C]Words [F]more [G/B]end";
 		Guid song = await session.CreateSongAsync("Capo shapes", [], [], Source, device, token);
 		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
 		await service.SaveSongSettingsBatchAsync(
@@ -130,11 +130,86 @@ public sealed class InstrumentSettingsTests
 			cancellationToken: token);
 		BookSongPresentation acoustic = await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token);
 		service.GetSongSettings(song, piano).Options.TransposeSemitones.ShouldBe(1);
-		await service.SaveSongSettingsAsync(
-			service.GetSongSettings(song, piano), new(1, Spelling: AccidentalPreference.Flats), device, cancellationToken: token);
-		(await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token)).Html!.ShouldContain(">Db</span>");
+		BookSongPresentation keyboard = await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token);
+		keyboard.OriginalKey.ShouldBe("Db");
+		keyboard.Html!.ShouldContain("class=\"metadata-value\">Db</span>");
+		keyboard.Html!.ShouldContain(">Db</span>");
+		keyboard.Html!.ShouldContain(">Gb</span>");
+		keyboard.Html!.ShouldContain(">Ab/C</span>");
+		keyboard.Html!.ShouldNotContain(">C#</span>");
+		acoustic.OriginalKey.ShouldBe("Db");
+		acoustic.Html!.ShouldContain("class=\"metadata-value\">Db</span>");
+		BookSongPresentation raised = await session.GetPresentationAsync(song, activeInstrumentId: piano, transposeOffset: 2, cancellationToken: token);
+		raised.OriginalKey.ShouldBe("Db");
+		raised.Html!.ShouldContain("class=\"metadata-value\">Eb</span>");
+		raised.Html!.ShouldContain(">Eb</span>");
 		(await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token)).Html.ShouldBe(acoustic.Html);
 		(await session.GetSongEditAsync(song, token)).Text.ShouldBe(Source);
+	}
+
+	[TestMethod]
+	[DataRow(CapoBehavior.DisplayOnly, "C", 1)]
+	[DataRow(CapoBehavior.AffectsShownChords, "Db", 0)]
+	[DataRow(CapoBehavior.RaiseShownChords, "B", 2)]
+	public async Task PianoCapoCompensationPreservesConcertKey(CapoBehavior behavior, string chord, int pianoOffset)
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, _, _, device, _, guitar) = await CreateAsync(token);
+		Guid song = await session.CreateSongAsync("Concert key", [], [], "{key: Db}\r\n{capo: 1}\r\n[" + chord + "]Words [F#]color", device, token);
+		await service.SaveDefaultAsync(session.Database!.Id, session.Database.BookSettings.Revision.Revision, guitar, device, token);
+		await service.SaveSongSettingsAsync(service.GetSongSettings(song, guitar), new(CapoBehavior: behavior), device, cancellationToken: token);
+		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
+		SongInstrumentSnapshot seed = service.GetSongSettings(song, piano);
+		seed.Options.TransposeSemitones.ShouldBe(pianoOffset);
+		await service.SaveSongSettingsAsync(seed, seed.Options, device, cancellationToken: token);
+
+		BookSongPresentation keyboard = await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token);
+		keyboard.OriginalKey.ShouldBe("Db");
+		keyboard.Html!.ShouldContain("class=\"metadata-value\">Db</span>");
+		keyboard.Html!.ShouldContain(">Db</span>");
+		Guid list = await session.CreateSetlistAsync("Set", device, token);
+		Guid entry = await session.AddSongToSetlistAsync(list, song, device, token);
+		await session.SaveSetlistEntrySettingsAsync(
+			session.GetSetlistEntrySettings(list, entry), null, pianoOffset + 2, piano, device, token);
+		BookSongPresentation changed = await session.GetPresentationAsync(song, list, entry, cancellationToken: token);
+		changed.OriginalKey.ShouldBe("Eb");
+		changed.Html!.ShouldContain("class=\"metadata-value\">Eb</span>");
+		changed.Html!.ShouldContain(">Eb</span>");
+
+		await service.SaveSongSettingsAsync(
+			service.GetSongSettings(song, piano), seed.Options with { Spelling = AccidentalPreference.Sharps }, device, cancellationToken: token);
+		BookSongPresentation sharps = await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token);
+		sharps.Html!.ShouldContain("class=\"metadata-value\">Db</span>");
+		sharps.Html!.ShouldContain(">C#</span>");
+
+		(await session.GetSongEditAsync(song, token)).Text!.ShouldContain("[" + chord + "]Words");
+	}
+
+	[TestMethod]
+	public async Task PianoWithoutDeclaredKeyUsesTransposedChordKey()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, service, _, _, device, _, _) = await CreateAsync(token);
+		Guid song = await session.CreateSongAsync("No key", [], [], "{capo: 1}\r\n[C]Words", device, token);
+		Guid piano = await service.SaveProfileAsync(null, "Piano", device, token);
+
+		BookSongPresentation keyboard = await session.GetPresentationAsync(song, activeInstrumentId: piano, cancellationToken: token);
+		keyboard.OriginalKey.ShouldBe("C#");
+		keyboard.Html!.ShouldContain(">C#</span>");
+	}
+
+	[TestMethod]
+	public async Task FlatKeyRespellsChordsWithoutChangingPitch()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, _, _, _, device, _, guitar) = await CreateAsync(token);
+		Guid song = await session.CreateSongAsync("Spelling", [], [], "{key: Db}\r\n[C#]Words [F#]more [G#/C]end", device, token);
+
+		BookSongPresentation chart = await session.GetPresentationAsync(song, activeInstrumentId: guitar, cancellationToken: token);
+		chart.OriginalKey.ShouldBe("Db");
+		chart.Html!.ShouldContain(">Db</span>");
+		chart.Html!.ShouldContain(">Gb</span>");
+		chart.Html!.ShouldContain(">Ab/C</span>");
 	}
 
 	[TestMethod]

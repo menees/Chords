@@ -10,6 +10,7 @@ public sealed partial class SongFilesPage : ContentPage
 {
 	#region Private Data
 
+	private const double DisabledActionOpacity = 0.4;
 	private readonly Guid songId;
 	private readonly BookSession session;
 	private readonly IWindowsPicker picker;
@@ -64,7 +65,8 @@ public sealed partial class SongFilesPage : ContentPage
 		int index = selected is null ? -1 : this.rows.IndexOf(selected);
 		this.add.IsEnabled = !this.session.Database!.Songs.Single(song => song.Id == this.songId).IsArchived;
 		this.prefer.IsEnabled = selected is { IsArchived: false } && index > 0;
-		this.compare.IsEnabled = selected is not null && this.rows.Count > 1;
+		this.compare.IsEnabled = this.rows.Count == 2 || (selected is not null && this.rows.Count > 2);
+		this.compare.Opacity = this.compare.IsEnabled ? 1 : DisabledActionOpacity;
 		this.edit.IsEnabled = selected is { CanEdit: true };
 		this.up.IsEnabled = index > 0;
 		this.down.IsEnabled = index >= 0 && index + 1 < this.rows.Count;
@@ -90,15 +92,27 @@ public sealed partial class SongFilesPage : ContentPage
 	private async void HandleCompare(object? sender, EventArgs e)
 		=> await this.RunAsync(async () =>
 		{
-			SongFileRow left = (SongFileRow)this.files.SelectedItem;
-			SongFileRow[] other = [.. this.rows.Where(row => row.Id != left.Id)];
-			string[] choices = [.. other.Select((row, index) => $"{index + 1}. {row.Name} — {row.Details}")];
-			string? selected = await this.DisplayActionSheetAsync("Compare with which sheet?", "Cancel", null, choices).ConfigureAwait(true);
-			int index = Array.IndexOf(choices, selected);
-			bool result = false;
-			if (index >= 0)
+			bool automaticPair = this.rows.Count == 2;
+			SongFileRow? left = automaticPair ? this.rows[0] : this.files.SelectedItem as SongFileRow;
+			SongFileRow? right = automaticPair ? this.rows[1] : null;
+			if (left is not null && !automaticPair && this.rows.Count > 2)
 			{
-				var comparison = await this.session.CompareSongVersionsAsync(this.songId, left.Id, other[index].Id).ConfigureAwait(true);
+				SongFileRow[] other = [.. this.rows.Where(row => row.Id != left.Id)];
+				string[] choices = [.. other.Select((row, index) => $"{index + 1}. {row.Name} — {row.Details}")];
+				string? selected = await this.DisplayActionSheetAsync("Compare with which sheet?", "Cancel", null, choices).ConfigureAwait(true);
+				int index = Array.IndexOf(choices, selected);
+				right = index >= 0 ? other[index] : null;
+			}
+
+			bool result = false;
+			if (left is not null && right is not null)
+			{
+				var comparison = await this.session.CompareSongVersionsAsync(this.songId, left.Id, right.Id).ConfigureAwait(true);
+				if (automaticPair)
+				{
+					comparison = comparison.WithChronologicalOrder();
+				}
+
 				SongVersionComparisonPage page = new(comparison, this.session);
 				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				result = await page.Completion.ConfigureAwait(true);

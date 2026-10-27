@@ -69,7 +69,7 @@
 					</CollectionView.ItemTemplate>
 				</CollectionView>
 
-				<ScrollView Grid.Column="1" WidthRequest="56" MinimumHeightRequest="0" Orientation="Vertical" VerticalScrollBarVisibility="Always">
+				<ScrollView x:Name="SongJumps" Grid.Column="1" WidthRequest="56" MinimumHeightRequest="0" Orientation="Vertical" VerticalScrollBarVisibility="Always">
 					<VerticalStackLayout x:Name="JumpLetters" Spacing="0" Padding="2,0" />
 				</ScrollView>
 			</Grid>
@@ -180,13 +180,13 @@
 				<local:InstrumentSelector x:Name="QuickInstrument" Margin="3,0" FlexLayout.Shrink="0" IsVisible="False"
 					Changed="HandleQuickInstrumentChanged" />
                 <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceMetronomeButton" Icon="Metronome" Description="Metronome" Clicked="HandleMetronomeClicked" />
-				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceLockButton" Icon="LockClosed" Description="Lock" Clicked="HandlePerformanceLockClicked" />
 				<HorizontalStackLayout Spacing="4" Margin="6,0">
 
 					<local:TransposePicker x:Name="QuickTranspose" Changed="HandleQuickDisplayChanged" />
 					<Picker ToolTipProperties.Text="Notation" x:Name="QuickNotation" WidthRequest="125" SelectedIndexChanged="HandleQuickDisplayChanged" />
 				</HorizontalStackLayout>
 				<local:MetronomeBeatView x:Name="PerformanceBeats" Margin="6,0" FlexLayout.Shrink="0" IsVisible="False" />
+				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceLockButton" Icon="LockClosed" Description="Lock" Clicked="HandlePerformanceLockClicked" />
 			</local:ScreenHeader>
 			<ContentView x:Name="MetronomeHost" Grid.Row="1" />
 			<WebView

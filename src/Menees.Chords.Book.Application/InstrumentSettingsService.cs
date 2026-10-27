@@ -272,6 +272,19 @@ public sealed class InstrumentSettingsService
 		=> value is null ? AccidentalPreference.Default : Enum.TryParse(value, out AccidentalPreference result) && Enum.IsDefined(result)
 			? result : throw new InvalidOperationException("This song uses an unsupported chord-spelling preference.");
 
+	internal int GetKeyTranspose(Song song, InstrumentProfile? profile, int transpose)
+		=> transpose - (profile is not null && IsPiano(profile) ? this.GetSourceSoundingOffset(song) : 0);
+
+	// The reference capo mode describes whether authored chords are already shapes (None),
+	// concert chords (Down), or chords to raise again (Up). Key metadata remains sounding pitch.
+	internal int GetSourceSoundingOffset(Song song)
+	{
+		int capo = GetCatalogCapo(song) ?? 0;
+		Guid? referenceId = this.ResolveInstrument(song.Id);
+		SongInstrumentSetting? reference = referenceId is Guid id ? this.session.GetInstrumentSetting(song.Id, id) : null;
+		return PerformanceTranspose.GetShownSemitones(0, capo, reference?.CapoBehavior ?? CapoBehavior.DisplayOnly) + capo;
+	}
+
 	internal SongInstrumentOptions GetEffectiveOptions(Song song, InstrumentProfile profile)
 		=> this.GetOptions(song, profile, this.session.GetInstrumentSetting(song.Id, profile.Id));
 

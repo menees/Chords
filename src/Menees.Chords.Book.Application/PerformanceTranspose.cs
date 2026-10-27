@@ -1,4 +1,5 @@
 using Menees.Chords.Db;
+using Menees.Chords.Transformers;
 
 namespace Menees.Chords.Book.Application;
 
@@ -26,4 +27,16 @@ internal static class PerformanceTranspose
 			_ => throw new ArgumentOutOfRangeException(nameof(behavior)),
 		};
 	}
+
+	public static AccidentalPreference ResolveSpelling(Key key, AccidentalPreference preference)
+		=> preference != AccidentalPreference.Default ? preference
+			: key.Root.Length > 1 && key.Root[1] == 'b' ? AccidentalPreference.Flats
+			: key.Root.Contains('#') ? AccidentalPreference.Sharps : AccidentalPreference.Default;
+
+	public static Document Transform(Document document, Key key, int chordTranspose, int keyTranspose, AccidentalPreference spelling)
+		=> chordTranspose == 0 && keyTranspose == 0 && spelling == AccidentalPreference.Default ? document
+			: new TransposeTransformer(document, checked((sbyte)chordTranspose), key, spelling)
+			{
+				KeyHalfSteps = checked((sbyte)keyTranspose),
+			}.Transform().Document;
 }

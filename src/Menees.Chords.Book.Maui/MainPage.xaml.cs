@@ -222,10 +222,10 @@ public partial class MainPage : ContentPage
 			}
 			else
 			{
-				this.Status.Text = $"Importing {paths.Count:N0} selected file(s)…";
-				await Task.Yield();
-				int count = await this.session.ImportAsync(paths).ConfigureAwait(true);
-				this.RefreshSongs($"Imported {count:N0} new file(s) from {paths.Count:N0} selected without modifying their bytes.");
+				ImportReviewPage page = new(this.session, paths);
+				await this.Navigation.PushAsync(page).ConfigureAwait(true);
+				string? result = await page.Completion.ConfigureAwait(true);
+				this.RefreshSongs(result ?? "Import canceled. The book is unchanged.");
 			}
 		}).ConfigureAwait(true);
 	}
@@ -650,6 +650,7 @@ public partial class MainPage : ContentPage
 			this.songGroups = [];
 			this.SongList.ItemsSource = this.songGroups;
 			this.JumpLetters.Children.Clear();
+			this.SongJumps.IsVisible = false;
 			this.Status.Text = "This saved tab uses a filter or grouping not yet supported by this client.";
 		}
 		else
@@ -666,18 +667,17 @@ public partial class MainPage : ContentPage
 			: this.session.SearchSongs(query, this.ShowArchived.IsChecked);
 		if (tab == RecentTabIndex)
 		{
-			this.songGroups = this.visibleSongs.Count == 0 ? [] : [new SongGroup("Recently opened", this.visibleSongs)];
+			this.songGroups = this.visibleSongs.Count == 0 ? [] : [new SongGroup("Recently opened or imported", this.visibleSongs)];
 		}
-		else if (this.GroupSongsByArtist)
+		else if (this.SongGrouping is null)
 		{
-			var artists = this.session.Database!.Songs.ToDictionary(song => song.Id, song => song.Artists);
-			this.songGroups = [.. this.visibleSongs
-				.SelectMany(row => artists[row.Id].DefaultIfEmpty("Unknown artist").Distinct(StringComparer.CurrentCultureIgnoreCase)
-					.Select(artist => (Artist: artist, Row: row)))
-				.GroupBy(item => item.Artist, StringComparer.CurrentCultureIgnoreCase)
-				.OrderBy(group => group.Key, StringComparer.CurrentCultureIgnoreCase)
-				.Select(group => new SongGroup(group.Key, group.Select(item => item.Row)
-					.OrderBy(song => song.Title, StringComparer.CurrentCultureIgnoreCase)))];
+			this.songGroups = [];
+		}
+		else if (this.SongGrouping is string grouping && grouping != "title")
+		{
+			Dictionary<Guid, SongRow> rows = this.visibleSongs.ToDictionary(song => song.Id);
+			this.songGroups = [.. this.session.GroupSongs([.. this.visibleSongs.Select(song => song.Id)], grouping)
+				.Select(group => new SongGroup(group.Name, group.SongIds.Select(id => rows[id])))];
 			this.visibleSongs = [.. this.songGroups.SelectMany(group => group).DistinctBy(song => song.Id)];
 		}
 		else
@@ -688,7 +688,14 @@ public partial class MainPage : ContentPage
 				.OrderBy(group => group.Key == "#" ? 0 : 1).ThenBy(group => group.Key, StringComparer.Ordinal)];
 		}
 
-		this.SongList.ItemsSource = this.songGroups;
+		bool grouped = tab == RecentTabIndex || this.SongGrouping is not null;
+		if (this.SongList.IsGrouped != grouped)
+		{
+			this.SongList.ItemsSource = null;
+			this.SongList.IsGrouped = grouped;
+		}
+
+		this.SongList.ItemsSource = grouped ? this.songGroups : this.visibleSongs;
 		this.RefreshJumpLetters();
 		this.Status.Text = $"Showing {this.visibleSongs.Count:N0} of {this.allSongs.Count:N0} songs.";
 	}
@@ -968,13 +975,15 @@ public partial class MainPage : ContentPage
 	private void RefreshJumpLetters()
 	{
 		this.JumpLetters.Children.Clear();
+		this.SongJumps.IsVisible = false;
+		bool letterJumps = this.SongGrouping is "artist" or "tag" or "genre";
 		IEnumerable<SongGroup> jumps = this.ManagementTabs.SelectedIndex == RecentTabIndex ? []
-			: this.GroupSongsByArtist ? this.songGroups.DistinctBy(group => GetSectionKey(group.Key)) : this.songGroups;
+			: letterJumps ? this.songGroups.DistinctBy(group => GetSectionKey(group.Key)) : this.songGroups;
 		foreach (SongGroup group in jumps)
 		{
 			Button button = new()
 			{
-				Text = this.GroupSongsByArtist ? GetSectionKey(group.Key) : group.Key,
+				Text = letterJumps ? GetSectionKey(group.Key) : group.Key,
 				CommandParameter = group,
 				Padding = 0,
 				HeightRequest = JumpButtonHeight,
@@ -986,6 +995,7 @@ public partial class MainPage : ContentPage
 			SemanticProperties.SetDescription(button, $"Jump to songs beginning with {group.Key}");
 			button.Clicked += this.HandleJumpLetterClicked;
 			this.JumpLetters.Children.Add(button);
+			this.SongJumps.IsVisible = true;
 		}
 	}
 

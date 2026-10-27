@@ -12,4 +12,5 @@ public sealed record SongCatalogItem(
 	int ArchivedFileCount = 0,
 	int RecoveryFileCount = 0,
 	bool HasDisplayOverride = false,
-	bool HasMetronomeOverride = false);
+	bool HasMetronomeOverride = false,
+	int PreviousSaveCount = 0);

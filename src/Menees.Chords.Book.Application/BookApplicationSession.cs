@@ -33,6 +33,7 @@ public sealed partial class BookApplicationSession
 	private BookLocation? location;
 	private BookSearchIndex? searchIndex;
 	private BookMetadataValueIndex? metadataValueIndex;
+	private BookGroupingIndex? groupingIndex;
 	private Dictionary<Guid, SongCatalogItem>? catalogItems;
 
 	#endregion
@@ -526,27 +527,32 @@ public sealed partial class BookApplicationSession
 				entry?.TransposeSemitones ?? setting.TransposeSemitones,
 				capoFret,
 				setting.CapoBehavior);
+			int keyTranspose = new InstrumentSettingsService(this).GetKeyTranspose(
+				song, instrument, transposeOffset + (entry?.TransposeSemitones ?? setting.TransposeSemitones));
 			AccidentalPreference spelling = setting.Spelling;
 			string cacheKey = System.Text.Json.JsonSerializer.Serialize(new
 			{
 				Book = database.Id, File = file.Id, file.ContentHash, file.ContentRevision, Profile = profile, Transpose = transpose, Spelling = spelling,
-				BaseTranspose = transpose - transposeOffset,
+				BaseTranspose = transpose - transposeOffset, KeyTranspose = keyTranspose,
 			});
 			RenderedSong? rendered = this.renderedSongs.Get(cacheKey);
 			if (rendered is null)
 			{
 				using Stream stream = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
 				Document document = Document.Load(stream);
-				Key? key = Key.Find(document, DetectKey.FirstChord);
-				if (key is not null && (transpose != 0 || spelling != AccidentalPreference.Default))
+				Key? declaredKey = Key.Find(document, DetectKey.MetadataOnly);
+				Key? key = declaredKey ?? Key.Find(document, DetectKey.FirstChord);
+				int effectiveKeyTranspose = declaredKey is null ? transpose : keyTranspose;
+				if (key is not null)
 				{
-					document = new TransposeTransformer(document, checked((sbyte)transpose), key, spelling).Transform().Document;
+					spelling = PerformanceTranspose.ResolveSpelling(key, spelling);
+					document = PerformanceTranspose.Transform(document, key, transpose, effectiveKeyTranspose, spelling);
 				}
 
 				cancellationToken.ThrowIfCancellationRequested();
 				string html = SongDisplaySettings.Render(document, profile);
 				string? baseKey = key is null ? null
-					: Chord.Parse(key.Name).Transpose(checked((sbyte)(transpose - transposeOffset)), spelling).Name;
+					: Chord.Parse(key.Name).Transpose(checked((sbyte)(effectiveKeyTranspose - transposeOffset)), spelling).Name;
 				rendered = new(html, baseKey);
 				this.renderedSongs.Put(cacheKey, rendered);
 			}
@@ -619,7 +625,8 @@ public sealed partial class BookApplicationSession
 					Song song = database.Songs.Single(item => item.Id == songId);
 					this.searchIndex!.RefreshSongPredicates(song);
 					SongCatalogItem previous = this.catalogItems![songId];
-					this.catalogItems[songId] = CreateCatalogItem(song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount);
+					this.catalogItems[songId] = CreateCatalogItem(
+						song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount, previous.PreviousSaveCount);
 				}
 			}
 			catch
@@ -654,7 +661,7 @@ public sealed partial class BookApplicationSession
 
 	#region Private Methods
 
-	private static SongCatalogItem CreateCatalogItem(Song song, int active, int archived, int recovery)
+	private static SongCatalogItem CreateCatalogItem(Song song, int active, int archived, int recovery, int previousSave)
 	{
 		List<string> parts = [CreateDisplayText(song)];
 		if (active > 1)
@@ -662,14 +669,20 @@ public sealed partial class BookApplicationSession
 			parts.Add($"{active} sheets");
 		}
 
-		if (archived > 0)
+		int otherArchived = archived - previousSave;
+		if (otherArchived > 0)
 		{
-			parts.Add($"{archived} archived sheets");
+			parts.Add($"{otherArchived} archived {(otherArchived == 1 ? "sheet" : "sheets")}");
 		}
 
 		if (recovery > 0)
 		{
-			parts.Add($"{recovery} recovery sheets");
+			parts.Add($"{recovery} recovery {(recovery == 1 ? "sheet" : "sheets")}");
+		}
+
+		if (previousSave > 0)
+		{
+			parts.Add($"{previousSave} previous {(previousSave == 1 ? "save" : "saves")}");
 		}
 
 		bool display = song.DisplayOverride?.HasValues == true;
@@ -695,7 +708,8 @@ public sealed partial class BookApplicationSession
 			archived,
 			recovery,
 			display,
-			metronome);
+			metronome,
+			previousSave);
 	}
 
 	private static string CreateDisplayText(Song song)
@@ -802,6 +816,20 @@ public sealed partial class BookApplicationSession
 			|| name.Equals("artists", StringComparison.OrdinalIgnoreCase)
 			|| name.Equals("author", StringComparison.OrdinalIgnoreCase);
 
+	private static (int Active, int Archived, int Recovery, int PreviousSave) CountSongFiles(IEnumerable<SongFile> files)
+	{
+		int active = 0, archived = 0, recovery = 0, previousSave = 0;
+		foreach (SongFile file in files)
+		{
+			active += !file.IsArchived && file.RecoveryVersion is null ? 1 : 0;
+			archived += file.IsArchived ? 1 : 0;
+			recovery += file.RecoveryVersion is not null ? 1 : 0;
+			previousSave += file.IsArchived && file.RecoveryVersion is null && file.SavedVersion is not null ? 1 : 0;
+		}
+
+		return (active, archived, recovery, previousSave);
+	}
+
 	private (IBookStore Store, BookLocation Location) GetActiveBook()
 		=> (this.store ?? throw new InvalidOperationException("No book is open."),
 			this.location ?? throw new InvalidOperationException("No book is open."));
@@ -810,10 +838,9 @@ public sealed partial class BookApplicationSession
 	{
 		SongFile[] files = [.. this.Database!.SongFiles.Where(file => file.SongId == song.Id)];
 		this.searchIndex!.RefreshSong(song, files);
-		int active = files.Count(file => !file.IsArchived && file.RecoveryVersion is null);
-		int archived = files.Count(file => file.IsArchived);
-		int recovery = files.Count(file => file.RecoveryVersion is not null || file.SavedVersion is not null);
-		this.catalogItems![song.Id] = CreateCatalogItem(song, active, archived, recovery);
+		this.groupingIndex?.RefreshSong(song);
+		var (active, archived, recovery, previousSave) = CountSongFiles(files);
+		this.catalogItems![song.Id] = CreateCatalogItem(song, active, archived, recovery, previousSave);
 		this.metadataValueIndex = null;
 	}
 
@@ -821,6 +848,7 @@ public sealed partial class BookApplicationSession
 	{
 		ILookup<Guid, SongFile> files = database.SongFiles.ToLookup(file => file.SongId);
 		this.Database = database;
+		this.groupingIndex = null;
 		this.metadataValueIndex = null;
 		this.instrumentSettings = database.SongInstrumentSettings.ToDictionary(item => (item.SongId, item.InstrumentProfileId));
 		this.searchIndex = new(database);
@@ -828,17 +856,8 @@ public sealed partial class BookApplicationSession
 			song => song.Id,
 			song =>
 			{
-				int active = 0;
-				int archived = 0;
-				int recovery = 0;
-				foreach (SongFile file in files[song.Id])
-				{
-					active += !file.IsArchived && file.RecoveryVersion is null ? 1 : 0;
-					archived += file.IsArchived ? 1 : 0;
-					recovery += file.RecoveryVersion is not null || file.SavedVersion is not null ? 1 : 0;
-				}
-
-				return CreateCatalogItem(song, active, archived, recovery);
+				var (active, archived, recovery, previousSave) = CountSongFiles(files[song.Id]);
+				return CreateCatalogItem(song, active, archived, recovery, previousSave);
 			});
 	}
 

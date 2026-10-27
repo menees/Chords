@@ -11,6 +11,22 @@ public sealed partial class BookSession
 {
 	#region Public Methods
 
+	public Task<BookImportReview> ReviewImportAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.ReviewImportAsync(paths, cancellationToken), cancellationToken);
+
+	public async Task<IReadOnlyList<BookImportResult>> ApplyImportAsync(
+		BookImportReview review, IReadOnlyList<BookImportDecision> decisions, CancellationToken cancellationToken = default)
+	{
+		IReadOnlyList<BookImportResult> results = await Task.Run(
+			() => this.application.ApplyImportAsync(review, decisions, this.DeviceId, cancellationToken), cancellationToken).ConfigureAwait(true);
+		this.RecordImportedSongs(review.BookId, results.Select(result => result.SongId));
+		return results;
+	}
+
+	public Task<SongVersionComparison> CompareImportAsync(
+		BookImportReview review, Guid itemId, Guid candidateId, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.CompareImportAsync(review, itemId, candidateId, cancellationToken), cancellationToken);
+
 	public Task<string> CreateIntegrityReportAsync(CancellationToken cancellationToken = default)
 	{
 		(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
@@ -37,6 +53,9 @@ public sealed partial class BookSession
 
 	public Task SaveDisplaySettingsAsync(Guid? songId, DisplayProfile? profile, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.SaveDisplaySettingsAsync(songId, profile, this.DeviceId, cancellationToken), cancellationToken);
+
+	public IReadOnlyList<BookSongGroup> GroupSongs(IReadOnlyList<Guid> songIds, string field)
+		=> this.application.GroupSongs(songIds, field);
 
 	public IReadOnlyList<CustomTabCatalogItem> GetCustomTabs() => this.application.GetCustomTabs();
 
@@ -90,8 +109,18 @@ public sealed partial class BookSession
 		SongVersionComparison comparison, SongVersionChoice choice, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.ResolveSongVersionsAsync(comparison, choice, this.DeviceId, cancellationToken), cancellationToken);
 
-	public Task<int> ImportSongFilesAsync(Guid songId, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
-		=> Task.Run(() => this.application.ImportSongFilesAsync(songId, paths, this.DeviceId, cancellationToken), cancellationToken);
+	public async Task<int> ImportSongFilesAsync(Guid songId, IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+	{
+		Guid bookId = this.Database!.Id;
+		int count = await Task.Run(
+			() => this.application.ImportSongFilesAsync(songId, paths, this.DeviceId, cancellationToken), cancellationToken).ConfigureAwait(true);
+		if (count > 0)
+		{
+			this.RecordImportedSongs(bookId, [songId]);
+		}
+
+		return count;
+	}
 
 	public Task SetSongFilePositionAsync(Guid songId, Guid fileId, int position, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.SetSongFilePositionAsync(songId, fileId, position, this.DeviceId, cancellationToken), cancellationToken);

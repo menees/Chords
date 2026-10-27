@@ -166,7 +166,7 @@ public sealed class Chord
 	/// <remarks>
 	/// Nashville and Roman chords are key-relative, so they are returned unchanged.
 	/// With <see cref="AccidentalPreference.Default"/>, positive values use sharps and negative values use flats.
-	/// The other preferences explicitly select sharps or flats.
+	/// The other preferences explicitly select sharps or flats, including respelling without changing pitch when halfSteps is zero.
 	/// </remarks>
 	public Chord Transpose(sbyte halfSteps, AccidentalPreference accidentalPreference = AccidentalPreference.Default)
 	{
@@ -177,11 +177,14 @@ public sealed class Chord
 
 		halfSteps = MusicTheory.NormalizeTranspose(halfSteps);
 		Chord result = this;
-		if (halfSteps != 0 && this.Notation == Notation.Name)
+		if ((halfSteps != 0 || accidentalPreference != AccidentalPreference.Default) && this.Notation == Notation.Name)
 		{
 			string root = MusicTheory.TransposeNamedNote(this.Root, halfSteps, accidentalPreference);
 			string? bass = this.Bass is null ? null : MusicTheory.TransposeNamedNote(this.Bass, halfSteps, accidentalPreference);
-			result = this.WithNotes(root, this.Modifiers, bass, this.Notation);
+			if (root != this.Root || bass != this.Bass)
+			{
+				result = this.WithNotes(root, this.Modifiers, bass, this.Notation);
+			}
 		}
 
 		return result;

@@ -33,6 +33,26 @@ public class TransposeTransformerTests
 	}
 
 	[TestMethod]
+	public void KeyOffsetCanDifferFromChordOffsetTest()
+	{
+		Document document = Document.Parse("{key: Db}\n[C]One [F]four [G/B]five\n{meta: key Eb}\n[D]Two");
+		Document transformed = new TransposeTransformer(document, 1, AccidentalPreference.Flats)
+		{
+			KeyHalfSteps = 0,
+		}.Transform().Document;
+
+		transformed.Entries[0].ToString().ShouldBe("{key: Db}");
+		transformed.Entries[1].ToString().ShouldBe("[Db]One [Gb]four [Ab/C]five");
+		transformed.Entries[2].ToString().ShouldBe("{meta: key Eb}");
+		transformed.Entries[3].ToString().ShouldBe("[Eb]Two");
+		new Menees.Chords.Formatters.TextFormatter(document).ToString().ShouldContain("[C]One");
+
+		Document keyOnly = new TransposeTransformer(document, 0) { KeyHalfSteps = 2 }.Transform().Document;
+		keyOnly.Entries[0].ToString().ShouldBe("{key: D#}");
+		keyOnly.Entries[1].ShouldBeSameAs(document.Entries[1]);
+	}
+
+	[TestMethod]
 	public void ZeroHalfStepsTest()
 	{
 		Document document = Document.Parse("{key: C}\n[C]Lyrics");

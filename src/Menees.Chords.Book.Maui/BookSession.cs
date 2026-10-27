@@ -181,13 +181,15 @@ public sealed partial class BookSession : IDisposable
 	{
 		ArgumentNullException.ThrowIfNull(sourcePaths);
 		(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+		Guid bookId = this.Database!.Id;
 		IReadOnlyList<BookImportResult> results = await BookImportService.ImportFilesAsync(
 			activeStore,
 			activeLocation,
 			sourcePaths,
 			this.DeviceId,
-			cancellationToken).ConfigureAwait(false);
-		await this.application.ReloadAsync(cancellationToken).ConfigureAwait(false);
+			cancellationToken).ConfigureAwait(true);
+		await this.application.ReloadAsync(CancellationToken.None).ConfigureAwait(true);
+		this.RecordImportedSongs(bookId, results.Select(result => result.SongId));
 		return results.Count;
 	}
 

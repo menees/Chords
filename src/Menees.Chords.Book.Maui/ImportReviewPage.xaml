@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Menees.Chords.Book.Maui.ImportReviewPage"
+	xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+	xmlns:local="clr-namespace:Menees.Chords.Book.Maui" Title="Review Import">
+	<Grid Padding="8" RowSpacing="8" RowDefinitions="Auto,Auto,Auto,*,Auto">
+		<local:ScreenHeader x:Name="header" BackRequested="HandleBack">
+			<Label Text="Review Import" FontSize="22" VerticalOptions="Center" />
+			<local:FluentIconButton x:Name="apply" Icon="ArrowImport" Description="Apply Reviewed Import" Clicked="HandleApply" IsEnabled="False" />
+			<Button x:Name="compare" Text="Compare Contents…" Clicked="HandleCompare" IsEnabled="False" />
+			<local:FluentIconButton x:Name="cancel" Icon="Stop" Description="Cancel Operation" Clicked="HandleCancel" IsVisible="False" />
+		</local:ScreenHeader>
+		<VerticalStackLayout Grid.Row="1" Spacing="8">
+			<Label Text="Review before importing. Related songs default to Skip. Add a sheet to preserve both versions and the existing song's metadata and default sheet." />
+			<Label x:Name="summary" />
+			<Picker x:Name="filter" Title="Show" SelectedIndexChanged="HandleFilterChanged" SemanticProperties.Description="Files to show in import review" />
+		</VerticalStackLayout>
+		<VerticalStackLayout x:Name="selection" Grid.Row="2" Spacing="8" IsVisible="False">
+			<Label x:Name="selectedName" FontAttributes="Bold" LineBreakMode="WordWrap" />
+			<Picker x:Name="action" Title="Import action" SelectedIndexChanged="HandleDecisionChanged" />
+			<Picker x:Name="candidate" Title="Related song and sheet" SelectedIndexChanged="HandleDecisionChanged" />
+		</VerticalStackLayout>
+		<CollectionView x:Name="files" Grid.Row="3" SelectionMode="Single" SelectionChanged="HandleSelectionChanged">
+			<CollectionView.EmptyView><Label Text="No files in this category." /></CollectionView.EmptyView>
+			<CollectionView.ItemTemplate>
+				<DataTemplate x:DataType="local:ImportReviewRow">
+					<VerticalStackLayout Padding="8" Spacing="4">
+						<Label Text="{Binding Title}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+						<Label Text="{Binding Description}" FontSize="12" LineBreakMode="WordWrap" />
+						<Label Text="{Binding DecisionCaption}" />
+					</VerticalStackLayout>
+				</DataTemplate>
+			</CollectionView.ItemTemplate>
+		</CollectionView>
+		<Label x:Name="status" Grid.Row="4" LineBreakMode="WordWrap" Text="Preparing import review…" />
+	</Grid>
+</ContentPage>

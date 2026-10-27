@@ -86,6 +86,9 @@ public class ChordTests
 		chord.Transpose(-13).Name.ShouldBe("B/Eb*");
 		chord.Transpose(1, AccidentalPreference.Flats).Name.ShouldBe("Db/F*");
 		chord.Transpose(-1, AccidentalPreference.Sharps).Name.ShouldBe("B/D#*");
+		Chord.Parse("C#/F#*").Transpose(0, AccidentalPreference.Flats).Name.ShouldBe("Db/Gb*");
+		Chord.Parse("Db/Gb*").Transpose(0, AccidentalPreference.Sharps).Name.ShouldBe("C#/F#*");
+		ReferenceEquals(chord, chord.Transpose(0, AccidentalPreference.Flats)).ShouldBeTrue();
 		ReferenceEquals(chord, chord.Transpose(120)).ShouldBeTrue();
 		chord.Transpose(sbyte.MaxValue).Name.ShouldBe("G/B*");
 		chord.Transpose(sbyte.MinValue).Name.ShouldBe("E/Ab*");

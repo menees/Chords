@@ -45,6 +45,60 @@ public sealed class SavedSongVersionTests
 	}
 
 	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task UnchangedSourceSaveDoesNotReadRewriteOrRotateHistory(bool hasPreviousSave)
+	{
+		var token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		if (hasPreviousSave)
+		{
+			await this.SaveAsync(await this.session.GetSongEditAsync(this.songId, token), "[C]Actually edited", token);
+		}
+
+		SongEditDocument edit = await this.session.GetSongEditAsync(this.songId, token);
+		SongFile[] before = [.. this.session.Database!.SongFiles];
+		var stamps = before.Select(file => (file.Id, file.ContentHash, file.ContentRevision, file.Revision.Revision)).ToArray();
+		SongFile active = before.Single(file => !file.IsArchived);
+		SongFile? previous = before.SingleOrDefault(file => file.IsArchived);
+		using FileStream lockedActive = File.Open(this.PathFor(active), FileMode.Open, FileAccess.Read, FileShare.None);
+		using FileStream? lockedPrevious = previous is null ? null : File.Open(this.PathFor(previous), FileMode.Open, FileAccess.Read, FileShare.None);
+
+		await this.SaveAsync(edit, edit.Text!, token);
+
+		this.session.Database!.SongFiles.Select(file => (file.Id, file.ContentHash, file.ContentRevision, file.Revision.Revision)).ShouldBe(stamps);
+		this.session.Database.Tombstones.ShouldBeEmpty();
+		this.session.GetSongFiles(this.songId).Count(file => file.IsPreviousSave).ShouldBe(hasPreviousSave ? 1 : 0);
+	}
+
+	[TestMethod]
+	public async Task AutomaticComparisonUsesOriginalEditTimeForPreviousSaveAndReusesCapturedSources()
+	{
+		var token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		SongEditDocument original = await this.session.GetSongEditAsync(this.songId, token);
+		await this.SaveAsync(original, "[D]New source", token);
+		SongFile previous = this.session.Database!.SongFiles.Single(file => file.IsArchived);
+		SongVersionComparison captured = await this.session.CompareSongVersionsAsync(this.songId, original.FileId!.Value, previous.Id, token);
+		SongFile active = this.session.Database.SongFiles.Single(file => !file.IsArchived);
+		using FileStream lockedActive = File.Open(this.PathFor(active), FileMode.Open, FileAccess.Read, FileShare.None);
+		using FileStream lockedPrevious = File.Open(this.PathFor(previous), FileMode.Open, FileAccess.Read, FileShare.None);
+
+		SongVersionComparison ordered = captured.WithChronologicalOrder();
+
+		ordered.Left.Id.ShouldBe(previous.Id);
+		ordered.Left.ModifiedUtc.ShouldBe(previous.SavedVersion!.OriginalModifiedUtc);
+		ordered.Left.Text.ShouldBe(original.Text);
+		ordered.Right.Id.ShouldBe(original.FileId.Value);
+		ordered.Right.Text.ShouldBe("[D]New source");
+		ordered.Left.ModifiedUtc.ShouldBeLessThanOrEqualTo(ordered.Right.ModifiedUtc);
+		ordered.BookId.ShouldBe(captured.BookId);
+		ordered.SongId.ShouldBe(captured.SongId);
+		ordered.CanResolve.ShouldBe(captured.CanResolve);
+		ordered.WithChronologicalOrder().ShouldBeSameAs(ordered);
+	}
+
+	[TestMethod]
 	public async Task RepeatedSavesRetainOnlyPreviousExactBytesAndBackupIncludesThem()
 	{
 		var token = this.TestContext.CancellationToken;
@@ -102,6 +156,65 @@ public sealed class SavedSongVersionTests
 		(await this.store.ReadDatabaseJsonAsync(this.location, token)).ShouldBe(before);
 		this.session.Database!.SongFiles.Count.ShouldBe(2);
 		(await File.ReadAllTextAsync(this.PathFor(modified), token)).ShouldBe("External edit retained");
+	}
+
+	[TestMethod]
+	public async Task PreviousSaveHasDistinctSummaryAndSheetKindAfterSaveReloadAndRestore()
+	{
+		var token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SaveAsync(await this.session.GetSongEditAsync(this.songId, token), "[C]Edited text", token);
+		SongFileCatalogItem previous = this.session.GetSongFiles(this.songId).Single(file => file.IsArchived);
+		previous.IsPreviousSave.ShouldBeTrue();
+		previous.IsRecoveryVersion.ShouldBeFalse();
+		SongCatalogItem row = this.session.Search(null).Single();
+		row.PreviousSaveCount.ShouldBe(1);
+		row.RecoveryFileCount.ShouldBe(0);
+		row.ArchivedFileCount.ShouldBe(1);
+		row.DisplayText.ShouldContain("1 previous save");
+		row.DisplayText.ShouldNotContain("archived");
+		row.DisplayText.ShouldNotContain("recovery");
+		this.session.Search("previoussave:true recovery:false archivedfiles:true").Single().Id.ShouldBe(this.songId);
+		this.session.Search("recovery:true").ShouldBeEmpty();
+		await this.session.SaveSongMetronomeAsync(this.songId, new(), this.device, token);
+		this.session.Search(null).Single().PreviousSaveCount.ShouldBe(1);
+		this.session.Search(null).Single().DisplayText.ShouldContain("1 previous save");
+		await this.session.ReloadAsync(token);
+		this.session.Search("previoussave:true recovery:false").Single().PreviousSaveCount.ShouldBe(1);
+		this.session.GetSongFiles(this.songId).Single(file => file.Id == previous.Id).IsPreviousSave.ShouldBeTrue();
+
+		await this.session.SetSongFileArchivedAsync(this.songId, previous.Id, false, this.device, token);
+		this.session.GetSongFiles(this.songId).Single(file => file.Id == previous.Id).IsPreviousSave.ShouldBeFalse();
+		this.session.Search(null).Single().PreviousSaveCount.ShouldBe(0);
+		this.session.Search("previoussave:true").ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public async Task SyncRecoveryRemainsDistinctFromPreviousSaves()
+	{
+		var token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SaveAsync(await this.session.GetSongEditAsync(this.songId, token), "[C]Edited text", token);
+		string expected = await this.store.ReadDatabaseJsonAsync(this.location, token);
+		SongFile previous = this.session.Database!.SongFiles.Single(file => file.IsArchived);
+		previous.SavedVersion = null;
+		previous.RecoveryVersion = new()
+		{
+			RecoveredFromSyncUtc = DateTimeOffset.UtcNow,
+			OriginalConflictingFileId = previous.Id,
+			WinningFileId = this.session.Database.SongFiles.Single(file => !file.IsArchived).Id,
+		};
+		await this.store.CommitMetadataAsync(this.location, expected, this.session.Database, token);
+		await this.session.ReloadAsync(token);
+
+		SongCatalogItem row = this.session.Search("recovery:true previoussave:false").Single();
+		row.RecoveryFileCount.ShouldBe(1);
+		row.PreviousSaveCount.ShouldBe(0);
+		row.DisplayText.ShouldContain("1 recovery sheet");
+		row.DisplayText.ShouldNotContain("previous save");
+		SongFileCatalogItem recovery = this.session.GetSongFiles(this.songId).Single(file => file.Id == previous.Id);
+		recovery.IsRecoveryVersion.ShouldBeTrue();
+		recovery.IsPreviousSave.ShouldBeFalse();
 	}
 
 	[TestMethod]

@@ -1,6 +1,7 @@
 #region Using Directives
 
 using Menees.Chords.Book.Application;
+using Menees.Chords.Book.Maui.Platforms.Windows;
 
 #endregion
 
@@ -20,7 +21,8 @@ public partial class MainPage
 	private CustomTabCatalogItem? CurrentCustomTab => this.ManagementTabs.SelectedIndex >= FirstCustomTabIndex
 		? this.customTabs.ElementAtOrDefault(this.ManagementTabs.SelectedIndex - FirstCustomTabIndex) : null;
 
-	private bool GroupSongsByArtist => this.ManagementTabs.SelectedIndex == ArtistsTabIndex || this.CurrentCustomTab?.GroupBy == "artist";
+	private string? SongGrouping => this.ManagementTabs.SelectedIndex == ArtistsTabIndex ? "artist"
+		: this.CurrentCustomTab is CustomTabCatalogItem tab ? tab.GroupBy : "title";
 
 	#endregion
 
@@ -50,15 +52,15 @@ public partial class MainPage
 		=> await this.RunBookMutationAsync(async () =>
 		{
 			CustomTabCatalogItem? current = this.CurrentCustomTab;
-			string[] choices = current is null ? ["Save as New Tab", "Search Help"]
-				: current.IsSupported ? ["Save as New Tab", "Update This Tab", "Delete This Tab", "Search Help"]
-				: ["Save as New Tab", "Delete This Tab", "Search Help"];
+			string[] choices = current is null ? ["New Tab…", "Search Help"]
+				: current.IsSupported ? ["New Tab…", "Edit Tab…", "Delete This Tab", "Search Help"]
+				: ["New Tab…", "Delete This Tab", "Search Help"];
 			string? action = await this.DisplayActionSheetAsync("Song Views", "Cancel", null, choices).ConfigureAwait(true);
 			if (action == "Search Help")
 			{
 				const string Help = "Combine words or quoted phrases with fields, for example:\nartist:\"Joni Mitchell\" key:c genre:folk\n\n"
 						+ "Fields: title, artist, tag, key, genre, album, time (exact time signature), capo, duration (seconds or m:ss).\n\n"
-						+ "Use true or false with: archived, display, metronome, multiple, recovery, archivedfiles.\n"
+						+ "Use true or false with: archived, display, metronome, multiple, recovery, previoussave, archivedfiles.\n"
 						+ "Enable Show Archived to include archived songs. All terms must match. Save a search as a tab from Views.";
 				await this.DisplayAlertAsync("Search", Help, "Close").ConfigureAwait(true);
 			}
@@ -73,23 +75,21 @@ public partial class MainPage
 					this.RefreshCustomTabs();
 				}
 			}
-			else if (action is "Save as New Tab" or "Update This Tab")
+			else if (action is "New Tab…" or "Edit Tab…")
 			{
-				string? name = await this.DisplayPromptAsync("Saved Tab", "Name this search view.", initialValue: current?.Name ?? "My Songs")
-					.ConfigureAwait(true);
-				if (!string.IsNullOrWhiteSpace(name))
+				CustomTabEdit initial = CustomTabEdit.Create(this.SongSearch.Text ?? string.Empty, action == "Edit Tab…" ? current : null);
+				CustomTabEdit? saved = null;
+				Guid? id = await WindowsSavedTabDialog.ShowAsync(this, initial, async (draft, token) =>
 				{
-					string? grouping = await this.DisplayActionSheetAsync("Group songs by", "Cancel", null, "Title", "Artist").ConfigureAwait(true);
-					if (grouping is "Title" or "Artist")
-					{
-						Guid id = await this.session.SaveCustomTabAsync(
-							action == "Update This Tab" ? current?.Id : null,
-							name,
-							this.SongSearch.Text ?? string.Empty,
-							grouping == "Artist" ? "artist" : "title").ConfigureAwait(true);
-						this.RefreshCustomTabs(id);
-						this.ApplyFilter(this.SongSearch.Text);
-					}
+					Guid result = await this.session.SaveCustomTabAsync(draft.Id, draft.Name, draft.Search, draft.GroupBy, token).ConfigureAwait(true);
+					saved = draft;
+					return result;
+				}).ConfigureAwait(true);
+				if (id is Guid selectedId && saved is not null)
+				{
+					this.RefreshCustomTabs(selectedId);
+					this.SongSearch.Text = saved.Search;
+					this.ApplyFilter(saved.Search);
 				}
 			}
 		}).ConfigureAwait(true);

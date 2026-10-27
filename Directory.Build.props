@@ -12,7 +12,8 @@
 		<RepositoryType>git</RepositoryType>
 		<RepositoryUrl>https://github.com/menees/Chords</RepositoryUrl>
 		<GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
-		<LangVersion>latest</LangVersion>
+		<!-- DOTNET_VERSION: Set the lang version based on .NET's version. -->
+		<LangVersion>14.0</LangVersion>
 		<CurrentYear>$([System.DateTime]::UtcNow.ToString(`yyyy`))</CurrentYear>
 		<Copyright>Copyright © 2023-$(CurrentYear) Bill Menees</Copyright>
 		<Copyright Condition="$(CurrentYear) == '2023'">Copyright © 2023 Bill Menees</Copyright>

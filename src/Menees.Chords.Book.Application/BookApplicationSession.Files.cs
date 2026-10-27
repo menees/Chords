@@ -24,8 +24,9 @@ public sealed partial class BookApplicationSession
 			file.MediaKind,
 			file.SourceFormat,
 			file.IsArchived,
-			file.RecoveryVersion is not null || file.SavedVersion is not null,
-			file.Id == defaultId))];
+			file.RecoveryVersion is not null,
+			file.Id == defaultId,
+			file.RecoveryVersion is null && file.SavedVersion is not null))];
 	}
 
 	/// <summary>Captures a read-only comparison of two sheets belonging to the same song.</summary>

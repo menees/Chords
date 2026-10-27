@@ -10,6 +10,19 @@ namespace Menees.Chords.Db.Tests;
 [TestClass]
 public sealed class DatabaseJsonTests
 {
+	#region Private Data
+
+	private static readonly JsonSerializerOptions LegacyIndentedOptions = new()
+	{
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		WriteIndented = true,
+		Converters = { new JsonStringEnumConverter() },
+	};
+
+	private static readonly JsonSerializerOptions LegacyCompactOptions = new(LegacyIndentedOptions) { WriteIndented = false };
+
+	#endregion
+
 	#region Public Methods
 
 	[TestMethod]
@@ -52,9 +65,7 @@ public sealed class DatabaseJsonTests
 		compact.ShouldContain("\"inputBindings\": []");
 		compact.ShouldNotContain("\"isArchived\": false");
 		compact.ShouldNotContain("\"preferredSongFileId\": null");
-		JsonSerializerOptions oldOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
-		oldOptions.Converters.Add(new JsonStringEnumConverter());
-		string oldJson = JsonSerializer.Serialize(original, oldOptions);
+		string oldJson = JsonSerializer.Serialize(original, LegacyIndentedOptions);
 		foreach (string input in new[] { compact, oldJson })
 		{
 			ChordDatabase restored = DatabaseJson.Deserialize(input);
@@ -176,9 +187,7 @@ public sealed class DatabaseJsonTests
 		}
 
 		DatabaseJson.Serialize(restored).ShouldBe(json);
-		JsonSerializerOptions oldOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-		oldOptions.Converters.Add(new JsonStringEnumConverter());
-		DatabaseJson.Serialize(DatabaseJson.Deserialize(JsonSerializer.Serialize(original, oldOptions))).ShouldBe(json);
+		DatabaseJson.Serialize(DatabaseJson.Deserialize(JsonSerializer.Serialize(original, LegacyCompactOptions))).ShouldBe(json);
 	}
 
 	[TestMethod]

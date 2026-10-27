@@ -30,6 +30,15 @@ public sealed partial class BookSession
 		}
 	}
 
+	private void RecordImportedSongs(Guid bookId, IEnumerable<Guid> songIds)
+	{
+		if (this.Database?.Id == bookId)
+		{
+			this.EnsureRecentHistory();
+			this.history.Record(songIds);
+		}
+	}
+
 	private void EnsureRecentHistory()
 	{
 		Guid? id = this.Database?.Id;

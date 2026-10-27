@@ -31,5 +31,15 @@ public sealed class RecentSongHistory
 		}
 	}
 
+	/// <summary>Records a completed batch in source order, with the last song most recent and no storage work.</summary>
+	public void Record(IEnumerable<Guid> songIds)
+	{
+		ArgumentNullException.ThrowIfNull(songIds);
+		foreach (Guid songId in songIds)
+		{
+			this.Record(songId);
+		}
+	}
+
 	public void MarkSaved() => this.IsDirty = false;
 }

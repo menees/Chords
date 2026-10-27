@@ -6,6 +6,9 @@ namespace Menees.Chords.Book.Application;
 
 public sealed partial class BookApplicationSession
 {
+	public IReadOnlyList<BookSongGroup> GroupSongs(IReadOnlyList<Guid> songIds, string field)
+		=> (this.groupingIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open."))).Group(songIds, field);
+
 	public IReadOnlyList<CustomTabCatalogItem> GetCustomTabs()
 		=> [.. (this.Database ?? throw new InvalidOperationException("No book is open.")).CustomTabs
 			.OrderBy(tab => tab.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(tab => tab.Id)
@@ -21,9 +24,9 @@ public sealed partial class BookApplicationSession
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		ArgumentNullException.ThrowIfNull(search);
-		if (groupBy is not null and not "title" and not "artist")
+		if (groupBy is not null && !BookGroupingIndex.Fields.ContainsKey(groupBy))
 		{
-			throw new ArgumentException("Group by title or artist.", nameof(groupBy));
+			throw new ArgumentException("Choose a supported catalog grouping field.", nameof(groupBy));
 		}
 
 		Guid savedId = id ?? Guid.CreateVersion7();
@@ -69,6 +72,6 @@ public sealed partial class BookApplicationSession
 
 	private static bool IsSupported(CustomTab tab)
 		=> (tab.Filter is null || (tab.Filter.Operator == "search" && tab.Filter.Field is null && tab.Filter.Children.Count == 0))
-			&& tab.GroupBy is null or "title" or "artist"
+			&& (tab.GroupBy is null || BookGroupingIndex.Fields.ContainsKey(tab.GroupBy))
 			&& tab.Sort.All(sort => sort.Field == "title" && !sort.Descending);
 }

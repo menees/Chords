@@ -49,7 +49,7 @@ public static class SongVersionComparisonService
 	{
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(comparison);
-		if (!Enum.IsDefined(choice) || deviceId == Guid.Empty)
+		if (!comparison.CanResolve || !Enum.IsDefined(choice) || deviceId == Guid.Empty)
 		{
 			throw new ArgumentException("Choose a valid resolution and device identity.");
 		}
@@ -124,22 +124,9 @@ public static class SongVersionComparisonService
 
 	#endregion
 
-	#region Private Methods
+	#region Internal Methods
 
-	private static RevisionStamp Next(RevisionStamp prior, Guid deviceId, DateTimeOffset now)
-		=> new() { Revision = checked(prior.Revision + 1), DeviceId = deviceId, ModifiedUtc = now };
-
-	private static async Task VerifySideAsync(IBookStore store, BookLocation location, SongVersionSide side, CancellationToken cancellationToken)
-	{
-		await using Stream stream = await store.OpenManagedAssetAsync(location, side.Id, cancellationToken).ConfigureAwait(false);
-		string actual = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
-		if (!StringComparer.OrdinalIgnoreCase.Equals(side.ContentHash, actual))
-		{
-			throw new InvalidOperationException("A compared sheet changed. Close and reopen the comparison before keeping versions.");
-		}
-	}
-
-	private static async Task<SongVersionSide> ReadSideAsync(
+	internal static async Task<SongVersionSide> ReadSideAsync(
 		IBookStore store, BookLocation location, SongFile file, CancellationToken cancellationToken)
 	{
 		string? text = file.MediaKind == MediaKind.Text
@@ -156,11 +143,10 @@ public static class SongVersionComparisonService
 			file.SavedVersion?.SavedUtc);
 	}
 
-	private static async Task<string> ReadTextAsync(IBookStore store, BookLocation location, SongFile file, CancellationToken cancellationToken)
+	internal static async Task<string> ReadTextAsync(Stream source, string? textEncoding, string contentHash, CancellationToken cancellationToken)
 	{
 		const int MaximumBytes = 4 * 1024 * 1024;
 		const int BufferSize = 8192;
-		await using Stream source = await store.OpenManagedAssetAsync(location, file.Id, cancellationToken).ConfigureAwait(false);
 		using MemoryStream bytes = new();
 		byte[] buffer = new byte[BufferSize];
 		int count;
@@ -175,15 +161,38 @@ public static class SongVersionComparisonService
 		}
 
 		string hash = SongFileAnalyzer.Hash(bytes.GetBuffer().AsSpan(0, checked((int)bytes.Length)));
-		if (!StringComparer.OrdinalIgnoreCase.Equals(hash, file.ContentHash))
+		if (!StringComparer.OrdinalIgnoreCase.Equals(hash, contentHash))
 		{
 			throw new InvalidOperationException("A sheet changed outside ChordBook. Reconcile the book before comparing it.");
 		}
 
 		bytes.Position = 0;
-		Encoding encoding = Encoding.GetEncoding(file.TextEncoding ?? "utf-8", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+		Encoding encoding = Encoding.GetEncoding(textEncoding ?? "utf-8", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
 		using StreamReader reader = new(bytes, encoding, detectEncodingFromByteOrderMarks: true);
 		return await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static async Task<string> ReadTextAsync(IBookStore store, BookLocation location, SongFile file, CancellationToken cancellationToken)
+	{
+		await using Stream source = await store.OpenManagedAssetAsync(location, file.Id, cancellationToken).ConfigureAwait(false);
+		return await ReadTextAsync(source, file.TextEncoding, file.ContentHash, cancellationToken).ConfigureAwait(false);
+	}
+
+	private static RevisionStamp Next(RevisionStamp prior, Guid deviceId, DateTimeOffset now)
+		=> new() { Revision = checked(prior.Revision + 1), DeviceId = deviceId, ModifiedUtc = now };
+
+	private static async Task VerifySideAsync(IBookStore store, BookLocation location, SongVersionSide side, CancellationToken cancellationToken)
+	{
+		await using Stream stream = await store.OpenManagedAssetAsync(location, side.Id, cancellationToken).ConfigureAwait(false);
+		string actual = Convert.ToHexString(await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
+		if (!StringComparer.OrdinalIgnoreCase.Equals(side.ContentHash, actual))
+		{
+			throw new InvalidOperationException("A compared sheet changed. Close and reopen the comparison before keeping versions.");
+		}
 	}
 
 	#endregion

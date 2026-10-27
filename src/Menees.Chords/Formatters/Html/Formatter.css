@@ -225,6 +225,11 @@ body {
 	font-style: italic;
 }
 
+.comment:not(.entry-annotation) {
+	/* Padding keeps the gap inside pagination measurements and avoids collapsed margins. */
+	padding-block: 0.25em;
+}
+
 .tablature-line,
 .grid-line {
 	/* The containing oversize column owns scrolling, not each text line. */

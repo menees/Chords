@@ -8,6 +8,8 @@
 		for (const original of fixtures) {
 			editor.load(original);
 			check(editor.getText() === original, 'Loading rewrote source bytes: ' + JSON.stringify(original));
+			editor.replaceText(original);
+			check(editor.getText() === original, 'Same-content replacement changed the save buffer');
 			editor.replaceText('Edited');
 			check(editor.getText() === 'Edited', 'Replacement failed');
 			check(editor.undo(), 'Replacement was not undoable');

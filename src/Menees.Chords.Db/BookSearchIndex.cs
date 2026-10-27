@@ -100,7 +100,7 @@ public sealed class BookSearchIndex
 		else
 		{
 			bool exact = field is "key" or "time" or "capo" or "duration" or "archived" or "display" or "metronome"
-				or "multiple" or "recovery" or "archivedfiles";
+				or "multiple" or "recovery" or "previoussave" or "archivedfiles";
 			result = values.Any(item => exact ? item == value : item.Contains(value, StringComparison.Ordinal));
 		}
 
@@ -121,16 +121,19 @@ public sealed class BookSearchIndex
 		};
 		int activeCount = 0;
 		bool recovery = false;
+		bool previousSave = false;
 		bool archived = false;
 		foreach (SongFile file in files)
 		{
 			activeCount += file.IsArchived || file.RecoveryVersion is not null ? 0 : 1;
 			archived |= file.IsArchived;
-			recovery |= file.RecoveryVersion is not null || file.SavedVersion is not null;
+			recovery |= file.RecoveryVersion is not null;
+			previousSave |= file.IsArchived && file.RecoveryVersion is null && file.SavedVersion is not null;
 		}
 
 		result["multiple"] = [activeCount > 1 ? "true" : "false"];
 		result["recovery"] = [recovery ? "true" : "false"];
+		result["previoussave"] = [previousSave ? "true" : "false"];
 		result["archivedfiles"] = [archived ? "true" : "false"];
 		foreach (string field in SourceFields)
 		{

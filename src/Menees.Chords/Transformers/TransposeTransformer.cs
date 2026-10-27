@@ -60,6 +60,16 @@ public sealed class TransposeTransformer : DocumentTransformer
 
 	#endregion
 
+	#region Public Properties
+
+	/// <summary>
+	/// Gets the optional signed half-step offset for key declarations, independently of chord usages.
+	/// When null, keys use the chord offset supplied to the constructor.
+	/// </summary>
+	public sbyte? KeyHalfSteps { get; init; }
+
+	#endregion
+
 	#region Public Methods
 
 	/// <summary>
@@ -74,7 +84,7 @@ public sealed class TransposeTransformer : DocumentTransformer
 		ChordDocumentTransformer transformer = new(
 			key,
 			(chord, _) => chord.Transpose(this.halfSteps, this.accidentalPreference),
-			value => value.Transpose(this.halfSteps, this.accidentalPreference));
+			value => value.Transpose(this.KeyHalfSteps ?? this.halfSteps, this.accidentalPreference));
 		this.SetEntries(transformer.Transform(this.Document.Entries));
 		return this;
 	}

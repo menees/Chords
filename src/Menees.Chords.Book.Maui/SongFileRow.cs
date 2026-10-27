@@ -13,7 +13,7 @@ public sealed class SongFileRow
 
 	public bool IsArchived => this.file.IsArchived;
 
-	public bool CanEdit => !this.file.IsArchived && !this.file.IsRecoveryVersion
+	public bool CanEdit => !this.file.IsArchived && !this.file.IsRecoveryVersion && !this.file.IsPreviousSave
 		&& this.file.MediaKind == MediaKind.Text && this.file.SourceFormat != SourceFormat.OpenSongXml;
 
 	public string Name => this.file.Name.Replace($" [{this.file.Id:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
@@ -31,5 +31,6 @@ public sealed class SongFileRow
 		this.file.IsDefault ? "Default sheet" : string.Empty,
 		this.file.IsArchived ? "Archived" : string.Empty,
 		this.file.IsRecoveryVersion ? "Recovery version" : string.Empty,
+		this.file.IsPreviousSave ? "Previous save" : string.Empty,
 	}.Where(value => value.Length > 0));
 }

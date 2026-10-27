@@ -21,6 +21,7 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 	private const int StatusRow = 3;
 	private readonly SongVersionComparison comparison;
 	private readonly BookSession session;
+	private readonly Func<SongVersionSide, Stream>? openImportPdf;
 	private readonly TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private readonly FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Operation", IsVisible = false };
@@ -41,10 +42,17 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 
 	#region Constructors
 
-	public SongVersionComparisonPage(SongVersionComparison comparison, BookSession session)
+	public SongVersionComparisonPage(SongVersionComparison comparison, BookSession session, Func<SongVersionSide, Stream>? openImportPdf = null)
 	{
 		this.comparison = comparison;
 		this.session = session;
+		this.openImportPdf = openImportPdf;
+		this.keepLeft.IsVisible = this.keepRight.IsVisible = this.keepBoth.IsVisible = comparison.CanResolve;
+		if (openImportPdf is not null)
+		{
+			this.status.Text = "Read-only import preview. Go Back to choose an import action; neither source has been changed.";
+		}
+
 		this.Title = "Compare Sheets";
 		this.Content = this.CreateLayout();
 		this.close.Clicked += this.HandleClose;
@@ -174,7 +182,8 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 					string path = Path.Combine(this.session.DirectoryPath!, side.Name);
 					WindowsDocumentViewer viewer = new(view);
 					this.documentViewers.Add(viewer);
-					await viewer.LoadAsync(new(null, () => File.OpenRead(path)), generation: 1, startAtEnd: false, token).ConfigureAwait(true);
+					DocumentViewerContent content = new(null, () => this.openImportPdf is null ? File.OpenRead(path) : this.openImportPdf(side));
+					await viewer.LoadAsync(content, generation: 1, startAtEnd: false, token).ConfigureAwait(true);
 					viewer.ApplyTheme();
 				}
 				else

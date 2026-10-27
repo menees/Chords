@@ -10,4 +10,5 @@ public sealed record SongFileCatalogItem(
 	SourceFormat SourceFormat,
 	bool IsArchived,
 	bool IsRecoveryVersion,
-	bool IsDefault);
+	bool IsDefault,
+	bool IsPreviousSave = false);

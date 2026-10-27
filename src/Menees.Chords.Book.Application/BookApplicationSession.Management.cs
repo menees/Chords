@@ -14,6 +14,62 @@ public sealed partial class BookApplicationSession
 {
 	#region Public API
 
+	/// <summary>Captures an import review off the UI thread; catalog/source changes are checked before apply.</summary>
+	public Task<BookImportReview> ReviewImportAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
+	{
+		var (activeStore, activeLocation) = this.GetActiveBook();
+		return BookImportService.ReviewFilesAsync(activeStore, activeLocation, paths, cancellationToken);
+	}
+
+	/// <summary>Commits only the reviewed actions, then reloads derived catalog state after success.</summary>
+	public async Task<IReadOnlyList<BookImportResult>> ApplyImportAsync(
+		BookImportReview review, IReadOnlyList<BookImportDecision> decisions, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			var (activeStore, activeLocation) = this.GetActiveBook();
+			IReadOnlyList<BookImportResult> result = await BookImportService.ApplyReviewAsync(
+				activeStore, activeLocation, review, decisions, deviceId, cancellationToken).ConfigureAwait(false);
+			await this.ReloadAsync(CancellationToken.None).ConfigureAwait(false);
+			return result;
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
+	}
+
+	/// <summary>Loads a read-only comparison without importing or resolving either source.</summary>
+	public async Task<SongVersionComparison> CompareImportAsync(
+		BookImportReview review, Guid itemId, Guid candidateSheetId, CancellationToken cancellationToken = default)
+	{
+		var (activeStore, activeLocation) = this.GetActiveBook();
+		string currentJson = await activeStore.ReadDatabaseJsonAsync(activeLocation, cancellationToken).ConfigureAwait(false);
+		if (this.Database!.Id != review.BookId || currentJson != review.ExpectedCatalog)
+		{
+			throw new BookStoreConcurrencyException();
+		}
+
+		ChordDatabase reviewed = DatabaseJson.Deserialize(review.ExpectedCatalog);
+		BookImportItem item = review.Items.Single(value => value.Id == itemId);
+		BookImportCandidate candidate = item.Candidates.Single(value => value.SheetId == candidateSheetId);
+		if (!candidate.CanCompare)
+		{
+			throw new InvalidOperationException("This song has no sheet to compare. You can still add the incoming sheet.");
+		}
+
+		SongVersionSide left = candidate.IsIncoming
+			? await ReadIncomingSideAsync(review, review.Items.Single(value => value.Id == candidate.SheetId), cancellationToken).ConfigureAwait(false)
+			: await SongVersionComparisonService.ReadSideAsync(
+				activeStore,
+				activeLocation,
+				reviewed.SongFiles.Single(file => file.Id == candidate.SheetId),
+				cancellationToken).ConfigureAwait(false);
+		SongVersionSide right = await ReadIncomingSideAsync(review, item, cancellationToken).ConfigureAwait(false);
+		return new(review.BookId, candidate.SongId, review.ExpectedCatalog, left, right, canResolve: false);
+	}
+
 	/// <summary>Creates a song through the shared atomic import pipeline, then refreshes the active catalog.</summary>
 	public Task<Guid> CreateSongAsync(
 		string title,
@@ -328,6 +384,22 @@ public sealed partial class BookApplicationSession
 	#endregion
 
 	#region Private Methods
+
+	private static async Task<SongVersionSide> ReadIncomingSideAsync(BookImportReview review, BookImportItem item, CancellationToken cancellationToken)
+	{
+		string? text = null;
+		if (item.Analysis.MediaKind == MediaKind.Text)
+		{
+			await using Stream source = review.OpenCapturedSource(item.Id);
+			text = await SongVersionComparisonService.ReadTextAsync(
+				source,
+				item.Analysis.TextEncoding,
+				item.ContentHash,
+				cancellationToken).ConfigureAwait(false);
+		}
+
+		return new(item.Id, item.Name, item.Analysis.MediaKind, DateTimeOffset.UtcNow, false, null, item.ContentHash, text);
+	}
 
 	private static Encoding GetTextEncoding(SongFile file)
 		=> Encoding.GetEncoding(file.TextEncoding ?? "utf-8", EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);

@@ -87,7 +87,7 @@ public sealed class CatalogViewTests
 		}
 		else
 		{
-			tab.GroupBy = "genre";
+			tab.GroupBy = "unsupported-future-field";
 		}
 
 		database.CustomTabs.Add(tab);

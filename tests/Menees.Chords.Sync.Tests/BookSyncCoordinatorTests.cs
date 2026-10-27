@@ -17,6 +17,13 @@ public sealed class BookSyncCoordinatorTests
 {
 	#region Private Data
 
+	private static readonly JsonSerializerOptions VerboseCatalogOptions = new()
+	{
+		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+		WriteIndented = true,
+		Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
+	};
+
 	private readonly string root = Path.Combine(Path.GetTempPath(), "ChordCoordinator-" + Guid.NewGuid().ToString("N"));
 	private readonly Guid deviceA = Guid.NewGuid();
 	private readonly Guid deviceB = Guid.NewGuid();
@@ -636,13 +643,7 @@ public sealed class BookSyncCoordinatorTests
 		CancellationToken token = this.TestContext.CancellationToken;
 		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
 		ChordDatabase database = await this.ReadAsync(this.storeA, this.bookA);
-		JsonSerializerOptions verbose = new()
-		{
-			PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-			WriteIndented = true,
-			Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) },
-		};
-		string json = JsonSerializer.Serialize(database, verbose);
+		string json = JsonSerializer.Serialize(database, VerboseCatalogOptions);
 		if (cloudFormatting)
 		{
 			CloudBookSnapshot snapshot = (await CloudBookReader.ReadAsync(this.cloud, token))!;
