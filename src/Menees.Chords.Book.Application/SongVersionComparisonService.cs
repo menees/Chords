@@ -34,8 +34,21 @@ public static class SongVersionComparisonService
 		ChordDatabase database = DatabaseJson.Deserialize(json);
 		SongFile left = database.SongFiles.Single(file => file.SongId == songId && file.Id == leftId);
 		SongFile right = database.SongFiles.Single(file => file.SongId == songId && file.Id == rightId);
-		SongVersionSide leftSide = await ReadSideAsync(store, location, left, cancellationToken).ConfigureAwait(false);
-		SongVersionSide rightSide = await ReadSideAsync(store, location, right, cancellationToken).ConfigureAwait(false);
+		bool leftSetlists = false, rightSetlists = false, leftInstruments = false, rightInstruments = false;
+		foreach (SetlistEntry entry in database.Setlists.SelectMany(setlist => setlist.Entries))
+		{
+			leftSetlists |= entry.PreferredSongFileId == leftId;
+			rightSetlists |= entry.PreferredSongFileId == rightId;
+		}
+
+		foreach (SongInstrumentSetting setting in database.SongInstrumentSettings)
+		{
+			leftInstruments |= setting.PreferredSongFileId == leftId;
+			rightInstruments |= setting.PreferredSongFileId == rightId;
+		}
+
+		SongVersionSide leftSide = await ReadSideAsync(store, location, left, cancellationToken, leftSetlists, leftInstruments).ConfigureAwait(false);
+		SongVersionSide rightSide = await ReadSideAsync(store, location, right, cancellationToken, rightSetlists, rightInstruments).ConfigureAwait(false);
 		return new(database.Id, songId, json, leftSide, rightSide);
 	}
 
@@ -127,7 +140,12 @@ public static class SongVersionComparisonService
 	#region Internal Methods
 
 	internal static async Task<SongVersionSide> ReadSideAsync(
-		IBookStore store, BookLocation location, SongFile file, CancellationToken cancellationToken)
+		IBookStore store,
+		BookLocation location,
+		SongFile file,
+		CancellationToken cancellationToken,
+		bool usedBySetlists = false,
+		bool usedByInstruments = false)
 	{
 		string? text = file.MediaKind == MediaKind.Text
 			? await ReadTextAsync(store, location, file, cancellationToken).ConfigureAwait(false) : null;
@@ -140,7 +158,9 @@ public static class SongVersionComparisonService
 			file.RecoveryVersion?.RecoveredFromSyncUtc,
 			file.ContentHash,
 			text,
-			file.SavedVersion?.SavedUtc);
+			file.SavedVersion?.SavedUtc,
+			usedBySetlists,
+			usedByInstruments);
 	}
 
 	internal static async Task<string> ReadTextAsync(Stream source, string? textEncoding, string contentHash, CancellationToken cancellationToken)

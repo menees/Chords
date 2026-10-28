@@ -35,20 +35,16 @@ internal static class WindowsSavedTabDialog
 			Header = "Search filter", Text = original.Search, PlaceholderText = "E.g., artist:Eagles",
 			Description = "Leave empty to include all songs.", TextWrapping = TextWrapping.Wrap,
 		};
-		ComboBox grouping = new() { Header = "Group by (optional)", HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch };
-		grouping.Items.Add(new ComboBoxItem { Content = "None" });
-		foreach ((string field, string caption) in BookGroupingIndex.Fields)
-		{
-			grouping.Items.Add(new ComboBoxItem { Content = caption, Tag = field });
-		}
-
-		grouping.SelectedIndex = original.GroupBy is null ? 0 : grouping.Items.OfType<ComboBoxItem>().ToList()
-			.FindIndex(item => item.Tag as string == original.GroupBy);
+		ComboBox grouping = CreateFieldPicker("Group by (optional)", original.GroupBy, optional: true);
+		ComboBox sorting = CreateFieldPicker("Sort songs by", original.SortBy, optional: false);
+		Microsoft.UI.Xaml.Controls.CheckBox descending = new() { Content = "Descending order", IsChecked = original.SortDescending };
 		TextBlock status = new() { TextWrapping = TextWrapping.Wrap };
 		StackPanel fields = new() { Spacing = Gap };
 		fields.Children.Add(name);
 		fields.Children.Add(search);
 		fields.Children.Add(grouping);
+		fields.Children.Add(sorting);
+		fields.Children.Add(descending);
 		fields.Children.Add(status);
 		ScrollViewer content = new() { Content = fields, VerticalScrollBarVisibility = Microsoft.UI.Xaml.Controls.ScrollBarVisibility.Auto };
 		ContentDialog dialog = new()
@@ -60,6 +56,8 @@ internal static class WindowsSavedTabDialog
 		AutomationProperties.SetName(name, "Tab name");
 		AutomationProperties.SetName(search, "Search filter");
 		AutomationProperties.SetName(grouping, "Group by, optional");
+		AutomationProperties.SetName(sorting, "Sort songs by");
+		AutomationProperties.SetName(descending, "Descending order");
 		dialog.Opened += (_, _) =>
 		{
 			name.Focus(FocusState.Programmatic);
@@ -67,7 +65,13 @@ internal static class WindowsSavedTabDialog
 		};
 		bool saving = false;
 		Guid? savedId = null;
-		CustomTabEdit ReadDraft() => new(original.Id, name.Text, search.Text, (grouping.SelectedItem as ComboBoxItem)?.Tag as string);
+		CustomTabEdit ReadDraft() => new(
+			original.Id,
+			name.Text,
+			search.Text,
+			(grouping.SelectedItem as ComboBoxItem)?.Tag as string,
+			(sorting.SelectedItem as ComboBoxItem)?.Tag as string ?? string.Empty,
+			descending.IsChecked == true);
 		void UpdateControls()
 		{
 			content.IsEnabled = !saving;
@@ -77,6 +81,7 @@ internal static class WindowsSavedTabDialog
 
 		name.TextChanged += (_, _) => UpdateControls();
 		grouping.SelectionChanged += (_, _) => UpdateControls();
+		sorting.SelectionChanged += (_, _) => UpdateControls();
 		dialog.Closing += (_, args) => args.Cancel = saving;
 		dialog.PrimaryButtonClick += async (_, args) =>
 		{
@@ -112,6 +117,27 @@ internal static class WindowsSavedTabDialog
 		UpdateControls();
 		await dialog.ShowAsync().AsTask(cancellationToken).ConfigureAwait(true);
 		return savedId;
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static ComboBox CreateFieldPicker(string header, string? selected, bool optional)
+	{
+		ComboBox result = new() { Header = header, HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch };
+		if (optional)
+		{
+			result.Items.Add(new ComboBoxItem { Content = "None" });
+		}
+
+		foreach ((string field, string caption) in BookGroupingIndex.Fields)
+		{
+			result.Items.Add(new ComboBoxItem { Content = caption, Tag = field });
+		}
+
+		result.SelectedIndex = result.Items.OfType<ComboBoxItem>().ToList().FindIndex(item => item.Tag as string == selected);
+		return result;
 	}
 
 	#endregion

@@ -171,10 +171,12 @@ public sealed partial class SmokeMauiApp : Microsoft.Maui.Controls.Application
 				if (!Equals(picker.TitleColor, this.Resources["AppText"])) throw new Exception("Picker title ignored the dark palette.");
 				AssertAlignedRows(metadataGrid);
 				await CaptureAsync(page, "metadata-dark.png");
+				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "trace.txt"), "Native saved-tab dialog");
+				await NativeSavedTabSmoke.RunAsync(page);
 				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "trace.txt"), "Native comparison pages");
 				await NativeComparisonSmoke.RunAsync(page);
 				File.WriteAllText(Path.Combine(AppContext.BaseDirectory, "result.txt"),
-					"PASS: Native MAUI metadata selectors, duplicate preservation, quoted values, invalid-entry reporting and untouched scalar metadata. Shared production editor input rows at 1,100/1,908 widths and light/dark captures; production comparison text, PDF paging/painting, mixed preview and released source handles.");
+					"PASS: Native MAUI metadata selectors, duplicate preservation, quoted values, invalid-entry reporting and untouched scalar metadata. Shared production editor input rows at 1,100/1,908 widths and light/dark captures; production comparison text, PDF paging/painting, mixed preview and released source handles; saved-tab defaults, sorting, failed-save retention, retry, edit and cancel.");
 			}
 			catch (Exception error)
 			{

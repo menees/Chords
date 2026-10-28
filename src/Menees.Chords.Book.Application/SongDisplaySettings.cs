@@ -54,8 +54,8 @@ public static class SongDisplaySettings
 
 	public static string RenderPreview(DisplayProfile profile)
 	{
-		const string Sample = "{key: C}\n{start_of_verse: Verse}\n[C]Sample words with [F]chords above\n"
-			+ "[G7]Second line shows the [C]spacing\n{end_of_verse}";
+		const string Sample = "{key: C}\n{start_of_verse: Verse}\n[C]Sample [Am7]minor seventh with [F]chords above\n"
+			+ "[G7]Second line shows [Cmaj7]major seventh\n{end_of_verse}\n{define: C frets x 3 2 0 1 0}";
 		return Render(Document.Parse(Sample), profile);
 	}
 
@@ -68,16 +68,17 @@ public static class SongDisplaySettings
 			document = new NotationTransformer(document, notation).Transform().Document;
 		}
 
-		HtmlFormatterOptions options = new() { LineSpacing = profile.LineSpacing, ResponsivePages = responsivePages };
+		HtmlFormatterOptions options = new()
+		{
+			LineSpacing = profile.LineSpacing,
+			ResponsivePages = responsivePages,
+			FretDiagramMode = profile.ShowChords ? ChordDiagramMode.Image : ChordDiagramMode.None,
+			KeyboardDiagramMode = profile.ShowChords ? ChordDiagramMode.Image : ChordDiagramMode.None,
+		};
 		options.DefaultTextStyle.FontSize = CssSize.Parse(FormattableString.Invariant($"{profile.FontSize}px"));
 		string theme = profile.Theme switch { "Light" => "light", "Dark" => "dark", _ => "light dark" };
 		int maximumColumns = profile.AutoColumns ? 0 : profile.Columns;
 		string css = FormattableString.Invariant($"<style>:root {{color-scheme:{theme}; --maximum-columns:{maximumColumns};}}");
-		if (!profile.ShowChords)
-		{
-			css += ".chord,.chord-only-line,.chord-diagram,.compact-chord-diagram {display:none !important;}";
-		}
-
 		css += "</style>";
 		return new HtmlFormatter(document, options).ToString().Replace("</head>", css + "</head>", StringComparison.Ordinal);
 	}

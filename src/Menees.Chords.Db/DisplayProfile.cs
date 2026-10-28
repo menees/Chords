@@ -18,7 +18,8 @@ public sealed class DisplayProfile
 	/// <summary>Gets or sets whether responsive layout uses all available width instead of limiting columns.</summary>
 	public bool AutoColumns { get; set; } = true;
 
-	/// <summary>Gets or sets whether chords are shown.</summary>
+	/// <summary>Gets or sets whether chord diagrams are shown. Chord symbols and lines always remain visible.</summary>
+	/// <remarks>The legacy property name is retained for persisted settings compatibility.</remarks>
 	public bool ShowChords { get; set; } = true;
 
 	/// <summary>Gets or sets the notation system.</summary>

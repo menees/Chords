@@ -23,7 +23,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 	private readonly Microsoft.Maui.Controls.Entry size = new() { Keyboard = Keyboard.Numeric };
 	private readonly Microsoft.Maui.Controls.Entry spacing = new() { Keyboard = Keyboard.Numeric };
 	private readonly Picker columns = new() { Title = "Columns", ItemsSource = new[] { "Automatic (fill width)", "1", "2", "3", "4" } };
-	private readonly CheckBox chords = new();
+	private readonly CheckBox diagrams = new();
 	private readonly Picker notation = new() { Title = "Chord notation", ItemsSource = new[] { "Letter", "Nashville", "Roman" } };
 	private readonly Label status = new();
 	private readonly WebView preview = new() { HeightRequest = PreviewHeight };
@@ -45,7 +45,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 		this.size.Text = profile.FontSize.ToString(CultureInfo.CurrentCulture);
 		this.spacing.Text = profile.LineSpacing.ToString(CultureInfo.CurrentCulture);
 		this.columns.SelectedIndex = profile.AutoColumns ? 0 : profile.Columns;
-		this.chords.IsChecked = profile.ShowChords;
+		this.diagrams.IsChecked = profile.ShowChords;
 		this.notation.SelectedItem = profile.NotationSystem;
 		FluentIconButton save = new() { Icon = "Save", Description = "Save" };
 		save.Clicked += async (_, _) => await this.SaveAsync(false).ConfigureAwait(true);
@@ -66,7 +66,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 					new Label { Text = "Line spacing (0.5–3)" }, this.spacing, this.columns,
 					new HorizontalStackLayout
 					{
-						Children = { this.chords, new Label { Text = "Show chord symbols and diagrams", VerticalOptions = LayoutOptions.Center } },
+						Children = { this.diagrams, new Label { Text = "Show chord diagrams", VerticalOptions = LayoutOptions.Center } },
 					},
 					this.notation, new Label { Text = "Live preview" }, this.preview, this.status,
 				},
@@ -86,7 +86,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 		this.theme.SelectedIndexChanged += this.HandlePreviewChanged;
 		this.columns.SelectedIndexChanged += this.HandlePreviewChanged;
 		this.notation.SelectedIndexChanged += this.HandlePreviewChanged;
-		this.chords.CheckedChanged += this.HandlePreviewChanged;
+		this.diagrams.CheckedChanged += this.HandlePreviewChanged;
 		this.Loaded += (_, _) => this.RefreshPreview();
 		this.Unloaded += (_, _) => this.previewTimer.Stop();
 	}
@@ -114,7 +114,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 		LineSpacing = double.Parse(this.spacing.Text, CultureInfo.CurrentCulture),
 		Columns = Math.Max(1, this.columns.SelectedIndex),
 		AutoColumns = this.columns.SelectedIndex == 0,
-		ShowChords = this.chords.IsChecked,
+		ShowChords = this.diagrams.IsChecked,
 		NotationSystem = (string?)this.notation.SelectedItem ?? "Letter",
 	};
 
@@ -173,7 +173,7 @@ public sealed partial class DisplaySettingsPage : ContentPage
 	[
 		this.theme.SelectedIndex.ToString(CultureInfo.InvariantCulture),
 		this.size.Text ?? string.Empty, this.spacing.Text ?? string.Empty,
-		this.columns.SelectedIndex.ToString(CultureInfo.InvariantCulture), this.chords.IsChecked.ToString(),
+		this.columns.SelectedIndex.ToString(CultureInfo.InvariantCulture), this.diagrams.IsChecked.ToString(),
 		this.notation.SelectedIndex.ToString(CultureInfo.InvariantCulture),
 	];
 

@@ -105,7 +105,7 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 
 	private static Label DescribeSide(string caption, SongVersionSide side)
 	{
-		string description = caption + ": " + side.Name + "\n"
+		string description = caption + ": " + side.DisplayName + "\n"
 			+ (side.IsArchived ? "Archived" : "Active") + $" · edited {side.ModifiedUtc.ToLocalTime():g}";
 		if (side.RecoveredUtc is DateTimeOffset recovered)
 		{
@@ -203,15 +203,17 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 	private Task KeepAsync(SongVersionChoice choice)
 		=> this.RunAsync(async token =>
 		{
-			string message = choice == SongVersionChoice.KeepBoth
-				? "Restore both sheets as active versions? Their source bytes will be retained."
-				: $"Keep {(choice == SongVersionChoice.KeepLeft ? this.comparison.Left.Name : this.comparison.Right.Name)} "
-					+ "as the default active sheet and permanently delete the other? Preferences for the deleted sheet will use the retained sheet.";
-			if (await this.DisplayAlertAsync("Keep compared versions?", message, "Keep", "Cancel").ConfigureAwait(true))
+			var confirmation = this.comparison.GetConfirmation(choice);
+			if (await this.DisplayAlertAsync(confirmation.Title, confirmation.Message, confirmation.Accept, "Cancel").ConfigureAwait(true))
 			{
 				await this.session.ResolveSongVersionsAsync(this.comparison, choice, token).ConfigureAwait(true);
 				this.changed = true;
-				this.status.Text = "Versions retained as selected. Close this comparison to continue editing or sync the resolution.";
+				this.status.Text = choice switch
+				{
+					SongVersionChoice.KeepLeft => "Left sheet kept. Right sheet deleted.",
+					SongVersionChoice.KeepRight => "Right sheet kept. Left sheet deleted.",
+					_ => "Both sheets are active. Neither sheet was deleted.",
+				};
 			}
 		});
 

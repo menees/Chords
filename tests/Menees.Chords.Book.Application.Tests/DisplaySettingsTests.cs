@@ -67,7 +67,8 @@ public sealed class DisplaySettingsTests
 		BookSongPresentation presentation = await session.GetPresentationAsync(id, cancellationToken: token);
 		presentation.Html!.ShouldContain("font-size: 24px");
 		presentation.Html!.ShouldContain("color-scheme:dark");
-		presentation.Html!.ShouldContain("display:none !important");
+		presentation.Html!.ShouldContain(">C</span>");
+		presentation.Html!.ShouldNotContain("display:none !important");
 		DisplayProfile defaults = session.GetDisplaySettings();
 		defaults.Columns = 2;
 		await session.SaveDisplaySettingsAsync(null, defaults, device, token);
@@ -89,6 +90,34 @@ public sealed class DisplaySettingsTests
 		Document document = Document.Parse("{key: C}\r\n[C]Words");
 		string html = SongDisplaySettings.Render(document, new() { NotationSystem = notation });
 		html.ShouldContain(expected);
+	}
+
+	[TestMethod]
+	[DataRow(true)]
+	[DataRow(false)]
+	public void DiagramToggleKeepsEveryChordLineAndPreviewIncludesMinorAndMajorSeventh(bool showDiagrams)
+	{
+		Document document = Document.Parse(
+			"{key: C}\n{define: C frets x 3 2 0 1 0}\n{define: Am keys 0 3 7}\n"
+			+ "[C]Words with [Am]minor\n\nC G7\n\n{start_of_grid}\n| C . | G7 . |\n{end_of_grid}");
+		DisplayProfile profile = new() { ShowChords = showDiagrams };
+		string html = SongDisplaySettings.Render(document, profile);
+		html.ShouldContain("class=\"chord\"");
+		html.ShouldContain("class=\"chord-only-line\"");
+		html.ShouldContain("class=\"grid-chord\"");
+		html.ShouldNotContain("display:none !important");
+		html.Contains("class=\"chord-diagram fret-diagram\"", StringComparison.Ordinal).ShouldBe(showDiagrams);
+		html.Contains("class=\"chord-diagram keyboard-diagram\"", StringComparison.Ordinal).ShouldBe(showDiagrams);
+		string preview = SongDisplaySettings.RenderPreview(profile);
+		preview.ShouldContain(">Am7</span>");
+		preview.ShouldContain(">Cmaj7</span>");
+		preview.Contains("class=\"chord-diagram fret-diagram\"", StringComparison.Ordinal).ShouldBe(showDiagrams);
+		string numbered = SongDisplaySettings.RenderPreview(new() { ShowChords = showDiagrams, NotationSystem = "Nashville" });
+		numbered.ShouldContain(">6-7</span>");
+		numbered.ShouldContain("5<sup class=\"chord-extension\">7</sup>");
+		numbered.ShouldContain(">1△</span>");
+		numbered.ShouldNotContain("<sup class=\"chord-extension\">△</sup>");
+		numbered.ShouldNotContain("<sup class=\"chord-extension\">-7</sup>");
 	}
 
 	[TestMethod]

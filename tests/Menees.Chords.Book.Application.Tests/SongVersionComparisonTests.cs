@@ -89,6 +89,103 @@ public sealed class SongVersionComparisonTests
 	}
 
 	[TestMethod]
+	[DataRow(SongVersionChoice.KeepLeft, false, false)]
+	[DataRow(SongVersionChoice.KeepRight, false, false)]
+	[DataRow(SongVersionChoice.KeepLeft, true, false)]
+	[DataRow(SongVersionChoice.KeepRight, false, true)]
+	[DataRow(SongVersionChoice.KeepRight, true, true)]
+	[DataRow(SongVersionChoice.KeepBoth, true, true)]
+	public async Task ConfirmationNamesChosenActionAndOnlyActualRedirectedUses(SongVersionChoice choice, bool setlists, bool instruments)
+	{
+		var token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		Guid deletedId = choice == SongVersionChoice.KeepLeft ? this.rightId : this.leftId;
+		string before = await this.store.ReadDatabaseJsonAsync(this.location, token);
+		ChordDatabase database = DatabaseJson.Deserialize(before);
+		if (setlists)
+		{
+			database.Setlists.Add(new()
+			{
+				Id = Guid.NewGuid(), Name = "Uses compared sheet", Revision = RevisionStamp.Initial(this.device),
+				Entries = [new() { Id = Guid.NewGuid(), SongId = this.songId, PreferredSongFileId = deletedId }],
+			});
+		}
+
+		if (instruments)
+		{
+			Guid instrument = Guid.NewGuid();
+			database.InstrumentProfiles.Add(new() { Id = instrument, Name = "Guitar", Revision = RevisionStamp.Initial(this.device) });
+			database.SongInstrumentSettings.Add(new()
+			{
+				Id = Guid.NewGuid(), SongId = this.songId, InstrumentProfileId = instrument,
+				PreferredSongFileId = deletedId, Revision = RevisionStamp.Initial(this.device),
+			});
+		}
+
+		await this.store.CommitMetadataAsync(this.location, before, database, token);
+		SongVersionComparison comparison = await this.CompareAsync();
+		string captured = await this.store.ReadDatabaseJsonAsync(this.location, token);
+		using FileStream lockedLeft = File.Open(this.PathFor(this.leftId), FileMode.Open, FileAccess.Read, FileShare.None);
+		using FileStream lockedRight = File.Open(this.PathFor(this.rightId), FileMode.Open, FileAccess.Read, FileShare.None);
+
+		var confirmation = comparison.GetConfirmation(choice);
+
+		comparison.Left.DisplayName.ShouldNotContain(this.leftId.ToString("D"));
+		comparison.Right.DisplayName.ShouldNotContain(this.rightId.ToString("D"));
+		confirmation.Message.ShouldNotContain("Preferences");
+		confirmation.Message.ShouldNotContain("retained");
+		if (choice == SongVersionChoice.KeepBoth)
+		{
+			confirmation.Title.ShouldBe("Keep Both Sheets?");
+			confirmation.Accept.ShouldBe("Keep Both");
+			confirmation.Message.ShouldContain("Neither sheet will be deleted.");
+			confirmation.Message.ShouldNotContain("instead");
+		}
+		else
+		{
+			bool keepLeft = choice == SongVersionChoice.KeepLeft;
+			string kept = keepLeft ? "left" : "right";
+			string deleted = keepLeft ? "right" : "left";
+			confirmation.Title.ShouldBe(keepLeft ? "Keep Left and Delete Right?" : "Keep Right and Delete Left?");
+			confirmation.Accept.ShouldBe(keepLeft ? "Keep Left" : "Keep Right");
+			confirmation.Message.ShouldContain($"permanently delete the {deleted} sheet");
+			confirmation.Message.ShouldContain($"Keep the {kept} sheet as this song's default sheet");
+			confirmation.Message.Contains("Setlist", StringComparison.Ordinal).ShouldBe(setlists);
+			confirmation.Message.Contains("instrument", StringComparison.OrdinalIgnoreCase).ShouldBe(instruments);
+			confirmation.Message.Contains($"will use the {kept} sheet instead", StringComparison.Ordinal).ShouldBe(setlists || instruments);
+		}
+
+		(await this.store.ReadDatabaseJsonAsync(this.location, token)).ShouldBe(captured);
+	}
+
+	[TestMethod]
+	public async Task ConfirmationIgnoresUsesOfKeptSheetAndKeepsCapturedSideIdentityWhenReordered()
+	{
+		var token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		string before = await this.store.ReadDatabaseJsonAsync(this.location, token);
+		ChordDatabase database = DatabaseJson.Deserialize(before);
+		database.Setlists.Add(new()
+		{
+			Id = Guid.NewGuid(), Name = "Uses left", Revision = RevisionStamp.Initial(this.device),
+			Entries = [new() { Id = Guid.NewGuid(), SongId = this.songId, PreferredSongFileId = this.leftId }],
+		});
+		await this.store.CommitMetadataAsync(this.location, before, database, token);
+		await this.session.ReloadAsync(token);
+		SongVersionComparison comparison = await this.CompareAsync();
+		comparison.GetConfirmation(SongVersionChoice.KeepLeft).Message.ShouldNotContain("Setlist");
+		comparison.GetConfirmation(SongVersionChoice.KeepRight).Message.ShouldContain("Setlist entries that use the left sheet");
+		SongVersionComparison reversed = await this.session.CompareSongVersionsAsync(this.songId, this.rightId, this.leftId, token);
+		reversed.Right.UsedBySetlists.ShouldBeTrue();
+		SongVersionComparison ordered = reversed.WithChronologicalOrder();
+		ordered.Left.Id.ShouldBe(this.leftId);
+		ordered.Left.UsedBySetlists.ShouldBeTrue();
+		ordered.GetConfirmation(SongVersionChoice.KeepRight).Message.ShouldContain("Setlist entries that use the left sheet");
+		await this.session.RenameAsync("Changed since comparison", this.device, token);
+		comparison.GetConfirmation(SongVersionChoice.KeepRight).ShouldBe(ordered.GetConfirmation(SongVersionChoice.KeepRight));
+	}
+
+	[TestMethod]
 	public async Task KeepBothLeavesBytesAndPriorDefaultUntouched()
 	{
 		await this.InitializeAsync(this.TestContext.CancellationToken);

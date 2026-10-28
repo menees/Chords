@@ -81,7 +81,7 @@ public partial class MainPage
 				CustomTabEdit? saved = null;
 				Guid? id = await WindowsSavedTabDialog.ShowAsync(this, initial, async (draft, token) =>
 				{
-					Guid result = await this.session.SaveCustomTabAsync(draft.Id, draft.Name, draft.Search, draft.GroupBy, token).ConfigureAwait(true);
+					Guid result = await this.session.SaveCustomTabAsync(draft, token).ConfigureAwait(true);
 					saved = draft;
 					return result;
 				}).ConfigureAwait(true);

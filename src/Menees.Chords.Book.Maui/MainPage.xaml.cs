@@ -651,7 +651,7 @@ public partial class MainPage : ContentPage
 			this.SongList.ItemsSource = this.songGroups;
 			this.JumpLetters.Children.Clear();
 			this.SongJumps.IsVisible = false;
-			this.Status.Text = "This saved tab uses a filter or grouping not yet supported by this client.";
+			this.Status.Text = "This saved tab uses a filter, grouping or sort not yet supported by this client.";
 		}
 		else
 		{
@@ -665,6 +665,11 @@ public partial class MainPage : ContentPage
 		this.visibleSongs = tab == RecentTabIndex
 			? this.session.SearchRecentSongs(query, this.ShowArchived.IsChecked)
 			: this.session.SearchSongs(query, this.ShowArchived.IsChecked);
+		if (this.CurrentCustomTab is { IsSupported: true } saved)
+		{
+			this.visibleSongs = this.session.SortSongs(this.visibleSongs, saved.SortBy, saved.SortDescending);
+		}
+
 		if (tab == RecentTabIndex)
 		{
 			this.songGroups = this.visibleSongs.Count == 0 ? [] : [new SongGroup("Recently opened or imported", this.visibleSongs)];
@@ -678,7 +683,6 @@ public partial class MainPage : ContentPage
 			Dictionary<Guid, SongRow> rows = this.visibleSongs.ToDictionary(song => song.Id);
 			this.songGroups = [.. this.session.GroupSongs([.. this.visibleSongs.Select(song => song.Id)], grouping)
 				.Select(group => new SongGroup(group.Name, group.SongIds.Select(id => rows[id])))];
-			this.visibleSongs = [.. this.songGroups.SelectMany(group => group).DistinctBy(song => song.Id)];
 		}
 		else
 		{
@@ -686,6 +690,11 @@ public partial class MainPage : ContentPage
 				.GroupBy(song => GetSectionKey(song.Title), StringComparer.Ordinal)
 				.Select(group => new SongGroup(group.Key, group))
 				.OrderBy(group => group.Key == "#" ? 0 : 1).ThenBy(group => group.Key, StringComparer.Ordinal)];
+		}
+
+		if (this.SongGrouping is not null && tab != RecentTabIndex)
+		{
+			this.visibleSongs = [.. this.songGroups.SelectMany(group => group).DistinctBy(song => song.Id)];
 		}
 
 		bool grouped = tab == RecentTabIndex || this.SongGrouping is not null;

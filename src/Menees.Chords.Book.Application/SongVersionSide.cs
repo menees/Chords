@@ -12,4 +12,10 @@ public sealed record SongVersionSide(
 	DateTimeOffset? RecoveredUtc,
 	string ContentHash,
 	string? Text,
-	DateTimeOffset? SavedUtc = null);
+	DateTimeOffset? SavedUtc = null,
+	bool UsedBySetlists = false,
+	bool UsedByInstruments = false)
+{
+	/// <summary>Gets the sheet name without its internal identity suffix.</summary>
+	public string DisplayName => this.Name.Replace($" [{this.Id:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
+}

@@ -16,7 +16,10 @@ builds the Windows app (including pinned LibMan asset restoration), generates a
 app-output viewer assets, including the worker, PDF painting, bounded canvas,
 rapid paging, zoom/resize, normalized scroll restoration, both boundaries,
 last-page loading, invalid PDF errors, streamed delivery and keyboard routing.
-It also tests the production tablature stylesheet and proves the fixture catches
+It also checks the production display preview at 12/18/28 px: chord symbols remain
+visible with diagrams disabled, the preview includes minor/major-seventh chords,
+and only a standalone dominant 7 has smaller, raised browser geometry; minor 7 and major-seventh triangles remain baseline text. Captures retain
+each font-size/diagram combination. It also tests the production tablature stylesheet and proves the fixture catches
 the original individual-line scrollbar regression. JavaScript assertions execute
 inside WebView2; the test runner and PDF generator are .NET. The editor checks also verify that Ctrl+S consumes the browser shortcut and sends one Save request without modifying the buffer. Interactive MAUI save/close routing from native metadata controls remains a separate acceptance check.
 
@@ -115,3 +118,16 @@ Run `eng/tests/Test-NativeMetadata.ps1` to exercise the production metadata pick
 ## Acceptance build mirroring
 
 Run `powershell -ExecutionPolicy Bypass -File eng/tests/Test-AcceptanceMirror.ps1` to execute the production mirror against disposable build folders. It checks initial and zero-write repeats, fresh timestamps on identical content, same-size changed bytes, additions, hidden stale files/directories, empty directories and preflight refusal for locks, incomplete assets, overlap, file/directory conflicts and junctions. It never touches Maui.Acceptance, a book or OneDrive; fixture paths and no-op timings are reported.
+
+## Saved-tab dialog
+
+    powershell -ExecutionPolicy Bypass -File eng/tests/Test-NativeMetadata.ps1
+
+The metadata/comparison fixture also runs the production native New/Edit Tab
+dialog with synthetic drafts. It verifies new defaults, name validation, all sort
+inputs reaching Save, retained fields/error after a failed save, successful retry,
+loading saved grouping/sorting independently of temporary search, and Cancel
+without invoking Save. Dark and narrow light dialog captures are retained with
+the fixture. This does not establish physical Surface touch or full browser
+navigation acceptance; catalog persistence and locked-asset sorting are covered
+by the application/database test suites.

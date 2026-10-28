@@ -132,6 +132,23 @@ internal static class Program
 				core.NavigateToString("<html><head><style>" + css + "</style></head><body id='tablature-test'></body></html>");
 				await Wait("document.body?.id === 'tablature-test'");
 				await CheckScript("HtmlTablatureChecks.js");
+				foreach (int fontSize in new[] { 12, 18, 28 })
+				{
+					foreach (bool diagrams in new[] { true, false })
+					{
+						core.NavigateToString(SongDisplaySettings.RenderPreview(new()
+						{
+							FontSize = fontSize, NotationSystem = "Nashville", ShowChords = diagrams,
+						}));
+						await Wait("document.querySelector('.chord-extension')?.textContent === '7'");
+						await Task.Delay(100);
+						await core.ExecuteScriptAsync("window.expectedDiagrams = " + (diagrams ? "true" : "false"));
+						await CheckScript("DisplayNotationChecks.js");
+						using var capture = File.Create(Path.Combine(output, $"nashville-{fontSize}-diagrams-{diagrams}.png"));
+						await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, capture);
+					}
+				}
+
 				string longSection = "{key: G}\n{start_of_verse: Verse 1}\n" + string.Join("\n", Enumerable.Repeat("[G]" + new string('x', 180), 80)) + "\n{end_of_verse}";
 				core.NavigateToString(SongDisplaySettings.Render(Menees.Chords.Document.Parse(longSection), new(), responsivePages: false));
 				await Wait("document.querySelector('.chord-sheet')?.dataset.responsivePages === 'off'");
@@ -175,7 +192,7 @@ internal static class Program
 				await CheckScript("SongComparisonChecks.js");
 				using (var capture = File.Create(Path.Combine(output, "native-comparison.png")))
 					await core.CapturePreviewAsync(CoreWebView2CapturePreviewImageFormat.Png, capture);
-				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), continuous section preview without nested scrollers, offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. Read-only comparison alignment, independent selection/copy, highlights and encoded source/CSP. No Node.js.");
+				File.WriteAllText(log, "PASS: 100-page PDF painting, bounded canvas, rapid commands, zoom/resize, scroll restoration, both boundaries, last-page load, invalid PDF, streamed native host and input bridge, tablature alignment/scrollbars (including regression sensitivity), Nashville superscripts/quality symbols and diagram-only visibility at 12/18/28 px, continuous section preview without nested scrollers, offline CodeMirror text preservation/undo/redo/highlighting/search/read-only/10,000-line virtualization. Read-only comparison alignment, independent selection/copy, highlights and encoded source/CSP. No Node.js.");
 			}
 			catch (Exception ex) { File.WriteAllText(log, ex.ToString()); Environment.ExitCode = 1; }
 			finally { browser.Dispose(); foreach (var stream in streams) stream.Dispose(); window.Close(); app.Shutdown(); }

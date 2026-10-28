@@ -9,6 +9,9 @@ public sealed partial class BookApplicationSession
 	public IReadOnlyList<BookSongGroup> GroupSongs(IReadOnlyList<Guid> songIds, string field)
 		=> (this.groupingIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open."))).Group(songIds, field);
 
+	public IReadOnlyList<Guid> SortSongs(IReadOnlyList<Guid> songIds, string field, bool descending = false)
+		=> (this.groupingIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open."))).Sort(songIds, field, descending);
+
 	public IReadOnlyList<CustomTabCatalogItem> GetCustomTabs()
 		=> [.. (this.Database ?? throw new InvalidOperationException("No book is open.")).CustomTabs
 			.OrderBy(tab => tab.Name, StringComparer.CurrentCultureIgnoreCase).ThenBy(tab => tab.Id)
@@ -17,16 +20,27 @@ public sealed partial class BookApplicationSession
 				tab.Name,
 				tab.Filter?.Value ?? string.Empty,
 				tab.GroupBy,
-				IsSupported(tab)))];
+				IsSupported(tab),
+				tab.Sort.FirstOrDefault()?.Field ?? "title",
+				tab.Sort.FirstOrDefault()?.Descending ?? false))];
 
 	public async Task<Guid> SaveCustomTabAsync(
 		Guid? id, string name, string search, string? groupBy, Guid deviceId, CancellationToken cancellationToken = default)
+		=> await this.SaveCustomTabAsync(id, name, search, groupBy, "title", false, deviceId, cancellationToken).ConfigureAwait(false);
+
+	public async Task<Guid> SaveCustomTabAsync(
+		Guid? id, string name, string search, string? groupBy, string sortBy, bool sortDescending, Guid deviceId, CancellationToken cancellationToken = default)
 	{
 		ArgumentException.ThrowIfNullOrWhiteSpace(name);
 		ArgumentNullException.ThrowIfNull(search);
 		if (groupBy is not null && !BookGroupingIndex.Fields.ContainsKey(groupBy))
 		{
 			throw new ArgumentException("Choose a supported catalog grouping field.", nameof(groupBy));
+		}
+
+		if (!BookGroupingIndex.Fields.ContainsKey(sortBy))
+		{
+			throw new ArgumentException("Choose a supported catalog sort field.", nameof(sortBy));
 		}
 
 		Guid savedId = id ?? Guid.CreateVersion7();
@@ -51,7 +65,7 @@ public sealed partial class BookApplicationSession
 				tab.Name = name.Trim();
 				tab.Filter = new() { Operator = "search", Value = search };
 				tab.GroupBy = groupBy;
-				tab.Sort = [new() { Field = "title" }];
+				tab.Sort = [new() { Field = sortBy, Descending = sortDescending }];
 				tab.Revision = NextRevision(tab.Revision, deviceId, now);
 			},
 			deviceId,
@@ -73,5 +87,5 @@ public sealed partial class BookApplicationSession
 	private static bool IsSupported(CustomTab tab)
 		=> (tab.Filter is null || (tab.Filter.Operator == "search" && tab.Filter.Field is null && tab.Filter.Children.Count == 0))
 			&& (tab.GroupBy is null || BookGroupingIndex.Fields.ContainsKey(tab.GroupBy))
-			&& tab.Sort.All(sort => sort.Field == "title" && !sort.Descending);
+			&& tab.Sort.Count <= 1 && tab.Sort.All(sort => BookGroupingIndex.Fields.ContainsKey(sort.Field));
 }

@@ -7,10 +7,13 @@ namespace Menees.Chords.Book.Application;
 /// <param name="Name">The user-facing tab name.</param>
 /// <param name="Search">The complete saved search expression.</param>
 /// <param name="GroupBy">An optional catalog grouping field.</param>
-public sealed record CustomTabEdit(Guid? Id, string Name, string Search, string? GroupBy)
+/// <param name="SortBy">The catalog field used to order songs within each group or the flat list.</param>
+/// <param name="SortDescending">Whether larger or later values appear first.</param>
+public sealed record CustomTabEdit(Guid? Id, string Name, string Search, string? GroupBy, string SortBy = "title", bool SortDescending = false)
 {
-	/// <summary>Gets whether the draft has a name and a supported optional grouping.</summary>
-	public bool IsValid => !string.IsNullOrWhiteSpace(this.Name) && (this.GroupBy is null || BookGroupingIndex.Fields.ContainsKey(this.GroupBy));
+	/// <summary>Gets whether the draft has a name and a supported grouping and sorting.</summary>
+	public bool IsValid => !string.IsNullOrWhiteSpace(this.Name) && (this.GroupBy is null || BookGroupingIndex.Fields.ContainsKey(this.GroupBy))
+		&& BookGroupingIndex.Fields.ContainsKey(this.SortBy);
 
 	/// <summary>Starts new tabs from the current search and edits from the complete saved definition.</summary>
 	public static CustomTabEdit Create(string currentSearch, CustomTabCatalogItem? existing = null)
@@ -22,6 +25,6 @@ public sealed record CustomTabEdit(Guid? Id, string Name, string Search, string?
 		}
 
 		return existing is null ? new(null, string.Empty, currentSearch, null)
-			: new(existing.Id, existing.Name, existing.Search, existing.GroupBy);
+			: new(existing.Id, existing.Name, existing.Search, existing.GroupBy, existing.SortBy, existing.SortDescending);
 	}
 }

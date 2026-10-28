@@ -57,10 +57,26 @@ public sealed partial class BookSession
 	public IReadOnlyList<BookSongGroup> GroupSongs(IReadOnlyList<Guid> songIds, string field)
 		=> this.application.GroupSongs(songIds, field);
 
+	public IReadOnlyList<SongRow> SortSongs(IReadOnlyList<SongRow> songs, string field, bool descending)
+	{
+		Dictionary<Guid, SongRow> rows = songs.ToDictionary(song => song.Id);
+		return [.. this.application.SortSongs([.. songs.Select(song => song.Id)], field, descending).Select(id => rows[id])];
+	}
+
 	public IReadOnlyList<CustomTabCatalogItem> GetCustomTabs() => this.application.GetCustomTabs();
 
-	public Task<Guid> SaveCustomTabAsync(Guid? id, string name, string search, string? groupBy, CancellationToken cancellationToken = default)
-		=> Task.Run(() => this.application.SaveCustomTabAsync(id, name, search, groupBy, this.DeviceId, cancellationToken), cancellationToken);
+	public Task<Guid> SaveCustomTabAsync(CustomTabEdit draft, CancellationToken cancellationToken = default)
+		=> Task.Run(
+			() => this.application.SaveCustomTabAsync(
+				draft.Id,
+				draft.Name,
+				draft.Search,
+				draft.GroupBy,
+				draft.SortBy,
+				draft.SortDescending,
+				this.DeviceId,
+				cancellationToken),
+			cancellationToken);
 
 	public Task DeleteCustomTabAsync(Guid id, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.DeleteCustomTabAsync(id, this.DeviceId, cancellationToken), cancellationToken);

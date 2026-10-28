@@ -397,10 +397,16 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 
 	private static XElement CreateChordLyricCell(RenderToken token, string lyric, bool hasLyrics)
 	{
-		XElement chordElement = Element(
-			"span",
-			token.IsAnnotation ? "chord chord-annotation" : "chord",
-			token.Text);
+		XElement chordElement = new("span", new XAttribute("class", token.IsAnnotation ? "chord chord-annotation" : "chord"));
+		if (token.Chord is Chord chord)
+		{
+			ChordSymbolFormatter.AppendTo(chordElement, chord, token.IsParenthesized);
+		}
+		else
+		{
+			chordElement.Add(token.Text);
+		}
+
 		chordElement.SetAttributeValue("aria-hidden", token.IsAnnotation ? null : "true");
 		chordElement.SetAttributeValue("role", token.IsAnnotation ? "note" : null);
 		XElement cell = Element("span", "chord-lyric", chordElement);
@@ -557,7 +563,7 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 				&& chord.Chord is not null
 				&& close.IsAnnotation && close.Text == ")")
 			{
-				tokens[index] = new(chord.Chord, $"({chord.Text})");
+				tokens[index] = new(chord.Chord, isParenthesized: true);
 				tokens.RemoveRange(index + 1, 2);
 			}
 		}
@@ -1255,13 +1261,9 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 		{
 			if (segment is ChordSegment chord)
 			{
-				string chordText = transpose(chord.Chord).Name;
-				if (chord.IsParenthesized)
-				{
-					chordText = $"({chordText})";
-				}
-
-				result.Add(Element("span", chordClassName, chordText));
+				XElement symbol = new("span", new XAttribute("class", chordClassName));
+				ChordSymbolFormatter.AppendTo(symbol, transpose(chord.Chord), chord.IsParenthesized);
+				result.Add(symbol);
 			}
 			else
 			{
@@ -1615,10 +1617,11 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 
 	private sealed class RenderToken
 	{
-		public RenderToken(Chord chord, string? text = null)
+		public RenderToken(Chord chord, bool isParenthesized = false)
 		{
 			this.Chord = chord;
-			this.Text = text ?? chord.Name;
+			this.IsParenthesized = isParenthesized;
+			this.Text = isParenthesized ? $"({chord.Name})" : chord.Name;
 		}
 
 		public RenderToken(ChordAnnotationSegment annotation)
@@ -1638,6 +1641,8 @@ public sealed partial class HtmlFormatter : ContainerFormatter
 		public bool IsAboveLyric => this.Chord is not null || this.IsAnnotation;
 
 		public bool IsAnnotation { get; }
+
+		public bool IsParenthesized { get; }
 
 		public bool IsWhiteSpace { get; }
 

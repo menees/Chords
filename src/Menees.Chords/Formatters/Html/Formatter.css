@@ -193,6 +193,12 @@ body {
 	line-height: var(--chord-line-spacing);
 }
 
+.chord-extension {
+	font-size: 0.7em;
+	line-height: 0;
+	vertical-align: super;
+}
+
 .word > .chord-lyric:not(:last-child) .chord {
 	padding-inline-end: var(--consecutive-chord-gap);
 }

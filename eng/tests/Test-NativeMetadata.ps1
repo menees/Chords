@@ -6,12 +6,12 @@ if ($LASTEXITCODE -ne 0) { throw 'App build/viewer asset restore failed.' }
 $fixtureDirectory = Join-Path ([IO.Path]::GetTempPath()) ('ChordBookMetadataSmoke-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $fixtureDirectory | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'NativeMetadataSmoke.cs') -Destination (Join-Path $fixtureDirectory 'Program.cs')
-foreach ($fixtureSource in @('NativeComparisonSession.cs', 'NativeComparisonSmoke.cs', 'SyntheticPdf.cs'))
+foreach ($fixtureSource in @('NativeComparisonSession.cs', 'NativeComparisonSmoke.cs', 'NativeSavedTabSmoke.cs', 'SyntheticPdf.cs'))
 {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $fixtureSource) -Destination (Join-Path $fixtureDirectory $fixtureSource)
 }
-$productionSources = @('SongVersionComparisonPage.cs', 'DialogLayout.cs', 'FluentIconButton.cs',
-    'Platforms/Windows/WindowsDocumentViewer.cs', 'Platforms/Windows/WindowsWebViewProfile.cs', 'Platforms/Windows/FluentIconButtonHandler.cs', 'Platforms/Windows/FluentIconSource.cs')
+$productionSources = @('SongVersionComparisonPage.cs', 'ScreenLayout.cs', 'ScreenHeader.cs', 'FluentIconButton.cs',
+    'Platforms/Windows/WindowsSavedTabDialog.cs', 'Platforms/Windows/WindowsDocumentViewer.cs', 'Platforms/Windows/WindowsWebViewProfile.cs', 'Platforms/Windows/FluentIconButtonHandler.cs', 'Platforms/Windows/FluentIconSource.cs')
 $compiledSources = ($productionSources | ForEach-Object {
     '<Compile Include="' + [Security.SecurityElement]::Escape((Join-Path $repoDirectory ('src/Menees.Chords.Book.Maui/' + $_))) + '" />'
 }) -join ''

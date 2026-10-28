@@ -83,7 +83,7 @@ public sealed class CatalogViewTests
 		}
 		else if (unsupported == "sort")
 		{
-			tab.Sort = [new() { Field = "artist", Descending = true }];
+			tab.Sort = [new() { Field = "future-field", Descending = true }];
 		}
 		else
 		{
@@ -119,7 +119,11 @@ public sealed class CatalogViewTests
 		saved.ShouldBe(new(view, "Practice", "Song", "artist", true));
 		CustomTab definition = session.Database!.CustomTabs.Single();
 		definition.Sort[0].Descending = true;
+		session.GetCustomTabs().Single().IsSupported.ShouldBeTrue();
+		session.GetCustomTabs().Single().SortDescending.ShouldBeTrue();
+		definition.Sort.Add(new() { Field = "artist" });
 		session.GetCustomTabs().Single().IsSupported.ShouldBeFalse();
+		definition.Sort.RemoveAt(1);
 		definition.Sort[0].Descending = false;
 		definition.Filter!.Children.Add(new() { Operator = "or" });
 		session.GetCustomTabs().Single().IsSupported.ShouldBeFalse();
