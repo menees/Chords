@@ -26,4 +26,7 @@ public enum BookValidationIssueKind
 
 	/// <summary>Multiple files in the book folder claim the same sheet identity.</summary>
 	DuplicateAssetIdentity,
+
+	/// <summary>The current sheet source cannot be analyzed as supported song text or PDF.</summary>
+	InvalidSheetContent,
 }

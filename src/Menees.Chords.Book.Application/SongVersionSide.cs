@@ -16,6 +16,9 @@ public sealed record SongVersionSide(
 	bool UsedBySetlists = false,
 	bool UsedByInstruments = false)
 {
+	/// <summary>Gets whether this side is a selected import source rather than a sheet already in the book.</summary>
+	public bool IsIncoming { get; init; }
+
 	/// <summary>Gets the sheet name without its internal identity suffix.</summary>
 	public string DisplayName => this.Name.Replace($" [{this.Id:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
 }

@@ -211,6 +211,79 @@ public sealed class BookValidatorTests
 		report.Issues.Single().Kind.ShouldBe(BookValidationIssueKind.InvalidDatabase);
 	}
 
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task RechecksCurrentTextEvenWhenRecordedHashAndAnalysisVersionMatch(bool archived)
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Current validation", device, token);
+		_ = await BookImportService.CreateSongAsync(store, location, "Legacy", [], [], "[C]Original", device, token);
+		ChordDatabase database = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
+		SongFile file = database.SongFiles.Single();
+		file.IsArchived = archived;
+		byte[] bytes = Encoding.UTF8.GetBytes("[C]Invalid\u0001");
+		file.ContentHash = SongFileAnalyzer.Hash(bytes);
+		file.ObservedLength = bytes.Length;
+		file.AnalysisFailure = new(SongFileAnalyzer.CurrentAnalysisVersion, file.ContentHash, "Cached failure");
+		await using (IStagedBookWrite write = await store.StageWriteAsync(location, token))
+		{
+			await write.WriteManagedAssetAsync(file.Id, file.RelativePath, new MemoryStream(bytes, false), token);
+			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), token);
+			await write.CommitAsync(token);
+		}
+
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		BookValidationReport failed = await BookValidator.ValidateAsync(store, location, token);
+		failed.Issues.Single().Kind.ShouldBe(BookValidationIssueKind.InvalidSheetContent);
+		failed.Issues.Single().Message.ShouldContain("U+0001");
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		bytes = Encoding.UTF8.GetBytes("[C]Repaired");
+		file.ContentHash = SongFileAnalyzer.Hash(bytes);
+		file.ObservedLength = bytes.Length;
+		await using (IStagedBookWrite write = await store.StageWriteAsync(location, token))
+		{
+			await write.WriteManagedAssetAsync(file.Id, file.RelativePath, new MemoryStream(bytes, false), token);
+			await write.WriteDatabaseJsonAsync(DatabaseJson.Serialize(database), token);
+			await write.CommitAsync(token);
+		}
+
+		before = await store.ReadDatabaseJsonAsync(location, token);
+		BookValidationReport repaired = await BookValidator.ValidateAsync(store, location, token);
+		repaired.IsValid.ShouldBeTrue();
+		repaired.Issues.ShouldBeEmpty();
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+	}
+
+	[TestMethod]
+	[DoNotParallelize]
+	public async Task PdfValidationStreamsOnceWithBoundedAllocation()
+	{
+		const int PdfLength = 32 * 1024 * 1024;
+		var token = this.TestContext.CancellationToken;
+		ChordDatabase database = TestData.CreateDatabase();
+		SongFile file = database.SongFiles.First();
+		database.SongFiles = [file];
+		byte[] bytes = new byte[PdfLength];
+		"%PDF-"u8.CopyTo(bytes);
+		file.MediaKind = MediaKind.Pdf;
+		file.ContentHash = Hash(bytes);
+		file.ObservedLength = bytes.Length;
+		IReadOnlyList<ManagedAssetDescriptor> descriptors = [new(file.Id, file.RelativePath, bytes.Length, file.ContentHash)];
+		Dictionary<Guid, byte[]> contents = new() { [file.Id] = bytes };
+		StubBookStore store = new(DatabaseJson.Serialize(database), descriptors, contents);
+		BookLocation location = await CreateLocationAsync(token);
+		long allocated = GC.GetTotalAllocatedBytes(true);
+		BookValidationReport result = await BookValidator.ValidateAsync(store, location, token);
+		long allocation = GC.GetTotalAllocatedBytes(true) - allocated;
+		result.IsValid.ShouldBeTrue();
+		store.AssetOpenCount.ShouldBe(1);
+		allocation.ShouldBeLessThan(PdfLength / 2);
+		this.TestContext.WriteLine($"32 MiB PDF validation: {allocation:N0} allocated bytes; {store.AssetOpenCount} source open.");
+	}
+
 	#endregion
 
 	#region Private Methods
@@ -244,6 +317,8 @@ public sealed class BookValidatorTests
 			this.contents = contents;
 		}
 
+		public int AssetOpenCount { get; private set; }
+
 		public BookStoreCapabilities Capabilities => BookStoreCapabilities.None;
 
 		public Task<string> ReadDatabaseJsonAsync(BookLocation location, CancellationToken cancellationToken = default)
@@ -265,7 +340,10 @@ public sealed class BookValidatorTests
 			BookLocation location,
 			Guid songFileId,
 			CancellationToken cancellationToken = default)
-			=> Task.FromResult<Stream>(new MemoryStream(this.contents[songFileId], writable: false));
+		{
+			this.AssetOpenCount++;
+			return Task.FromResult<Stream>(new MemoryStream(this.contents[songFileId], writable: false));
+		}
 
 		public Task<BookLocation> CreateBookAsync(string name, Guid deviceId, CancellationToken cancellationToken = default)
 			=> throw new NotSupportedException();

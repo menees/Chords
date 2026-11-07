@@ -16,11 +16,17 @@ public partial class MainPage : ContentPage
 {
 	#region Private Data
 
+	private const int MaximumPendingFiles = 32;
+
 	private const double JumpButtonHeight = 27;
 	private const double JumpButtonFontSize = 12;
 	private const int RecentTabIndex = 2;
 	private const int ArtistsTabIndex = 3;
 	private const int HistoryFlushSeconds = 30;
+	private readonly WindowsSongListPosition songListPosition = new();
+	private readonly Queue<string> pendingFiles = [];
+	private readonly HashSet<string> pendingFilePaths = new(StringComparer.OrdinalIgnoreCase);
+
 	private readonly IDispatcherTimer historyTimer;
 	private readonly IDispatcherTimer metronomeTimer;
 	private readonly BookSession session;
@@ -29,6 +35,9 @@ public partial class MainPage : ContentPage
 	private readonly WindowsDocumentViewer documentViewer;
 	private readonly DocumentPositionStore positionStore = new();
 	private readonly PerformanceSessionStore performanceStore = new();
+	private bool processingFiles;
+	private bool fileOpeningReady;
+	private Guid? openedSheetId;
 	private DocumentPositionKey? currentPositionKey;
 	private IReadOnlyList<SetlistRow> allSetlists = [];
 	private IReadOnlyList<SongRow> allSongs = [];
@@ -41,6 +50,8 @@ public partial class MainPage : ContentPage
 	private bool bookMutationInProgress;
 	private int currentSongIndex = -1;
 	private bool editingSetlist;
+	private SetlistEdit? setlistEdit;
+	private bool leavingSetlistEdit;
 	private string? performanceContextName;
 	private IReadOnlyList<SongRow> performanceSongs = [];
 	private ObservableCollection<SetlistEntryRow> selectedSetlistEntries = [];
@@ -82,6 +93,7 @@ public partial class MainPage : ContentPage
 		this.QuickNotation.ItemsSource = new[] { "Default", "Letter", "Nashville", "Roman" };
 		this.QuickNotation.SelectedIndex = 0;
 		this.session = session;
+		this.NavigatedTo += (_, _) => _ = this.ProcessPendingFilesAsync();
 		this.picker = picker;
 		this.metronome = metronome;
 		this.metronomeTimer = this.Dispatcher.CreateTimer();
@@ -128,11 +140,44 @@ public partial class MainPage : ContentPage
 		};
 		this.ShowManagementTab(showSetlists: false);
 		this.Loaded += this.HandleLoaded;
+		this.Unloaded += (_, _) => this.songListPosition.Cancel(forgetPosition: false);
 	}
 
 	#endregion
 
 	#region Public Methods
+
+	public void QueueSongFiles(IReadOnlyList<string> paths)
+	{
+		ArgumentNullException.ThrowIfNull(paths);
+		this.Dispatcher.Dispatch(() =>
+		{
+			bool queueFull = false;
+			foreach (string path in paths)
+			{
+				if (this.pendingFiles.Count >= MaximumPendingFiles)
+				{
+					queueFull = true;
+					break;
+				}
+
+				if (this.pendingFilePaths.Add(path))
+				{
+					this.pendingFiles.Enqueue(path);
+				}
+			}
+
+			if (this.pendingFiles.Count > 0)
+			{
+				this.Window.Title = "Menees ChordBook — file waiting";
+				this.Status.Text = queueFull
+					? "Some files were not queued. Finish the pending file opens, then open the remaining files again."
+					: "A file is waiting. Finish the current edit or operation to open it.";
+			}
+
+			_ = this.ProcessPendingFilesAsync();
+		});
+	}
 
 	public void ApplyViewerTheme() => this.documentViewer.ApplyTheme();
 
@@ -145,6 +190,10 @@ public partial class MainPage : ContentPage
 		}
 
 		this.UpdateScreenPolicy();
+		if (active)
+		{
+			_ = this.ProcessPendingFilesAsync();
+		}
 	}
 
 	#endregion
@@ -194,9 +243,14 @@ public partial class MainPage : ContentPage
 		this.Loaded -= this.HandleLoaded;
 		await this.RunUiOperationAsync(async () =>
 		{
-			await this.session.InitializeAsync().ConfigureAwait(true);
+			if (this.session.Database is null)
+			{
+				await this.session.InitializeAsync().ConfigureAwait(true);
+			}
+
 			this.RefreshSongs(this.IncludeMetadataRefresh("Ready."));
 		}).ConfigureAwait(true);
+		await this.ProcessPendingFilesAsync().ConfigureAwait(true);
 	}
 
 	private async void HandleBookPathTapped(object? sender, TappedEventArgs e)
@@ -333,8 +387,15 @@ public partial class MainPage : ContentPage
 					: await this.ChooseSetlistAsync().ConfigureAwait(true);
 				if (target is not null)
 				{
-					_ = await this.session.AddSongsToSetlistAsync(target.Id, [.. selected.Select(song => song.Id)])
-						.ConfigureAwait(true);
+					if (this.setlistEdit is SetlistEdit draft && draft.Id == target.Id)
+					{
+						draft.AddSongs(selected.Select(song => song.Id));
+					}
+					else
+					{
+						_ = await this.session.AddSongsToSetlistAsync(target.Id, [.. selected.Select(song => song.Id)]).ConfigureAwait(true);
+					}
+
 					this.EndSongSelection();
 					this.RefreshSetlists(target.Id);
 					this.ShowManagementTab(showSetlists: true);
@@ -368,20 +429,17 @@ public partial class MainPage : ContentPage
 		=> this.RefreshSetlists();
 
 	private async void HandleArchiveSetlistClicked(object? sender, EventArgs e)
-	{
-		if (this.currentSetlist is SetlistRow setlist)
+		=> await this.RunBookMutationAsync(() =>
 		{
-			await this.RunBookMutationAsync(async () =>
+			if (this.setlistEdit is SetlistEdit draft)
 			{
-				await this.session.SetSetlistArchivedAsync(setlist.Id, !setlist.IsArchived).ConfigureAwait(true);
-				this.RefreshSetlists();
-				this.ShowSetlistOverview();
-				this.Status.Text = setlist.IsArchived
-					? $"Restored {setlist.Name}."
-					: $"Archived {setlist.Name}. Enable Show archived to restore it.";
-			}).ConfigureAwait(true);
-		}
-	}
+				draft.Value.IsArchived = !draft.Value.IsArchived;
+				this.RefreshSelectedSetlist();
+				this.UpdateSetlistEditorControls();
+			}
+
+			return Task.CompletedTask;
+		}).ConfigureAwait(true);
 
 	private async void HandleNewSetlistClicked(object? sender, EventArgs e)
 	{
@@ -414,15 +472,15 @@ public partial class MainPage : ContentPage
 				string? name = await this.DisplayPromptAsync(
 					"Rename Setlist",
 					"Enter a new name for this setlist.",
-					initialValue: setlist.Name).ConfigureAwait(true);
+					initialValue: this.setlistEdit?.Value.Name ?? setlist.Name).ConfigureAwait(true);
 				if (string.IsNullOrWhiteSpace(name))
 				{
 					this.Status.Text = "Rename Setlist canceled.";
 				}
 				else
 				{
-					await this.session.RenameSetlistAsync(setlist.Id, name).ConfigureAwait(true);
-					this.RefreshSetlists(setlist.Id);
+					this.setlistEdit!.Value.Name = name.Trim();
+					this.RefreshSelectedSetlist();
 					this.Status.Text = "Setlist renamed.";
 				}
 			}).ConfigureAwait(true);
@@ -437,16 +495,21 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private void HandleEditSetlistClicked(object? sender, EventArgs e)
-	{
-		this.editingSetlist = !this.editingSetlist;
-		this.EditSetlistButton.SetIcon(this.editingSetlist ? "Checkmark" : "EditLineHorizontal3", this.editingSetlist ? "Done" : "Edit");
-		this.AddSetlistSongsButton.IsVisible = this.editingSetlist;
-		this.RenameSetlistButton.IsVisible = this.editingSetlist;
-		this.ArchiveSetlistButton.IsVisible = this.editingSetlist;
-		this.DeleteSetlistButton.IsVisible = this.editingSetlist && this.currentSetlist?.IsArchived == true;
-		this.RefreshSelectedSetlist();
-	}
+	private async void HandleEditSetlistClicked(object? sender, EventArgs e)
+		=> await this.RunBookMutationAsync(async () =>
+		{
+			if (this.editingSetlist)
+			{
+				await this.SaveSetlistDraftAsync().ConfigureAwait(true);
+			}
+			else if (this.currentSetlist is SetlistRow list)
+			{
+				this.setlistEdit = this.session.GetSetlistEdit(list.Id);
+				this.editingSetlist = true;
+				this.UpdateSetlistEditorControls();
+				this.RefreshSelectedSetlist();
+			}
+		}).ConfigureAwait(true);
 
 	private void HandleAddSetlistSongsClicked(object? sender, EventArgs e)
 	{
@@ -455,6 +518,7 @@ public partial class MainPage : ContentPage
 			// Changing tabs ends the previous selection; enter selection after that transition.
 			this.ShowManagementTab(showSetlists: false);
 			this.BeginSongSelection(setlist.Id);
+			this.UpdateSetlistEditorControls();
 		}
 	}
 
@@ -476,14 +540,14 @@ public partial class MainPage : ContentPage
 
 	private async void HandleRemoveSetlistEntryClicked(object? sender, EventArgs e)
 	{
-		if (sender is Button { CommandParameter: SetlistEntryRow entry }
-			&& this.currentSetlist is SetlistRow setlist)
+		if (sender is Button { CommandParameter: SetlistEntryRow entry } && this.setlistEdit is SetlistEdit draft)
 		{
-			await this.RunBookMutationAsync(async () =>
+			await this.RunBookMutationAsync(() =>
 			{
-				await this.session.RemoveSetlistEntryAsync(setlist.Id, entry.EntryId).ConfigureAwait(true);
-				this.RefreshSetlists(setlist.Id);
+				draft.Value.Entries.RemoveAll(item => item.Id == entry.EntryId);
+				this.RefreshSelectedSetlist();
 				this.Status.Text = "Song removed from the setlist.";
+				return Task.CompletedTask;
 			}).ConfigureAwait(true);
 		}
 	}
@@ -642,8 +706,15 @@ public partial class MainPage : ContentPage
 		}
 	}
 
-	private void ApplyFilter(string? query)
+	private void ApplyFilter(string? query) => this.ApplyFilterCore(query, preserveScroll: false);
+
+	private void ApplyFilterCore(string? query, bool preserveScroll)
 	{
+		if (!preserveScroll)
+		{
+			this.songListPosition.Cancel();
+		}
+
 		if (this.CurrentCustomTab is { IsSupported: false })
 		{
 			this.visibleSongs = [];
@@ -665,9 +736,9 @@ public partial class MainPage : ContentPage
 		this.visibleSongs = tab == RecentTabIndex
 			? this.session.SearchRecentSongs(query, this.ShowArchived.IsChecked)
 			: this.session.SearchSongs(query, this.ShowArchived.IsChecked);
-		if (this.CurrentCustomTab is { IsSupported: true } saved)
+		if (this.CurrentViewSort is { Field: string field } sort)
 		{
-			this.visibleSongs = this.session.SortSongs(this.visibleSongs, saved.SortBy, saved.SortDescending);
+			this.visibleSongs = this.session.SortSongs(this.visibleSongs, field, sort.Descending);
 		}
 
 		if (tab == RecentTabIndex)
@@ -791,17 +862,14 @@ public partial class MainPage : ContentPage
 	private void LeaveSongSelection()
 	{
 		Guid? target = this.bulkTargetSetlistId;
-		bool editing = this.editingSetlist;
 		this.EndSongSelection();
 		if (target is Guid id && this.allSetlists.Any(list => list.Id == id))
 		{
 			this.ShowManagementTab(showSetlists: true);
 			this.OpenSetlist(id);
-			if (editing)
-			{
-				this.HandleEditSetlistClicked(this, EventArgs.Empty);
-			}
 		}
+
+		_ = this.ProcessPendingFilesAsync();
 	}
 
 	private void EndSongSelection()
@@ -845,9 +913,10 @@ public partial class MainPage : ContentPage
 		this.SetlistEntries.SelectedItem = null;
 		if (this.ManagementTabs.SelectedIndex == RecentTabIndex && this.session.Database is not null)
 		{
-			this.ApplyFilter(this.SongSearch.Text);
+			this.ApplyFilterCore(this.SongSearch.Text, preserveScroll: true);
 		}
 
+		this.songListPosition.Restore(this.SongList);
 		this.UpdateBackButton();
 	}
 
@@ -877,6 +946,7 @@ public partial class MainPage : ContentPage
 		this.SongSearch.Text = this.CurrentCustomTab?.Search ?? string.Empty;
 		this.ApplyFilter(this.SongSearch.Text);
 		this.Status.Text = $"{status} {this.allSongs.Count:N0} song(s).";
+		this.fileOpeningReady = true;
 	}
 
 	private void RefreshSetlists(Guid? selectedId = null)
@@ -896,10 +966,11 @@ public partial class MainPage : ContentPage
 	{
 		if (this.currentSetlist is SetlistRow setlist)
 		{
-			this.selectedSetlistEntries = new(this.session.GetSetlistEntries(setlist.Id, this.editingSetlist));
-			this.SetlistDetailName.Text = setlist.Name;
-			this.SetlistDetailMetadata.Text = setlist.MetadataText;
-			this.ArchiveSetlistButton.SetIcon(setlist.IsArchived ? "ArchiveArrowBack" : "Archive", setlist.IsArchived ? "Restore" : "Archive");
+			this.selectedSetlistEntries = new(this.session.GetSetlistEntries(setlist.Id, this.editingSetlist, this.setlistEdit));
+			this.SetlistDetailName.Text = this.setlistEdit?.Value.Name ?? setlist.Name;
+			this.SetlistDetailMetadata.Text = this.setlistEdit is SetlistEdit draft ? $"{draft.Value.Entries.Count:N0} songs" : setlist.MetadataText;
+			bool archived = this.setlistEdit?.Value.IsArchived ?? setlist.IsArchived;
+			this.ArchiveSetlistButton.SetIcon(archived ? "ArchiveArrowBack" : "Archive", archived ? "Restore" : "Archive");
 		}
 		else
 		{
@@ -910,17 +981,14 @@ public partial class MainPage : ContentPage
 
 		this.SetlistEntries.ItemsSource = this.selectedSetlistEntries;
 		this.SetlistEntries.CanReorderItems = this.editingSetlist && !this.bookMutationInProgress;
+		this.SelectSetlistSongsButton.IsEnabled = this.selectedSetlistEntries.Count > 0;
 	}
 
 	private void OpenSetlist(Guid setlistId)
 	{
 		this.currentSetlist = this.allSetlists.Single(setlist => setlist.Id == setlistId);
-		this.editingSetlist = false;
-		this.EditSetlistButton.SetIcon("EditLineHorizontal3", "Edit");
-		this.AddSetlistSongsButton.IsVisible = false;
-		this.RenameSetlistButton.IsVisible = false;
-		this.ArchiveSetlistButton.IsVisible = false;
-		this.DeleteSetlistButton.IsVisible = false;
+		this.editingSetlist = this.setlistEdit?.Id == setlistId;
+		this.UpdateSetlistEditorControls();
 		this.RefreshSelectedSetlist();
 		this.SetlistList.SelectedItem = null;
 		this.SetlistOverview.IsVisible = false;
@@ -931,6 +999,8 @@ public partial class MainPage : ContentPage
 	private void ShowSetlistOverview()
 	{
 		this.editingSetlist = false;
+		this.setlistEdit = null;
+		this.UpdateSetlistEditorControls();
 		this.SetlistDetail.IsVisible = false;
 		this.SetlistOverview.IsVisible = true;
 		this.ApplySetlistFilter(this.SetlistSearch.Text);
@@ -955,6 +1025,10 @@ public partial class MainPage : ContentPage
 		{
 			this.LeaveSongSelection();
 		}
+		else if (this.editingSetlist)
+		{
+			_ = this.RunUiOperationAsync(this.LeaveSetlistEditorAsync);
+		}
 		else if (this.SetlistDetail.IsVisible)
 		{
 			this.ShowSetlistOverview();
@@ -968,14 +1042,17 @@ public partial class MainPage : ContentPage
 	}
 
 	private void UpdateBackButton()
-		=> this.ManagementBackButton.IsVisible = this.selectingSongs || this.SetlistDetail.IsVisible;
+	{
+		this.ManagementBackButton.IsVisible = this.selectingSongs || (this.SetlistDetail.IsVisible && !this.editingSetlist);
+		this.SetlistEditorBackButton.IsVisible = this.editingSetlist && !this.selectingSongs;
+	}
 
 	private async Task MoveSetlistEntryAsync(object? sender, int offset)
 	{
 		if (sender is Button { CommandParameter: SetlistEntryRow entry }
-			&& this.currentSetlist is SetlistRow setlist)
+			&& this.currentSetlist is not null)
 		{
-			await this.SetEntryPositionAsync(setlist.Id, entry.EntryId, entry.Position + offset).ConfigureAwait(true);
+			await this.SetEntryPositionAsync(entry.EntryId, entry.Position + offset).ConfigureAwait(true);
 		}
 	}
 
@@ -1095,10 +1172,13 @@ public partial class MainPage : ContentPage
 		string? contextName,
 		bool startAtEnd = false,
 		bool restorePosition = true,
-		bool displayOnly = false)
+		bool displayOnly = false,
+		Guid? sheetOverride = null)
 	{
 		if (!displayOnly)
 		{
+			this.songListPosition.Capture(this.SongList, onlyIfEmpty: this.PerformanceSurface.IsVisible);
+			this.openedSheetId = sheetOverride;
 			this.CloseMetronomePanel();
 		}
 
@@ -1139,7 +1219,8 @@ public partial class MainPage : ContentPage
 				entryId: entryId,
 				notationOverride: this.QuickNotation.SelectedIndex > 0 ? (string)this.QuickNotation.SelectedItem : null,
 				transposeOffset: this.QuickTranspose.Offset,
-				instrumentOverride: this.instrumentOverride).ConfigureAwait(true);
+				instrumentOverride: this.instrumentOverride,
+				sheetOverride: this.openedSheetId).ConfigureAwait(true);
 			if (generation == this.viewerGeneration)
 			{
 				this.viewerReady = false;
@@ -1236,9 +1317,10 @@ public partial class MainPage : ContentPage
 	private string IncludeMetadataRefresh(string status)
 	{
 		int updatedSongCount = this.session.LastMetadataRefresh?.UpdatedSongCount ?? 0;
-		return updatedSongCount > 0
-			? $"{status} Refreshed directive metadata for {updatedSongCount:N0} song(s)."
-			: status;
+		string result = updatedSongCount > 0 ? $"{status} Refreshed directive metadata for {updatedSongCount:N0} song(s)." : status;
+		IReadOnlyList<ExternalBookProblem> problems = this.session.LastMetadataRefresh?.Problems ?? [];
+		return problems.Count == 0 ? result
+			: $"{result} Metadata refresh skipped {problems.Count:N0} sheet(s); existing catalog data retained. See Options > Validate Book.";
 	}
 
 	private async Task RunBookMutationAsync(Func<Task> operation)
@@ -1250,6 +1332,7 @@ public partial class MainPage : ContentPage
 		else
 		{
 			this.bookMutationInProgress = true;
+			this.UpdateSetlistEditorControls();
 			this.SetlistEntries.CanReorderItems = false;
 			this.ImportButton.IsEnabled = false;
 			this.NewBookButton.IsEnabled = false;
@@ -1267,6 +1350,8 @@ public partial class MainPage : ContentPage
 				this.ImportButton.IsEnabled = true;
 				this.bookMutationInProgress = false;
 				this.SetlistEntries.CanReorderItems = this.editingSetlist;
+				this.UpdateSetlistEditorControls();
+				_ = this.ProcessPendingFilesAsync();
 			}
 		}
 	}

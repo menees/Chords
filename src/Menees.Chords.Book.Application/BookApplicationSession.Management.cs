@@ -101,6 +101,45 @@ public sealed partial class BookApplicationSession
 		}
 	}
 
+	public SetlistEdit GetSetlistEdit(Guid setlistId)
+	{
+		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
+		return new(database.Id, database.Setlists.Single(item => item.Id == setlistId));
+	}
+
+	public Task SaveSetlistEditAsync(SetlistEdit draft, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(draft);
+		cancellationToken.ThrowIfCancellationRequested();
+		Task result;
+		if (!draft.HasChanges)
+		{
+			_ = draft.Validate(this.Database ?? throw new InvalidOperationException("No book is open."));
+			result = Task.CompletedTask;
+		}
+		else
+		{
+			result = this.MutateMetadataAsync(
+				(database, now) =>
+				{
+					Setlist current = draft.Validate(database);
+					if (draft.DeleteRequested)
+					{
+						database.Setlists.Remove(current);
+						AddTombstone(database, current.Id, nameof(Setlist), current.Revision, deviceId, now);
+					}
+					else
+					{
+						draft.Apply(current, deviceId, now);
+					}
+				},
+				deviceId,
+				cancellationToken);
+		}
+
+		return result;
+	}
+
 	/// <summary>Moves an occurrence to an absolute one-based position, preserving every entry identity.</summary>
 	public Task SetSetlistEntryPositionAsync(Guid setlistId, Guid entryId, int position, Guid deviceId, CancellationToken cancellationToken = default)
 		=> this.MutateMetadataAsync(
@@ -142,6 +181,71 @@ public sealed partial class BookApplicationSession
 			deviceId,
 			cancellationToken,
 			refreshSongs: false);
+	}
+
+	/// <summary>Captures the selected songs' tag union as a detached edit draft using catalog data only.</summary>
+	public CatalogValueSelection GetSongTagSelection(IReadOnlyList<Guid> songIds)
+	{
+		ArgumentNullException.ThrowIfNull(songIds);
+		Song[] songs = this.GetSelectedSongs(songIds);
+		return new(this.GetMetadataValueSuggestions().GetValues("tag"), songs.SelectMany(song => song.Tags), multiple: true);
+	}
+
+	/// <summary>Sets the same tag set on distinct selected songs in one catalog-only commit, preserving source bytes.</summary>
+	public async Task<int> SetSongTagsAsync(
+		IReadOnlyList<Guid> songIds, IReadOnlyList<string> tags, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		ArgumentNullException.ThrowIfNull(songIds);
+		ArgumentNullException.ThrowIfNull(tags);
+		CatalogValueSelection values = new([], tags.Select(value => value.Trim().Normalize()), multiple: true);
+		await this.mutationLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+		try
+		{
+			var (activeStore, activeLocation) = this.GetActiveBook();
+			ChordDatabase database = this.Database!;
+			string expectedJson = this.committedJson!;
+			try
+			{
+				Song[] selected = this.GetSelectedSongs(songIds);
+
+				List<Song> changed = [];
+				DateTimeOffset now = DateTimeOffset.UtcNow;
+				foreach (Song song in selected)
+				{
+					HashSet<string> current = new(song.Tags.Select(value => value.Trim().Normalize()), StringComparer.OrdinalIgnoreCase);
+					if (song.Tags.Count != values.Values.Count || !current.SetEquals(values.Values))
+					{
+						song.Tags = [.. values.Values];
+						song.Revision = NextRevision(song.Revision, deviceId, now);
+						changed.Add(song);
+					}
+				}
+
+				if (changed.Count > 0)
+				{
+					database.Revision = NextRevision(database.Revision, deviceId, now);
+					this.committedJson = await activeStore.CommitMetadataAsync(activeLocation, expectedJson, database, cancellationToken)
+						.ConfigureAwait(false);
+					HashSet<Guid> changedIds = [.. changed.Select(song => song.Id)];
+					ILookup<Guid, SongFile> files = database.SongFiles.Where(file => changedIds.Contains(file.SongId)).ToLookup(file => file.SongId);
+					foreach (Song song in changed)
+					{
+						this.RefreshSongCatalog(song, files[song.Id]);
+					}
+				}
+
+				return changed.Count;
+			}
+			catch
+			{
+				this.SetDatabase(DatabaseJson.Deserialize(expectedJson));
+				throw;
+			}
+		}
+		finally
+		{
+			this.mutationLock.Release();
+		}
 	}
 
 	/// <summary>Archives or restores a selection of songs without modifying their files or setlist occurrences.</summary>
@@ -338,6 +442,7 @@ public sealed partial class BookApplicationSession
 				file.ContentRevision++;
 				file.SourceFormat = analysis!.SourceFormat;
 				file.AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion;
+				file.AnalysisFailure = null;
 				file.ObservedLength = bytes.Length;
 				file.ObservedWriteUtc = now;
 				file.Revision = NextRevision(file.Revision, deviceId, now);
@@ -383,6 +488,18 @@ public sealed partial class BookApplicationSession
 
 	#endregion
 
+	#region Internal Methods
+
+	internal void ValidateImportReview(BookImportReview review)
+	{
+		if (this.Database?.Id != review.BookId || this.committedJson != review.ExpectedCatalog)
+		{
+			throw new BookStoreConcurrencyException();
+		}
+	}
+
+	#endregion
+
 	#region Private Methods
 
 	private static async Task<SongVersionSide> ReadIncomingSideAsync(BookImportReview review, BookImportItem item, CancellationToken cancellationToken)
@@ -398,7 +515,7 @@ public sealed partial class BookApplicationSession
 				cancellationToken).ConfigureAwait(false);
 		}
 
-		return new(item.Id, item.Name, item.Analysis.MediaKind, DateTimeOffset.UtcNow, false, null, item.ContentHash, text);
+		return new(item.Id, item.Name, item.Analysis.MediaKind, DateTimeOffset.UtcNow, false, null, item.ContentHash, text) { IsIncoming = true };
 	}
 
 	private static Encoding GetTextEncoding(SongFile file)
@@ -441,6 +558,19 @@ public sealed partial class BookApplicationSession
 		}
 
 		return new(song.Id, song.Revision.Revision, song.Title, [.. song.Artists], [.. song.Tags], file?.Id, hash, text) { Metadata = metadata };
+	}
+
+	private Song[] GetSelectedSongs(IReadOnlyList<Guid> songIds)
+	{
+		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
+		HashSet<Guid> ids = [.. songIds];
+		Song[] songs = [.. database.Songs.Where(song => ids.Contains(song.Id))];
+		if (songs.Length != ids.Count)
+		{
+			throw new InvalidOperationException("The selected songs changed. Select the songs again before editing tags.");
+		}
+
+		return songs;
 	}
 
 	#endregion

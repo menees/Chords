@@ -80,6 +80,8 @@ public sealed class ImportAndGroupingTests
 			string before = await store.ReadDatabaseJsonAsync(location, token);
 			SongVersionComparison comparison = await session.CompareImportAsync(review, item.Id, item.Candidates.Single().SheetId, token);
 			comparison.CanResolve.ShouldBeFalse();
+			comparison.Left.IsIncoming.ShouldBeFalse();
+			comparison.Right.IsIncoming.ShouldBeTrue();
 			comparison.Left.Text!.ShouldContain("[C]Old");
 			comparison.Right.Text.ShouldBe(Incoming);
 			string html = SongVersionComparisonHtml.Create(comparison, token);

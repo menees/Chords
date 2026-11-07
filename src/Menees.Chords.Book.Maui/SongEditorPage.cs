@@ -13,7 +13,6 @@ public sealed partial class SongEditorPage : ContentPage
 {
 	#region Private Data
 
-	private readonly ScalarMetadataEditor scalarMetadata = new();
 	private readonly SongEditDocument original;
 	private readonly BookSession session;
 	private readonly WindowsSongTextEditor editor;
@@ -48,22 +47,12 @@ public sealed partial class SongEditorPage : ContentPage
 		this.original = original;
 		this.session = session;
 		this.InitializeComponent();
-		this.songTitle.Text = original.Title;
-		this.artists.Text = CatalogValueList.Format(original.Artists);
-		this.tags.Text = CatalogValueList.Format(original.Tags);
-		this.scalarMetadata.Load(original);
-		this.scalarMetadata.AttachTo(this.metadataGrid);
+		this.metadataEditor.Load(original);
 		this.convertButton.MenuItems =
 		[
 			new("Convert To ChordPro", () => this.HandleConvertChordPro(this, EventArgs.Empty)),
 			new("Convert To Chords Over Text", () => this.HandleConvertChordsOverText(this, EventArgs.Empty)),
 		];
-		this.artistChoices.TargetEntry = this.artists;
-		this.artistChoices.AppendValue = true;
-		this.tagChoices.TargetEntry = this.tags;
-		this.tagChoices.AppendValue = true;
-		this.artistChoices.SelectionRejected += message => this.status.Text = message;
-		this.tagChoices.SelectionRejected += message => this.status.Text = message;
 		this.Loaded += async (_, _) => await this.LoadSelectorsAsync().ConfigureAwait(true);
 		this.editorArea.IsVisible = original.Text is not null;
 		this.showPreview.IsEnabled = original.Text is not null;
@@ -102,8 +91,6 @@ public sealed partial class SongEditorPage : ContentPage
 
 	#region Private Methods
 
-	private static string[] Split(string? text) => [.. CatalogValueList.Parse(text)];
-
 	private async Task LoadSelectorsAsync()
 	{
 		if (!this.selectorsLoaded)
@@ -114,9 +101,7 @@ public sealed partial class SongEditorPage : ContentPage
 				BookMetadataValueIndex suggestions = await Task.Run(this.session.GetMetadataValueSuggestions, this.lifetime.Token).ConfigureAwait(true);
 				if (!this.closed)
 				{
-					this.artistChoices.LoadValues(suggestions.GetValues("artist"));
-					this.tagChoices.LoadValues(suggestions.GetValues("tag"));
-					this.scalarMetadata.LoadSuggestions(suggestions);
+					this.metadataEditor.LoadSuggestions(suggestions);
 				}
 			}
 			catch (OperationCanceledException)
@@ -142,7 +127,7 @@ public sealed partial class SongEditorPage : ContentPage
 				await this.editor.LoadAsync(this.original.Text, this.lifetime.Token).ConfigureAwait(true);
 				if (!this.closed)
 				{
-					await this.editor.MatchUiFontAsync(this.songTitle, this.lifetime.Token).ConfigureAwait(true);
+					await this.editor.MatchUiFontAsync(this.metadataEditor.TitleEntry, this.lifetime.Token).ConfigureAwait(true);
 
 					this.ready = true;
 					this.editorToolbar.IsEnabled = true;
@@ -285,17 +270,10 @@ public sealed partial class SongEditorPage : ContentPage
 			}
 			else
 			{
-				if (string.IsNullOrWhiteSpace(this.songTitle.Text) && (analysis.Metadata.ContainsKey("title") || analysis.Metadata.ContainsKey("t")))
-				{
-					this.songTitle.Text = analysis.Title;
-				}
-
-				if (string.IsNullOrWhiteSpace(this.artists.Text))
-				{
-					this.artists.Text = CatalogValueList.Format(analysis.Artists);
-				}
-
-				this.status.Text = string.IsNullOrWhiteSpace(this.songTitle.Text) ? "Enter a catalog title before saving." : "Metadata previewed.";
+				bool hasTitle = analysis.Metadata.ContainsKey("title") || analysis.Metadata.ContainsKey("t");
+				this.metadataEditor.FillBlankTitleAndArtists(hasTitle ? analysis.Title : null, analysis.Artists);
+				this.status.Text = string.IsNullOrWhiteSpace(this.metadataEditor.TitleEntry.Text)
+					? "Enter a catalog title before saving." : "Metadata previewed.";
 			}
 		}).ConfigureAwait(true);
 
@@ -309,10 +287,7 @@ public sealed partial class SongEditorPage : ContentPage
 			}
 		}).ConfigureAwait(true);
 
-	private SongEditMetadata GetMetadata() => new(this.songTitle.Text, Split(this.artists.Text), Split(this.tags.Text))
-	{
-		Scalars = this.scalarMetadata.GetValues(),
-	};
+	private SongEditMetadata GetMetadata() => this.metadataEditor.GetMetadata();
 
 	private async void HandleImportMetadata(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(async () =>
@@ -365,8 +340,7 @@ public sealed partial class SongEditorPage : ContentPage
 		async () =>
 		{
 			string? source = this.ready ? await this.editor.GetTextAsync(this.lifetime.Token).ConfigureAwait(true) : this.original.Text;
-			bool changed = this.songTitle.Text != this.original.Title || this.artists.Text != CatalogValueList.Format(this.original.Artists)
-				|| this.tags.Text != CatalogValueList.Format(this.original.Tags) || source != this.original.Text || this.scalarMetadata.HasChanges;
+			bool changed = this.metadataEditor.HasChanges || source != this.original.Text;
 			await ScreenNavigation.LeaveEditorAsync(this, changed, this.SaveAndCloseAsync, () => this.CloseAsync(false)).ConfigureAwait(true);
 		},
 		requireEditor: false).ConfigureAwait(true);
@@ -385,7 +359,7 @@ public sealed partial class SongEditorPage : ContentPage
 
 	private async Task RunOperationAsync(Func<Task> operation, bool requireEditor = true, bool disablePage = true)
 	{
-		if (!this.saving && !this.closed)
+		if (!this.saving && !this.closed && !this.metadataEditor.IsSelecting)
 		{
 			if (requireEditor && this.original.Text is not null && !this.ready)
 			{

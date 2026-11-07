@@ -15,7 +15,7 @@ public static class SongFileAnalyzer
 	#region Public Data
 
 	/// <summary>Gets the current persisted metadata-analysis version.</summary>
-	public const int CurrentAnalysisVersion = 2;
+	public const int CurrentAnalysisVersion = 4;
 
 	#endregion
 
@@ -152,11 +152,36 @@ public static class SongFileAnalyzer
 
 	private static void ValidateTextCharacters(ReadOnlySpan<char> text)
 	{
-		foreach (char character in text)
+		for (int index = 0; index < text.Length; index++)
 		{
-			if (char.IsControl(character) && character is not ('\t' or '\r' or '\n' or '\f'))
+			char character = text[index];
+
+			// Preserve C1 characters from legacy text or already-garbled punctuation so users can edit them.
+			if (character <= '\u007f'
+				&& char.IsControl(character) && character is not ('\t' or '\r' or '\n' or '\f'))
 			{
-				throw new BookStoreValidationException("The source contains binary control characters. Import song text, OpenSong XML, or a PDF.");
+				// Locate the problem only on failure; ordinary validation does not track line/column state.
+				int line = 1, column = 1;
+				for (int previous = 0; previous < index; previous++)
+				{
+					char value = text[previous];
+					if (value is '\r' or '\n')
+					{
+						if (value == '\r' || previous == 0 || text[previous - 1] != '\r')
+						{
+							line++;
+						}
+
+						column = 1;
+					}
+					else
+					{
+						column++;
+					}
+				}
+
+				throw new BookStoreValidationException($"The source contains binary control characters. Found U+{(int)character:X4}"
+					+ $" at line {line}, column {column}. Correct the text encoding or remove the unintended character.");
 			}
 		}
 	}

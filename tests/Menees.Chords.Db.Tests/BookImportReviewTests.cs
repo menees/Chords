@@ -251,6 +251,104 @@ public sealed class BookImportReviewTests
 		(await BookImportService.ApplyReviewAsync(store, location, review, choices, device, token)).Single().SongId.ShouldBe(first);
 		DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token)).Songs.Count.ShouldBe(2);
 	}
+
+	[TestMethod]
+	public async Task BadSourcesAreReportedAndValidSourcesBeforeAndAfterStillImportAtomically()
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Mixed review", device, token);
+		string first = await this.WriteAsync("first.cho", "{title: First}\n[C]Before failure");
+		string bad = await this.WriteAsync("How Do You Like Me Now.cho", "{title: Bad}\r\n[C]Oops\u0001");
+		string late = await this.WriteAsync("late.cho", new string('x', 5000) + "\nOops\0");
+		string missing = Path.Combine(this.directory, "missing.cho");
+		string malformed = Path.Combine(this.directory, "malformed.cho");
+		await File.WriteAllBytesAsync(malformed, [0xff, 0xfe, 0x41], token);
+		string last = await this.WriteAsync("last.cho", "{title: Last}\n[D]After failures");
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		using BookImportReview review = await BookImportService.ReviewFilesAsync(store, location, [first, bad, late, missing, malformed, last, first], token);
+		review.Items.Select(item => item.Name).ShouldBe(["first.cho", "last.cho", "first.cho"]);
+		review.Items[^1].Conflict.ShouldBe(BookImportConflict.ExactDuplicate);
+		review.Failures.Select(item => item.SourcePath).ShouldBe([bad, late, missing, malformed]);
+		review.Failures[0].Message.ShouldContain("U+0001 at line 2, column 8");
+		review.Failures[1].Message.ShouldContain("U+0000 at line 2, column 5");
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		string scratch = Path.GetDirectoryName(review.GetPath(review.Items[0].Id))!;
+		Directory.EnumerateFiles(scratch).Count().ShouldBe(3);
+		IReadOnlyList<BookImportResult> added = await BookImportService.ApplyReviewAsync(
+			store, location, review, [.. review.Items.Select(item => item.DefaultDecision)], device, token);
+		added.Select(item => item.Analysis.Title).ShouldBe(["First", "Last"]);
+		DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token)).Songs.Count.ShouldBe(2);
+		review.Dispose();
+		Directory.Exists(scratch).ShouldBeFalse();
+	}
+
+	[TestMethod]
+	public async Task DefaultComparisonSelectsTheActiveDefaultSheetWithoutSelectingAnImportAction()
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Defaults", device, token);
+		BookImportResult first = await BookImportService.CreateSongAsync(store, location, "Maybe", ["Artist"], [], "[C]Original", device, token);
+		string another = await this.WriteAsync("another.cho", "[D]Another sheet");
+		BookImportResult second = (await BookImportService.ImportSongFilesAsync(store, location, first.SongId, [another], device, token)).Single();
+		string json = await store.ReadDatabaseJsonAsync(location, token);
+		ChordDatabase database = DatabaseJson.Deserialize(json);
+		database.SongFiles.Single(file => file.Id == first.SongFileId).DisplayPriority = int.MaxValue;
+		database.SongFiles.Single(file => file.Id == first.SongFileId).IsArchived = true;
+		await store.CommitMetadataAsync(location, json, database, token);
+		string incoming = await this.WriteAsync("Maybe.cho", "{title: Maybe}\n{artist: Artist}\n[G]Incoming");
+		using BookImportReview review = await BookImportService.ReviewFilesAsync(store, location, [incoming], token);
+		BookImportItem item = review.Items.Single();
+		item.Candidates.Count.ShouldBe(2);
+		item.DefaultCandidate!.SheetId.ShouldBe(second.SongFileId);
+		item.DefaultCandidate.IsDefault.ShouldBeTrue();
+		item.DefaultDecision.Action.ShouldBe(BookImportAction.Skip);
+		_ = await BookImportService.CreateSongAsync(store, location, "Maybe", ["Artist"], [], "[A]Other song", device, token);
+		using BookImportReview ambiguous = await BookImportService.ReviewFilesAsync(store, location, [incoming], token);
+		ambiguous.Items.Single().DefaultCandidate.ShouldBeNull();
+	}
+
+	[TestMethod]
+	public async Task AllFailedReviewHasNoImportableSnapshotsAndCannotInventDecisions()
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Failed review", device, token);
+		string bad = await this.WriteAsync("bad.cho", "\0");
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		using BookImportReview review = await BookImportService.ReviewFilesAsync(store, location, [bad], token);
+		review.Items.ShouldBeEmpty();
+		review.Failures.Single().Name.ShouldBe("bad.cho");
+		await Should.ThrowAsync<ArgumentException>(() => BookImportService.ApplyReviewAsync(
+			store, location, review, [new(Guid.NewGuid(), BookImportAction.ImportNewSong)], device, token));
+		(await BookImportService.ApplyReviewAsync(store, location, review, [], device, token)).ShouldBeEmpty();
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		using CancellationTokenSource canceled = new();
+		canceled.Cancel();
+		await Should.ThrowAsync<OperationCanceledException>(() => BookImportService.ReviewFilesAsync(store, location, [bad], canceled.Token));
+	}
+
+	[TestMethod]
+	public async Task UnreadableSourceDoesNotBlockLaterSources()
+	{
+		if (OperatingSystem.IsWindows())
+		{
+			var token = this.TestContext.CancellationToken;
+			using FileSystemBookStore store = new(Path.Combine(this.directory, "Books"));
+			Guid device = Guid.NewGuid();
+			BookLocation location = await store.CreateBookAsync("Locked source", device, token);
+			string locked = await this.WriteAsync("locked.cho", "[C]Locked");
+			string good = await this.WriteAsync("good.cho", "[C]Good");
+			using FileStream handle = new(locked, FileMode.Open, FileAccess.Read, FileShare.None);
+			using BookImportReview review = await BookImportService.ReviewFilesAsync(store, location, [locked, good], token);
+			review.Failures.Single().SourcePath.ShouldBe(locked);
+			review.Items.Single().Name.ShouldBe("good.cho");
+		}
+	}
 	#endregion
 
 	#region Private Methods

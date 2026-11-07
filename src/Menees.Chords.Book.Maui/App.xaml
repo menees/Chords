@@ -9,6 +9,7 @@
             <Color x:Key="AppSection">#E0E0E0</Color>
             <Color x:Key="AppText">#202020</Color>
             <Color x:Key="AppMuted">#606060</Color>
+            <Color x:Key="AppPlaceholder">#767676</Color>
             <Color x:Key="AppControl">#FFFFFF</Color>
             <Color x:Key="ChordAccent">#0078D4</Color>
             <Color x:Key="ChordAccentBeat">#C43E1C</Color>

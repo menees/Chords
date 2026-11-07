@@ -7,7 +7,7 @@
 	Title="ChordBook">
 	<Grid>
 		<Grid x:Name="ManagementSurface" RowDefinitions="Auto,Auto,Auto,*,Auto" BackgroundColor="{DynamicResource AppBackground}">
-			<Grid Padding="8" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource AppSurface}">
+			<Grid x:Name="ManagementBookToolbar" Padding="8" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource AppSurface}">
 				<local:FluentIconButton x:Name="ManagementBackButton" IsVisible="False" Icon="ArrowLeft" Description="Back" Clicked="HandleBackClicked" />
 				<Label x:Name="BookName" Grid.Column="1" FontSize="22" FontAttributes="Bold" VerticalOptions="Center" />
 
@@ -27,14 +27,19 @@
 				<local:FluentIconButton Grid.Column="4" Icon="DocumentOnePageAdd" Description="New Song" Clicked="HandleNewSongClicked" />
 			</Grid>
 
-			<Grid x:Name="SongSelectionToolbar" Grid.Row="2" IsVisible="False" Padding="12,4" ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8" BackgroundColor="{DynamicResource AppSurface}">
+			<FlexLayout x:Name="SongSelectionToolbar" Grid.Row="2" IsVisible="False" Padding="12,4" Direction="Row" Wrap="Wrap" JustifyContent="SpaceBetween" AlignItems="Center" BackgroundColor="{DynamicResource AppSurface}">
 				<Label x:Name="SelectedSongCount" FontAttributes="Bold" FontSize="18" VerticalOptions="Center" />
-				<local:FluentIconButton Grid.Column="2" Icon="LayerDiagonalAdd" Description="Add to Setlist" Clicked="HandleAddSelectedSongsClicked" />
-				<local:FluentIconButton x:Name="EditSelectedSongButton" Grid.Column="3" Icon="EditLineHorizontal3" Description="Song" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
-                <local:FluentIconButton x:Name="ArchiveSelectedSongsButton" Grid.Column="4" Icon="Archive" Description="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
-                <local:FluentIconButton x:Name="RestoreSelectedSongsButton" Grid.Column="5" Icon="ArchiveArrowBack" Description="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
-                <local:FluentIconButton x:Name="DeleteSelectedSongsButton" Grid.Column="6" Icon="Delete" Description="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
-			</Grid>
+				<HorizontalStackLayout x:Name="SongSelectionActions" Spacing="8" Margin="0,4">
+					<local:FluentIconButton x:Name="SelectAllSongsButton" Icon="CheckboxChecked" Description="Select All" Clicked="HandleSelectAllSongsClicked" />
+					<local:FluentIconButton x:Name="UnselectAllSongsButton" Icon="CheckboxUnchecked" Description="Unselect All" IsEnabled="False" Clicked="HandleUnselectAllSongsClicked" />
+					<local:FluentIconButton x:Name="AddSelectedSongsButton" Icon="LayerDiagonalAdd" Description="Add to Setlist" Clicked="HandleAddSelectedSongsClicked" />
+					<local:FluentIconButton x:Name="EditSelectedSongButton" Icon="EditLineHorizontal3" Description="Song" IsEnabled="False" Clicked="HandleEditSelectedSongClicked" />
+					<local:FluentIconButton x:Name="TagSelectedSongsButton" Icon="Tag" Description="Edit Tags…" IsEnabled="False" Clicked="HandleTagSelectedSongsClicked" />
+					<local:FluentIconButton x:Name="ArchiveSelectedSongsButton" Icon="Archive" Description="Archive" IsEnabled="False" Clicked="HandleArchiveSelectedSongsClicked" />
+					<local:FluentIconButton x:Name="RestoreSelectedSongsButton" Icon="ArchiveArrowBack" Description="Restore" IsEnabled="False" Clicked="HandleRestoreSelectedSongsClicked" />
+					<local:FluentIconButton x:Name="DeleteSelectedSongsButton" Icon="Delete" Description="Delete Permanently…" IsEnabled="False" Clicked="HandleDeleteSelectedSongsClicked" />
+				</HorizontalStackLayout>
+			</FlexLayout>
 
 			<Grid SizeChanged="HandleJumpViewportChanged" x:Name="SongSurface" Grid.Row="3" ColumnDefinitions="*,Auto">
 				<CollectionView
@@ -108,16 +113,21 @@
 				</Grid>
 
 				<Grid x:Name="SetlistDetail" IsVisible="False" RowDefinitions="Auto,*">
-					<Grid Padding="12,4" ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
-						<VerticalStackLayout VerticalOptions="Center" Spacing="0">
+					<Grid x:Name="SetlistEditorToolbar" Padding="8,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+						<local:FluentIconButton x:Name="SetlistEditorBackButton" Icon="ArrowLeft" Description="Back" IsVisible="False" Clicked="HandleBackClicked" />
+						<VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
 							<Label x:Name="SetlistDetailName" FontAttributes="Bold" FontSize="20" />
 							<Label x:Name="SetlistDetailMetadata" FontSize="12" TextColor="{DynamicResource AppMuted}" />
 						</VerticalStackLayout>
-						<local:FluentIconButton x:Name="AddSetlistSongsButton" Grid.Column="1" Icon="Add" Description="Add Songs…" Clicked="HandleAddSetlistSongsClicked" />
-						<local:FluentIconButton x:Name="RenameSetlistButton" Grid.Column="2" Icon="Rename" Description="Rename…" Clicked="HandleRenameSetlistClicked" />
-						<local:FluentIconButton x:Name="EditSetlistButton" Grid.Column="3" Icon="EditLineHorizontal3" Description="Edit" Clicked="HandleEditSetlistClicked" />
-						<local:FluentIconButton x:Name="ArchiveSetlistButton" Grid.Column="4" Icon="Archive" Description="Archive" IsVisible="False" Clicked="HandleArchiveSetlistClicked" />
-                        <local:FluentIconButton x:Name="DeleteSetlistButton" Grid.Column="5" Icon="Delete" Description="Delete Permanently…" IsVisible="False" Clicked="HandleDeleteSetlistClicked" />
+						<HorizontalStackLayout Grid.Column="2" Spacing="8">
+							<local:FluentIconButton x:Name="EditSetlistButton" Icon="EditLineHorizontal3" Description="Edit" Clicked="HandleEditSetlistClicked" />
+							<local:FluentIconButton x:Name="AddSetlistSongsButton" Icon="Add" Description="Add Songs…" IsVisible="False" Clicked="HandleAddSetlistSongsClicked" />
+							<local:FluentIconButton x:Name="SortSetlistButton" Icon="TextSortAscending" Description="Sort by Name" IsVisible="False" Clicked="HandleSortSetlistClicked" />
+							<local:FluentIconButton x:Name="RenameSetlistButton" Icon="Rename" Description="Rename…" IsVisible="False" Clicked="HandleRenameSetlistClicked" />
+							<local:FluentIconButton x:Name="ArchiveSetlistButton" Icon="Archive" Description="Archive" IsVisible="False" Clicked="HandleArchiveSetlistClicked" />
+							<local:FluentIconButton x:Name="DeleteSetlistButton" Icon="Delete" Description="Delete Permanently…" IsVisible="False" Clicked="HandleDeleteSetlistClicked" />
+							<local:FluentIconButton x:Name="SelectSetlistSongsButton" Icon="MultiselectLtr" Description="Select Songs" Clicked="HandleSelectSetlistSongsClicked" />
+						</HorizontalStackLayout>
 					</Grid>
 					<CollectionView
 						x:Name="SetlistEntries"

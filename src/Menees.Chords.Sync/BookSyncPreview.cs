@@ -20,6 +20,7 @@ public sealed class BookSyncPreview
 		ChordDatabase local = document.GetLocalDatabase();
 		ChordDatabase? cloud = document.GetCloudDatabase();
 		this.SongCount = target.Songs.Count;
+		this.Changes = new(document, target, local, cloud);
 		HashSet<Guid> targetSongs = [.. target.Songs.Select(song => song.Id)];
 		this.LocalRemovedSongCount = local.Songs.Count(song => !targetSongs.Contains(song.Id));
 		this.CloudRemovedSongCount = cloud?.Songs.Count(song => !targetSongs.Contains(song.Id)) ?? 0;
@@ -65,6 +66,8 @@ public sealed class BookSyncPreview
 	public int RecoveryCount => this.Document.RecoveryCount;
 
 	public int SongCount { get; }
+
+	public BookSyncChanges Changes { get; }
 
 	public int LocalRemovedSongCount { get; }
 

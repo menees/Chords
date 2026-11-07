@@ -79,6 +79,7 @@ internal sealed class FileSystemBookReconciler
 						file.TextEncoding = analysis.TextEncoding;
 						file.ByteOrderMark = analysis.ByteOrderMark;
 						file.AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion;
+						file.AnalysisFailure = null;
 						file.ContentRevision++;
 					}
 				}

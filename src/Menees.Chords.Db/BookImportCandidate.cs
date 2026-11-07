@@ -13,6 +13,9 @@ public sealed record BookImportCandidate(
 	Guid SongId, Guid SheetId, string Title, IReadOnlyList<string> Artists, string SheetName,
 	bool IsArchived, bool IsIncoming, string ContentHash)
 {
+	/// <summary>Gets whether this is the catalog song's active default sheet.</summary>
+	public bool IsDefault { get; init; }
+
 	/// <summary>Gets whether a source exists for comparison; a catalog song can have no remaining sheets.</summary>
 	public bool CanCompare => this.IsIncoming || this.SheetId != Guid.Empty;
 }

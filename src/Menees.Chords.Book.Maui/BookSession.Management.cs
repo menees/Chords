@@ -11,6 +11,9 @@ public sealed partial class BookSession
 {
 	#region Public Methods
 
+	public Task<SongFileOpenResult> OpenSongFileAsync(string path, CancellationToken cancellationToken = default)
+		=> Task.Run(() => SongFileOpening.OpenAsync(this.application, path, this.DeviceId, cancellationToken), cancellationToken);
+
 	public Task<BookImportReview> ReviewImportAsync(IReadOnlyList<string> paths, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.ReviewImportAsync(paths, cancellationToken), cancellationToken);
 
@@ -30,14 +33,20 @@ public sealed partial class BookSession
 	public Task<string> CreateIntegrityReportAsync(CancellationToken cancellationToken = default)
 	{
 		(FileSystemBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+		string? directory = this.DirectoryPath;
 		return Task.Run(
 			async () =>
 			{
 				BookValidationReport report = await BookValidator.ValidateFolderAsync(activeStore, activeLocation, cancellationToken).ConfigureAwait(false);
-				return BookIntegrityReport.Format(report);
+				return BookIntegrityReport.Format(report, directory);
 			},
 			cancellationToken);
 	}
+
+	public SetlistEdit GetSetlistEdit(Guid setlistId) => this.application.GetSetlistEdit(setlistId);
+
+	public Task SaveSetlistEditAsync(SetlistEdit draft, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.SaveSetlistEditAsync(draft, this.DeviceId, cancellationToken), cancellationToken);
 
 	public SetlistEntrySettings GetSetlistEntrySettings(Guid setlistId, Guid entryId)
 		=> this.application.GetSetlistEntrySettings(setlistId, entryId);
@@ -59,8 +68,15 @@ public sealed partial class BookSession
 
 	public IReadOnlyList<SongRow> SortSongs(IReadOnlyList<SongRow> songs, string field, bool descending)
 	{
+		IReadOnlyDictionary<Guid, DateTimeOffset>? accessTimes = null;
+		if (field == "accessed")
+		{
+			this.EnsureRecentHistory();
+			accessTimes = this.history.AccessedUtc;
+		}
+
 		Dictionary<Guid, SongRow> rows = songs.ToDictionary(song => song.Id);
-		return [.. this.application.SortSongs([.. songs.Select(song => song.Id)], field, descending).Select(id => rows[id])];
+		return [.. this.application.SortSongs([.. songs.Select(song => song.Id)], field, descending, accessTimes).Select(id => rows[id])];
 	}
 
 	public IReadOnlyList<CustomTabCatalogItem> GetCustomTabs() => this.application.GetCustomTabs();
@@ -114,6 +130,11 @@ public sealed partial class BookSession
 
 	public IReadOnlyList<SongFileCatalogItem> GetSongFiles(Guid songId)
 		=> this.application.GetSongFiles(songId);
+
+	public CatalogValueSelection GetSongTagSelection(IReadOnlyList<Guid> songIds) => this.application.GetSongTagSelection(songIds);
+
+	public Task<int> SetSongTagsAsync(IReadOnlyList<Guid> songIds, IReadOnlyList<string> tags, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.SetSongTagsAsync(songIds, tags, this.DeviceId, cancellationToken), cancellationToken);
 
 	public BookMetadataValueIndex GetMetadataValueSuggestions() => this.application.GetMetadataValueSuggestions();
 

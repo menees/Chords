@@ -10,6 +10,7 @@ public class MetadataEntryTests
 	{
 		Test("title: This is a test");
 		Test("artist: Big Mike");
+		Test("tag: Christian");
 		Test(" KEY : C# ", "key: C#");
 
 		static void Test(string text, string? expected = null)
@@ -42,6 +43,9 @@ public class MetadataEntryTests
 	{
 		Test("{title: This is a test}", "title", "This is a test");
 		Test("{artist: Big Mike}", "artist", "Big Mike");
+		Test("{tag: Christian}", "tag", "Christian");
+		Test("{TAG: Needs study}", "tag", "Needs study");
+		Test("{meta: tag Christian}", "tag", "Christian");
 
 		Test("{meta: name value}", "name", "value");
 		Test("{meta: artist The Beatles}", "artist", "The Beatles");

@@ -26,6 +26,22 @@ public partial class App : global::Microsoft.Maui.Controls.Application
 
 	#region Public Methods
 
+	public void OpenSongFiles(IReadOnlyList<string> paths)
+	{
+		if (this.Windows.Count > 0 && this.Windows[0].Handler?.PlatformView is Microsoft.UI.Xaml.Window window)
+		{
+			if (window.AppWindow.Presenter is Microsoft.UI.Windowing.OverlappedPresenter presenter
+				&& presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
+			{
+				presenter.Restore();
+			}
+
+			window.Activate();
+		}
+
+		this.mainPage.QueueSongFiles(paths);
+	}
+
 	public void SetTheme(AppTheme theme)
 	{
 		this.UserAppTheme = theme;
@@ -76,6 +92,7 @@ public partial class App : global::Microsoft.Maui.Controls.Application
 		this.Resources["AppSection"] = Color.FromArgb(dark ? "#383838" : "#E0E0E0");
 		this.Resources["AppText"] = Color.FromArgb(dark ? "#F2F2F2" : "#202020");
 		this.Resources["AppMuted"] = Color.FromArgb(dark ? "#BEBEBE" : "#606060");
+		this.Resources["AppPlaceholder"] = Color.FromArgb(dark ? "#A0A0A0" : "#767676");
 		this.Resources["AppControl"] = Color.FromArgb(dark ? "#353535" : "#FFFFFF");
 		foreach (Window window in this.Windows)
 		{

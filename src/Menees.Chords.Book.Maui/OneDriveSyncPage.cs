@@ -31,7 +31,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 	private readonly ProgressBar transferBar = new() { IsVisible = false };
 	private readonly ActivityIndicator working = new() { IsVisible = false };
 	private readonly Picker direction = new() { Title = "Sync direction" };
-	private readonly Editor report = new() { IsReadOnly = true, AutoSize = EditorAutoSizeOption.Disabled };
+	private readonly OutputEditor report = new();
 	private readonly FluentIconButton connect = new() { Icon = "PlugConnected", Description = "Connect OneDrive" };
 	private readonly FluentIconButton disconnect = new() { Icon = "PlugDisconnected", Description = "Disconnect OneDrive" };
 	private readonly FluentIconButton download = new() { Icon = "CloudArrowDown", Description = "Download Book…" };
@@ -230,8 +230,10 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 		this.transferBar.IsVisible = true;
 		timer.Stop();
 		string elapsed = FormatElapsed(timer.Elapsed);
-		this.report.Text += $"\n\nCompleted {result.CompletedUtc.ToLocalTime():g}. Elapsed {elapsed}. "
-			+ $"Uploaded {result.UploadedSheets}, downloaded {result.DownloadedSheets}, retained {result.RecoveredSheets} recovery sheets.";
+		this.report.Text = this.CreateReviewText(confirmed, completed: true) + $"\n\nCompleted {result.CompletedUtc.ToLocalTime():g}. Elapsed {elapsed}. "
+			+ $"Uploaded {result.UploadedSheets} sheets and {confirmed.Changes.UploadedSetlists.Count} setlists; "
+			+ $"downloaded {result.DownloadedSheets} sheets and {confirmed.Changes.DownloadedSetlists.Count} setlists; "
+			+ $"retained {result.RecoveredSheets} recovery sheets.";
 		this.status.Text = confirmed.HasChanges ? $"Sync completed in {elapsed}." : $"Already up to date. Elapsed {elapsed}.";
 	}
 
@@ -297,14 +299,16 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 						this.transferBar.IsVisible = true;
 						this.working.IsVisible = this.working.IsRunning = false;
 						this.status.Text = $"Downloaded and opened {selected.Name} in {FormatElapsed(timer.Elapsed)}.";
-						this.report.Text = $"Book: {selected.Name}\nDownloaded {selected.SongCount} songs. Elapsed {FormatElapsed(timer.Elapsed)}.";
+						BookSyncChanges changes = BookSyncChanges.FromDownloadedBook(this.session.Database!);
+						this.report.Text = $"Book: {selected.Name}\nDownloaded {selected.SongCount} songs. Elapsed {FormatElapsed(timer.Elapsed)}.\n"
+							+ BookSyncChangeReport.Format(changes, completed: true);
 					}
 				}
 			}
 		}
 	}
 
-	private string CreateReviewText(BookSyncPreview review)
+	private string CreateReviewText(BookSyncPreview review, bool completed = false)
 	{
 		string result = $"Book: {this.session.Database!.Name}\nAccount: {this.connection.AccountName}\nDirection: {this.direction.Items[(int)review.Direction]}"
 			+ $"\nUpload {review.UploadCount} sheets; download {review.DownloadCount} sheets; transfer {review.EstimatedBytes:N0} bytes."
@@ -313,7 +317,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			+ $"\nRemove sheets: {review.LocalRemovedSheetCount} on this device, {review.CloudRemovedSheetCount} from the OneDrive book.";
 		if (review.IsInitialPublication)
 		{
-			result += "\nThis sync will publish the first cloud copy of this book.";
+			result += completed ? "\nPublished the first cloud copy of this book." : "\nThis sync will publish the first cloud copy of this book.";
 		}
 
 		foreach (string description in review.ConflictDescriptions)
@@ -321,7 +325,7 @@ internal sealed partial class OneDriveSyncPage : ContentPage
 			result += "\n" + description;
 		}
 
-		return result;
+		return result + "\n" + BookSyncChangeReport.Format(review.Changes, completed);
 	}
 
 	private async Task RunAsync(Func<CancellationToken, Task> action)

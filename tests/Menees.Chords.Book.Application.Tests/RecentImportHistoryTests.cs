@@ -19,7 +19,8 @@ public sealed class RecentImportHistoryTests
 		new RecentSongHistory(history.SongIds).SongIds.ShouldBe(history.SongIds);
 		history.MarkSaved();
 		history.Record([existing, existing]);
-		history.IsDirty.ShouldBeFalse();
+		history.IsDirty.ShouldBeTrue();
+		history.MarkSaved();
 		history.Record((IEnumerable<Guid>)[]);
 		history.IsDirty.ShouldBeFalse();
 		history.SongIds.ShouldBe([existing, imported, previous, older]);
@@ -36,6 +37,7 @@ public sealed class RecentImportHistoryTests
 
 		history.SongIds.ShouldBe(imported.Reverse().Take(100));
 		history.SongIds.ShouldNotContain(previous);
+		history.AccessedUtc.Count.ShouldBe(125);
 		history.IsDirty.ShouldBeTrue();
 	}
 }

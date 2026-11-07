@@ -37,6 +37,22 @@ public sealed class BookImportItem
 	/// <summary>Gets related sheets, including archived sheets and earlier incoming sources.</summary>
 	public IReadOnlyList<BookImportCandidate> Candidates { get; }
 
+	/// <summary>Gets a safe initial comparison sheet for one unambiguous related song, without choosing an import action.</summary>
+	public BookImportCandidate? DefaultCandidate
+	{
+		get
+		{
+			BookImportCandidate? result = null;
+			if (this.Candidates.Select(candidate => candidate.SongId).Distinct().Take(2).Count() == 1)
+			{
+				result = this.Candidates.FirstOrDefault(candidate => candidate.IsDefault)
+					?? this.Candidates.FirstOrDefault(candidate => candidate.CanCompare) ?? this.Candidates[0];
+			}
+
+			return result;
+		}
+	}
+
 	/// <summary>Gets a default that never silently combines or duplicates related songs.</summary>
 	public BookImportDecision DefaultDecision => new(
 		this.Id,

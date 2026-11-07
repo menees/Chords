@@ -54,3 +54,23 @@ Use a disposable book before a personal library:
 - Publish a newer build, wait for the acceptance folder to finish syncing, then launch it and verify the existing local book/settings remain accessible.
 
 The folder publish follows Microsoft's [unpackaged MAUI Windows deployment](https://learn.microsoft.com/en-us/dotnet/maui/windows/deployment/publish-unpackaged-cli?view=net-maui-10.0). Actual music-room launch, Windows trust prompts, touch/Surface layout and live OneDrive acceptance remain manual release evidence.
+
+## Open chord files from File Explorer
+
+In ChordBook, choose **Options > File Associations**. This registers the currently running executable for `.cho`, `.chopro`, `.chordpro` and `.crd` under your Windows user account and opens **Windows Default apps**. Choose **Menees ChordBook** for the desired extensions. You can also use Explorer's **Open with** after registration. Windows retains control of the default; ChordBook does not replace another app's default choice. The supported [Windows default-app settings link](https://learn.microsoft.com/en-us/windows/apps/develop/launch/launch-default-apps-settings) opens the app's registration where supported, or the general Default apps page on older Windows builds.
+
+Run setup separately on each PC from the stable Maui.Acceptance folder. Registration stores that executable's full path; repeat setup after moving the distribution. The current unpackaged build uses per-user registration, without administrator access. Store/MSIX declarations will be handled during release packaging.
+
+Double-clicking a file opens the current book's hash-identical sheet without importing it again. Multiple matching songs require a choice. Otherwise a new song imports automatically; related title/artist matches with different content open Review Import with **Skip** selected. **Compare Contents**, **Import as Separate Song** and an explicitly chosen **Add as Sheet** remain available. External source bytes are retained. After a reviewed import, the imported song opens.
+
+A cold launch uses your last active book. Later opens reuse the already-running window at that executable location. Incoming files wait while an editor or another protected operation is open; the title bar indicates a waiting file. Finish/leave the edit or unlock performance to continue. Matching a previous-save/recovery/archived sheet displays that version temporarily and retains normal song/default-sheet settings.
+
+## Find a problematic sheet
+
+Choose **Options > Validate Book** to check the current book and its referenced sheets. **Validate Again** rereads current contents; it does not reuse startup warnings. Reports identify song/artist, sheet type (current, previous save, recovery or archived), filename, full path and reason. Character errors include their Unicode character and line/column. Text can be selected and copied.
+
+A repaired current sheet can have a damaged previous-save copy. Review its sheet type and use **Manage Sheets** to repair or delete that historical copy as appropriate, then choose **Validate Again**. Deleted sheets no longer appear. For external text repairs, keep a backup outside the book folder, preserve the managed filename, correct the characters/encoding, save UTF-8 and use **Review Folder Changes** to review/apply the edit. Saving a different encoding alone does not reverse already-corrupted characters.
+
+Normal book opening does not validate every sheet. A new analyzer version triggers one automatic metadata upgrade for outdated sheets. Both successful versions and failed checks (version/hash/reason) are retained in database.json. Unchanged sheets are skipped on later opens; editor Save or reviewed external changes update the analysis. Failed checks become eligible again when their recorded content hash or the analyzer version changes. Validation is an explicit full check and remains read-only.
+
+Read/access failure checks are scoped to their device, so one PC's filesystem failure does not suppress metadata analysis on another device. Source-content failure checks apply to the same analyzer version and content hash across devices.

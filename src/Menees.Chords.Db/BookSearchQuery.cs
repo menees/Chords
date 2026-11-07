@@ -1,52 +1,47 @@
-using System.Text;
+#region Using Directives
+
+using System.Text.RegularExpressions;
+
+#endregion
 
 namespace Menees.Chords.Db;
 
-internal static class BookSearchQuery
+internal static partial class BookSearchQuery
 {
-	public static IReadOnlyList<(string? Field, string Value)> Parse(string query)
+	#region Public Methods
+
+	public static IReadOnlyList<Term> Parse(string query)
 	{
-		List<(string? Field, string Value)> result = [];
-		StringBuilder token = new();
-		bool quoted = false;
-		foreach (char character in query)
+		List<Term> result = [];
+		foreach (Match token in Tokens().Matches(query))
 		{
-			if (character == '"')
-			{
-				quoted = !quoted;
-			}
-			else if (char.IsWhiteSpace(character) && !quoted)
-			{
-				AddToken(token, result);
-			}
-			else
-			{
-				token.Append(character);
-			}
+			string value = token.Value;
+			Match prefix = FieldPrefix().Match(value);
+			string? field = prefix.Success ? prefix.Groups["field"].Value : null;
+			bool excluded = prefix.Success && prefix.Groups["excluded"].Success;
+			result.Add(new(field, new(value[prefix.Length..], contains: field is null), excluded));
 		}
 
-		AddToken(token, result);
 		return result;
 	}
 
-	private static void AddToken(StringBuilder token, List<(string? Field, string Value)> result)
-	{
-		if (token.Length > 0)
-		{
-			string value = token.ToString();
-			int colon = value.IndexOf(':', StringComparison.Ordinal);
-			string? field = colon > 0 ? value[..colon] : null;
-			if (field is "title" or "artist" or "tag" or "key" or "genre" or "capo" or "duration" or "album" or "time"
-				or "archived" or "display" or "metronome" or "multiple" or "recovery" or "previoussave" or "archivedfiles")
-			{
-				result.Add((field, value[(colon + 1)..]));
-			}
-			else
-			{
-				result.Add((null, value));
-			}
+	#endregion
 
-			token.Clear();
-		}
-	}
+	#region Private Methods
+
+	// Quotes group whitespace; escapes keep quotes/whitespace in a token. An unfinished quote/backslash remains editable.
+	[GeneratedRegex("(?:\\\\[\\s\\S]|\"(?:\\\\[\\s\\S]|[^\"\\\\])*\"?|[^\\s\"\\\\]|\\\\)+", RegexOptions.CultureInvariant)]
+	private static partial Regex Tokens();
+
+	[GeneratedRegex(@"\A(?<field>title|artist|tag|key|genre|capo|duration|album|time|archived|display|metronome|"
+		+ @"multiple|recovery|previoussave|archivedfiles):(?<excluded>!)?", RegexOptions.CultureInvariant)]
+	private static partial Regex FieldPrefix();
+
+	#endregion
+
+	#region Internal Types
+
+	internal sealed record Term(string? Field, BookSearchPattern Pattern, bool Excluded);
+
+	#endregion
 }

@@ -13,7 +13,7 @@ public sealed partial class MetadataImportPage : ContentPage
 	#region Private Data
 
 	private readonly MetadataDirectiveImport import;
-	private readonly List<(MetadataDirectiveProposal Proposal, CheckBox Selected, Picker Target)> rows = [];
+	private readonly List<(MetadataDirectiveProposal Proposal, CheckBox Selected, Picker? Target)> rows = [];
 	private readonly TaskCompletionSource<string?> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
 	private readonly Label diff = new() { FontFamily = "Consolas" };
 	private readonly Label status = new();
@@ -42,6 +42,11 @@ public sealed partial class MetadataImportPage : ContentPage
 				+ "For duplicates, choose a line explicitly. Other occurrences remain untouched. Conditional/structured directives must be edited manually.",
 		});
 		VerticalStackLayout fields = new() { Spacing = Spacing };
+		if (import.Proposals.Count == 0)
+		{
+			fields.Children.Add(new Label { Text = "No metadata changes to import." });
+		}
+
 		foreach (MetadataDirectiveProposal proposal in import.Proposals)
 		{
 			CheckBox selected = new()
@@ -49,26 +54,34 @@ public sealed partial class MetadataImportPage : ContentPage
 				IsChecked = proposal.Occurrences.Count == 0 || (proposal.Occurrences.Count == 1 && proposal.Occurrences[0].CanReplace),
 			};
 			SemanticProperties.SetDescription(selected, "Import " + proposal.Name);
-			Picker target = new() { Title = "Choose a directive to update" };
-			foreach (MetadataDirectiveOccurrence occurrence in proposal.Occurrences)
-			{
-				target.Items.Add($"Line {occurrence.LineNumber}: {occurrence.SourceLine}");
-			}
-
-			target.IsVisible = proposal.Occurrences.Count > 0;
-			target.SelectedIndex = proposal.Occurrences.Count == 1 ? 0 : -1;
+			Picker? target = null;
 			Grid row = new() { ColumnDefinitions = { new(GridLength.Auto), new(GridLength.Star), new(GridLength.Star) }, ColumnSpacing = Spacing };
 			row.Add(selected);
 			row.Add(new Label { Text = proposal.Name + ": " + string.Join("; ", proposal.Values), VerticalOptions = LayoutOptions.Center }, 1);
-			row.Add(target, 2);
+			if (proposal.Occurrences.Count == 1)
+			{
+				MetadataDirectiveOccurrence occurrence = proposal.Occurrences[0];
+				row.Add(new Label { Text = $"Line {occurrence.LineNumber}: {occurrence.SourceLine}", VerticalOptions = LayoutOptions.Center }, 2);
+			}
+			else if (proposal.Occurrences.Count > 1)
+			{
+				target = new() { Title = "Choose a directive to update" };
+				foreach (MetadataDirectiveOccurrence occurrence in proposal.Occurrences)
+				{
+					target.Items.Add($"Line {occurrence.LineNumber}: {occurrence.SourceLine}");
+				}
+
+				row.Add(target, 2);
+				target.SelectedIndexChanged += (_, _) =>
+				{
+					selected.IsChecked = target.SelectedIndex >= 0;
+					this.UpdatePreview();
+				};
+			}
+
 			fields.Children.Add(row);
 			this.rows.Add((proposal, selected, target));
 			selected.CheckedChanged += (_, _) => this.UpdatePreview();
-			target.SelectedIndexChanged += (_, _) =>
-			{
-				selected.IsChecked = target.SelectedIndex >= 0;
-				this.UpdatePreview();
-			};
 		}
 
 		layout.Add(new ScrollView { Content = fields }, 0, 1);
@@ -102,8 +115,12 @@ public sealed partial class MetadataImportPage : ContentPage
 
 	#region Private Methods
 
-	private List<MetadataDirectiveSelection> GetSelections() => [.. this.rows.Where(row => row.Selected.IsChecked)
-		.Select(row => new MetadataDirectiveSelection(row.Proposal.Name, row.Target.SelectedIndex < 0 ? null : row.Target.SelectedIndex))];
+	private List<MetadataDirectiveSelection> GetSelections() => [.. this.rows.Where(row => row.Selected.IsChecked).Select(row =>
+	{
+		int? target = row.Target is Picker picker ? (picker.SelectedIndex < 0 ? null : picker.SelectedIndex)
+			: row.Proposal.Occurrences.Count == 1 ? 0 : null;
+		return new MetadataDirectiveSelection(row.Proposal.Name, target);
+	})];
 
 	private void UpdatePreview()
 	{
@@ -120,7 +137,7 @@ public sealed partial class MetadataImportPage : ContentPage
 			}
 
 			this.diff.Text = text.ToString();
-			this.status.Text = changes.Count == 0 ? "No text changes selected." : string.Empty;
+			this.status.Text = changes.Count == 0 && this.rows.Count > 0 ? "No text changes selected." : string.Empty;
 			this.apply.IsEnabled = changes.Count > 0;
 		}
 		catch (InvalidOperationException exception)

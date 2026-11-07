@@ -72,10 +72,10 @@ public sealed class BookSearchIndex
 	{
 		ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maximumResults);
 		string normalized = Normalize(query ?? string.Empty);
-		IReadOnlyList<(string? Field, string Value)> terms = BookSearchQuery.Parse(normalized);
+		IReadOnlyList<BookSearchQuery.Term> terms = BookSearchQuery.Parse(normalized);
 		IEnumerable<SearchEntry> matches = terms.Count == 0
 			? this.entries
-			: this.entries.Where(entry => terms.All(term => Matches(entry, term.Field, term.Value)));
+			: this.entries.Where(entry => terms.All(term => !term.Pattern.IsEmpty && Matches(entry, term.Field, term.Pattern) != term.Excluded));
 		return
 		[
 			.. matches.Take(maximumResults).Select(entry => new BookSearchHit(entry.SongId, entry.Title, entry.Artists)),
@@ -86,14 +86,14 @@ public sealed class BookSearchIndex
 
 	#region Private Methods
 
-	private static bool Matches(SearchEntry entry, string? field, string value)
+	private static bool Matches(SearchEntry entry, string? field, BookSearchPattern pattern)
 	{
 		bool result;
 		if (field is null)
 		{
-			result = entry.Text.Contains(value, StringComparison.Ordinal);
+			result = pattern.IsMatch(entry.Text, exact: false);
 		}
-		else if (!entry.Fields.TryGetValue(field, out string[]? values) || value.Length == 0)
+		else if (!entry.Fields.TryGetValue(field, out string[]? values))
 		{
 			result = false;
 		}
@@ -101,7 +101,7 @@ public sealed class BookSearchIndex
 		{
 			bool exact = field is "key" or "time" or "capo" or "duration" or "archived" or "display" or "metronome"
 				or "multiple" or "recovery" or "previoussave" or "archivedfiles";
-			result = values.Any(item => exact ? item == value : item.Contains(value, StringComparison.Ordinal));
+			result = values.Any(item => pattern.IsMatch(item, exact));
 		}
 
 		return result;

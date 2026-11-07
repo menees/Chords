@@ -1,10 +1,3 @@
-#region Using Directives
-
-using System.IO;
-using Menees.Chords.Book.Maui.Services;
-
-#endregion
-
 namespace Menees.Chords.Book.Maui;
 
 public sealed partial class BookIntegrityPage : ContentPage
@@ -16,11 +9,9 @@ public sealed partial class BookIntegrityPage : ContentPage
 	private const int ReportFontSize = 14;
 	private const int FooterRow = 3;
 	private readonly BookSession session;
-	private readonly IWindowsPicker picker;
 	private readonly Editor report = new() { IsReadOnly = true, AutoSize = EditorAutoSizeOption.Disabled, FontSize = ReportFontSize };
 	private readonly Label status = new();
 	private readonly FluentIconButton scan = new() { Icon = "ArrowClockwise", Description = "Validate Again" };
-	private readonly FluentIconButton save = new() { Icon = "Save", Description = "Save Report…", IsEnabled = false };
 	private readonly FluentIconButton cancel = new() { Icon = "Stop", Description = "Cancel Validation", IsVisible = false };
 	private readonly FluentIconButton close = new() { Icon = "ArrowLeft", Description = "Back" };
 	private readonly TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -31,10 +22,9 @@ public sealed partial class BookIntegrityPage : ContentPage
 
 	#region Constructors
 
-	public BookIntegrityPage(BookSession session, IWindowsPicker picker)
+	public BookIntegrityPage(BookSession session)
 	{
 		this.session = session;
-		this.picker = picker;
 		this.Title = "Validate Book";
 		Grid layout = new()
 		{
@@ -42,13 +32,16 @@ public sealed partial class BookIntegrityPage : ContentPage
 			RowSpacing = ControlSpacing,
 			RowDefinitions = { new(GridLength.Auto), new(GridLength.Auto), new(GridLength.Star), new(GridLength.Auto) },
 		};
-		layout.Add(ScreenLayout.Header("Validate Book", this.close, this.scan, this.save, this.cancel), 0, 0);
-		layout.Add(new Label { Text = "Checks every recorded sheet and looks for duplicate or unreferenced files. Your files are kept unchanged." }, 0, 1);
+		layout.Add(ScreenLayout.Header("Validate Book", this.close, this.scan, this.cancel), 0, 0);
+		Label description = new()
+		{
+			Text = "Checks every sheet, including archived sheets, previous saves and recovery sheets. Files remain unchanged.",
+		};
+		layout.Add(description, 0, 1);
 		layout.Add(this.report, 0, 2);
 		layout.Add(this.status, 0, FooterRow);
 		this.Content = layout;
 		this.scan.Clicked += this.HandleScan;
-		this.save.Clicked += this.HandleSave;
 		this.cancel.Clicked += (_, _) => this.operation?.Cancel();
 		this.close.Clicked += this.HandleClose;
 		this.Loaded += (_, _) =>
@@ -89,27 +82,6 @@ public sealed partial class BookIntegrityPage : ContentPage
 			this.status.Text = "Check complete.";
 		}).ConfigureAwait(true);
 
-	private async void HandleSave(object? sender, EventArgs e)
-		=> await this.RunAsync(async token =>
-		{
-			string? path = await this.picker.SaveFileAsync("ChordBook-integrity", ".txt", "Integrity report", token).ConfigureAwait(true);
-			if (path is not null)
-			{
-				string temporary = path + $".{Guid.NewGuid():N}.tmp";
-				try
-				{
-					await File.WriteAllTextAsync(temporary, this.report.Text, token).ConfigureAwait(true);
-					token.ThrowIfCancellationRequested();
-					File.Move(temporary, path, overwrite: true);
-					this.status.Text = $"Report saved: {path}";
-				}
-				finally
-				{
-					File.Delete(temporary);
-				}
-			}
-		}).ConfigureAwait(true);
-
 	private async void HandleClose(object? sender, EventArgs e)
 	{
 		if (this.operation is null)
@@ -125,7 +97,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 		{
 			using CancellationTokenSource cancellation = new();
 			this.operation = cancellation;
-			this.scan.IsEnabled = this.save.IsEnabled = this.close.IsEnabled = false;
+			this.scan.IsEnabled = this.close.IsEnabled = false;
 			this.cancel.IsVisible = true;
 			try
 			{
@@ -135,7 +107,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 			{
 				this.status.Text = "Check canceled.";
 			}
-#pragma warning disable CA1031 // Report native picker and storage failures at the UI boundary.
+#pragma warning disable CA1031 // Report storage failures at the UI boundary.
 			catch (Exception exception)
 			{
 				this.status.Text = exception.Message;
@@ -145,7 +117,6 @@ public sealed partial class BookIntegrityPage : ContentPage
 			{
 				this.operation = null;
 				this.scan.IsEnabled = this.close.IsEnabled = true;
-				this.save.IsEnabled = !string.IsNullOrEmpty(this.report.Text);
 				this.cancel.IsVisible = false;
 			}
 		}

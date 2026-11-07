@@ -35,9 +35,10 @@ public sealed partial class BookSession : IDisposable
 
 	#region Public API
 
-	public BookSession(BookApplicationSession application)
+	public BookSession(BookApplicationSession application, Guid? deviceId = null)
 	{
 		this.application = application;
+		this.DeviceId = deviceId ?? GetOrCreateDeviceId();
 		this.Instruments = new(application);
 		this.Input = new(application);
 		this.SettingsTransfer = new(application);
@@ -66,7 +67,7 @@ public sealed partial class BookSession : IDisposable
 
 	public BookMetadataRefreshResult? LastMetadataRefresh { get; private set; }
 
-	public Guid DeviceId { get; } = GetOrCreateDeviceId();
+	public Guid DeviceId { get; }
 
 	public static IReadOnlyList<RecentBook> GetRecentBooks()
 		=> [.. LoadRecentBooks().Where(book => File.Exists(Path.Combine(book.Path, DatabaseFileName)))];
@@ -220,11 +221,11 @@ public sealed partial class BookSession : IDisposable
 				setlist.IsArchived)),
 		];
 
-	public IReadOnlyList<SetlistEntryRow> GetSetlistEntries(Guid setlistId, bool isEditing = false)
+	public IReadOnlyList<SetlistEntryRow> GetSetlistEntries(Guid setlistId, bool isEditing = false, SetlistEdit? draft = null)
 	{
 		Dictionary<Guid, SongRow> songs = this.SearchSongs(string.Empty, includeArchived: true)
 			.ToDictionary(song => song.Id);
-		IReadOnlyList<SetlistEntryCatalogItem> entries = this.application.GetSetlistEntries(setlistId);
+		IReadOnlyList<SetlistEntryCatalogItem> entries = this.application.GetSetlistEntries(setlistId, draft);
 		return
 		[
 			.. entries.Select((entry, index) => new SetlistEntryRow(
@@ -291,11 +292,12 @@ public sealed partial class BookSession : IDisposable
 		string? notationOverride = null,
 		int transposeOffset = 0,
 		Guid? instrumentOverride = null,
+		Guid? sheetOverride = null,
 		CancellationToken cancellationToken = default)
 	{
 		BookSongPresentation presentation = await Task.Run(
 			() => this.application.GetPresentationAsync(
-				songId, setlistId, entryId, this.ActiveInstrumentId, notationOverride, transposeOffset, instrumentOverride, cancellationToken),
+				songId, setlistId, entryId, this.ActiveInstrumentId, notationOverride, transposeOffset, instrumentOverride, sheetOverride, cancellationToken),
 			cancellationToken).ConfigureAwait(false);
 		string? pdfPath = null;
 		if (presentation.MediaKind == MediaKind.Pdf && presentation.SongFileId is Guid fileId)
@@ -544,11 +546,7 @@ public sealed partial class BookSession : IDisposable
 		try
 		{
 			BookMetadataRefreshResult metadataRefresh = await BookMetadataRefresh.RefreshAsync(
-				nextStore,
-				nextLocation,
-				this.DeviceId,
-				cancellationToken)
-				.ConfigureAwait(false);
+				nextStore, nextLocation, this.DeviceId, cancellationToken).ConfigureAwait(false);
 			await this.application.ActivateAsync(nextStore, nextLocation, cancellationToken).ConfigureAwait(false);
 			await this.Instruments.EnsureDefaultsAsync(this.DeviceId, cancellationToken).ConfigureAwait(false);
 			this.DirectoryPath = nextStore.GetDirectory(nextLocation);

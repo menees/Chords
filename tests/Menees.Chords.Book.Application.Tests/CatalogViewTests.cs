@@ -19,14 +19,15 @@ public sealed class CatalogViewTests
 	#region Public Methods
 
 	[TestMethod]
-	public void RecentHistoryIsBoundedDeduplicatedAndOnlyDirtyWhenItsOrderChanges()
+	public void RecentHistoryIsBoundedDeduplicatedAndTracksEveryAccess()
 	{
 		Guid first = Guid.NewGuid();
 		Guid second = Guid.NewGuid();
 		RecentSongHistory history = new([Guid.Empty, first, second, first]);
 		history.SongIds.ShouldBe([first, second]);
 		history.Record(first);
-		history.IsDirty.ShouldBeFalse();
+		history.IsDirty.ShouldBeTrue();
+		history.AccessedUtc.ShouldContainKey(first);
 		history.Record(second);
 		history.SongIds.ShouldBe([second, first]);
 		history.IsDirty.ShouldBeTrue();
@@ -44,6 +45,31 @@ public sealed class CatalogViewTests
 	}
 
 	[TestMethod]
+	public async Task EditedAndClearedTagsDisplayCatalogValuesInsteadOfOriginalSourceObservations()
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Tags", device, token);
+		BookApplicationSession session = new();
+		await session.ActivateAsync(store, location, token);
+		Guid id = await session.CreateSongAsync("Song", [], ["Catalog"], "{tag: Authored}\n[C]Song", device, token);
+		Song song = session.Database!.Songs.Single();
+		song.SourceMetadata["tag"].Single().Value.ShouldBe("Authored");
+		session.Search(string.Empty).Single().DisplayText.ShouldContain("Tg:Catalog");
+		(await session.SetSongTagsAsync([id], ["Replacement"], device, token)).ShouldBe(1);
+		session.Search(string.Empty).Single().DisplayText.ShouldContain("Tg:Replacement");
+		session.Search(string.Empty).Single().DisplayText.ShouldNotContain("Authored");
+		(await session.SetSongTagsAsync([id], [], device, token)).ShouldBe(1);
+		session.Search(string.Empty).Single().DisplayText.ShouldNotContain("Tg:");
+		song.SourceMetadata["tag"].Single().Value.ShouldBe("Authored");
+		(await session.GetSongEditAsync(id, token)).Text.ShouldBe("{tag: Authored}\n[C]Song");
+		await session.ReloadAsync(token);
+		session.GetSongTagSelection([id]).Values.ShouldBeEmpty();
+		session.Search(string.Empty).Single().DisplayText.ShouldNotContain("Tg:");
+	}
+
+	[TestMethod]
 	public async Task SavedAlbumAndTimeSearchSurvivesCatalogReload()
 	{
 		var token = this.TestContext.CancellationToken;
@@ -54,7 +80,7 @@ public sealed class CatalogViewTests
 		await session.ActivateAsync(store, location, token);
 		Guid song = await session.CreateSongAsync(
 			"Song", [], [], "{album: Live Sessions}\n{time: 6/8}\n[C]Song", device, token);
-		const string Query = "album:\"live sessions\" time:6/8";
+		const string Query = "album:\"live *\" time:?/8 tag:!*";
 		await session.SaveCustomTabAsync(null, "Live six-eight", Query, "title", device, token);
 		await session.ReloadAsync(token);
 		CustomTabCatalogItem saved = session.GetCustomTabs().Single();

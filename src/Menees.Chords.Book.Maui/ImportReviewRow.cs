@@ -14,22 +14,33 @@ public sealed partial class ImportReviewRow : INotifyPropertyChanged
 		this.decision = item.DefaultDecision;
 	}
 
+	public ImportReviewRow(BookImportFailure failure)
+	{
+		this.Failure = failure;
+		this.decision = new(Guid.Empty, BookImportAction.Skip);
+	}
+
 	public event PropertyChangedEventHandler? PropertyChanged;
 
-	public BookImportItem Item { get; }
+	public BookImportItem? Item { get; }
 
-	public string Title => this.Item.Analysis.Title
-		+ (this.Item.Analysis.Artists.Count > 0 ? " — " + string.Join(", ", this.Item.Analysis.Artists) : string.Empty);
+	public BookImportFailure? Failure { get; }
 
-	public string Description => this.Item.Name + " · " + this.Item.Conflict switch
+	public Guid? SelectedCandidateSheetId { get; set; }
+
+	public string Title => this.Item is BookImportItem item
+		? item.Analysis.Title + (item.Analysis.Artists.Count > 0 ? " — " + string.Join(", ", item.Analysis.Artists) : string.Empty)
+		: this.Failure!.Name;
+
+	public string Description => this.Item is BookImportItem item ? item.Name + " · " + item.Conflict switch
 	{
 		BookImportConflict.NewSong => "New song",
 		BookImportConflict.ExactDuplicate => "Same title and identical content",
 		BookImportConflict.IdenticalContent => "Identical content with another title",
 		_ => "Possible version; check artists and content",
-	};
+	} : this.Failure!.SourcePath + Environment.NewLine + this.Failure.Message;
 
-	public string DecisionCaption => this.decision.Action switch
+	public string DecisionCaption => this.Failure is not null ? "Could not process; excluded from import" : this.decision.Action switch
 	{
 		BookImportAction.ImportNewSong => "Import as separate song",
 		BookImportAction.AddSheet => "Add sheet to selected song",

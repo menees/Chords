@@ -115,6 +115,7 @@ public sealed class ReorderStorageTests
 				Guid customTab = await session.SaveCustomTabAsync(null, "Practice", "Song", "artist", device, token);
 				await session.DeleteCustomTabAsync(customTab, device, token);
 				await session.SaveSongEditAsync(edit, "Metadata edit", [], [], edit.Text, device, token);
+				await this.VerifyBulkTagsAsync(session, database, device, token);
 				await VerifyDisplayAsync(session, edit.SongId, device, token);
 				await session.SetSongsArchivedAsync([edit.SongId], true, device, token);
 				ChordDatabase persisted = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
@@ -151,6 +152,21 @@ public sealed class ReorderStorageTests
 		SongCatalogItem unrelated = session.Search(string.Empty).First(song => song.Id != songId);
 		await session.SaveDisplaySettingsAsync(songId, new() { FontSize = 24 }, device, token);
 		session.Search("display:true").Single().Id.ShouldBe(songId);
+		session.Search(string.Empty).Single(song => song.Id == unrelated.Id).ShouldBeSameAs(unrelated);
+	}
+
+	private async Task VerifyBulkTagsAsync(BookApplicationSession session, ChordDatabase database, Guid device, CancellationToken token)
+	{
+		SongCatalogItem unrelated = session.Search(string.Empty).Single(song => song.Id == database.Songs[^1].Id);
+		long start = Stopwatch.GetTimestamp();
+		Guid[] ids = [.. database.Songs.Take(100).Select(song => song.Id)];
+		(await session.SetSongTagsAsync(ids, ["Christian"], device, token)).ShouldBe(100);
+		this.TestContext.WriteLine(
+			$"Bulk tag 100 songs: {Stopwatch.GetElapsedTime(start).TotalMilliseconds:F1} ms with all assets exclusively locked.");
+		session.Search("tag:Christian").Count.ShouldBe(100);
+		session.GetSongTagSelection(ids).Values.ShouldBe(["Christian"]);
+		(await session.SetSongTagsAsync(ids, [], device, token)).ShouldBe(100);
+		session.Search("tag:Christian").ShouldBeEmpty();
 		session.Search(string.Empty).Single(song => song.Id == unrelated.Id).ShouldBeSameAs(unrelated);
 	}
 

@@ -139,6 +139,126 @@ public sealed class BookSearchIndexTests
 	}
 
 	[TestMethod]
+	public void GenreSearchUsesExtractedMetaDirectiveIndependentlyOfTags()
+	{
+		SongFileAnalysis analysis = SongFileAnalyzer.Analyze(
+			System.Text.Encoding.UTF8.GetBytes("{title: Genre example}\n{meta: genre Folk}\n{tag: Christian}\n[C]Song"), "Genre.cho");
+		ChordDatabase database = CreateGeneratedDatabase(1);
+		Song song = database.Songs[0];
+		song.SourceMetadata = new(analysis.Metadata.ToDictionary(pair => pair.Key, pair => pair.Value.ToList()), StringComparer.Ordinal);
+		song.Tags = ["Christian"];
+		BookSearchIndex index = new(database);
+		index.Search("genre:folk tag:Christian").Single().SongId.ShouldBe(song.Id);
+		index.Search("genre:Christian").ShouldBeEmpty();
+		index.Search("tag:folk").ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	public void FieldExclusionsCombineWithOtherTermsAndIncludeMissingValues()
+	{
+		ChordDatabase database = CreateGeneratedDatabase(4);
+		database.Songs[0].Tags = ["LyricOnly", "Christian"];
+		database.Songs[1].Tags = ["Christian"];
+		database.Songs[2].Tags = [];
+		database.Songs[3].Tags = ["LýricOnly", "Practice"];
+		database.Songs[0].Artists = ["Renée Jones"];
+		BookSearchIndex index = new(database);
+		index.Search("tag:!lyriconly").Select(hit => hit.SongId).ShouldBe([database.Songs[1].Id, database.Songs[2].Id]);
+		index.Search("tag:Christian tag:!LyricOnly").Single().SongId.ShouldBe(database.Songs[1].Id);
+		index.Search("artist:!\"Renee Jones\"").Count.ShouldBe(3);
+		index.Search("tag:!").ShouldBeEmpty();
+		index.Search("key:!c").Count.ShouldBe(4);
+		database.Songs[1].Tags.Add("LyricOnly");
+		index.RefreshSong(database.Songs[1], []);
+		index.Search("tag:Christian tag:!LyricOnly").ShouldBeEmpty();
+		index.Search("archived:!true").Count.ShouldBe(4);
+		index.Search("!Christian").ShouldBeEmpty();
+	}
+
+	[TestMethod]
+	[DataRow("Christian", "tag:*", true)]
+	[DataRow("Christian", "tag:!*", false)]
+	[DataRow("Christian", "tag:Christ*", true)]
+	[DataRow("Christian", "tag:Ch?istian", true)]
+	[DataRow("Christian", "tag:Ch?stian", false)]
+	[DataRow("Christian", "tag:rist*", false)]
+	[DataRow("Christian", "tag:*rist*", true)]
+	[DataRow("Christian", "tag:rist", true)]
+	[DataRow("Christian", "tag:***", true)]
+	[DataRow("Christian", "tag:*?*?*?*", true)]
+	[DataRow("Christian", "tag:*.*", false)]
+	[DataRow("Christian", "tag:[Cc]hristian", false)]
+	[DataRow("[Cc]hristian", "tag:[Cc]hristian", true)]
+	[DataRow("*", @"tag:\*", true)]
+	[DataRow("*", @"tag:!\*", false)]
+	[DataRow("Star*value", @"tag:Star\*value", true)]
+	[DataRow("Star*value", @"tag:Star\**", true)]
+	[DataRow("Star*value", "tag:Star?value", true)]
+	[DataRow("What?", @"tag:What\?", true)]
+	[DataRow("!Important", @"tag:\!Important", true)]
+	[DataRow("!Important", "tag:\"!Important\"", true)]
+	[DataRow("!Important", @"tag:!\!Important", false)]
+	[DataRow("Not Important", @"tag:\!Important", false)]
+	[DataRow("Live Sessions", "tag:\"Live *\"", true)]
+	[DataRow("Live Sessions", @"tag:Live\ Sessions", true)]
+	[DataRow("Live Sessions", "tag:\"Live *", true)]
+	[DataRow("Live \"Special\"", "tag:\"Live \\\"Special\\\"\"", true)]
+	[DataRow(@"Path\Name", @"tag:Path\\Name", true)]
+	[DataRow(@"Path\Name", @"tag:*\\Name", true)]
+	[DataRow(@"Path\Name", @"tag:*\\N?me", true)]
+	[DataRow("Path" + @"\", @"tag:Path\", true)]
+	[DataRow("Caf\u00e9", "TAG:caf?", true)]
+	[DataRow("A.B+$()", "tag:A.B+$()", true)]
+	[DataRow("Christian", "tag:", false)]
+	[DataRow("Christian", "tag:!", false)]
+	[DataRow("Christian", "tag:!\"\"", false)]
+	public void SimpleWildcardGrammarPreservesLiteralOperatorsAndPunctuation(string tag, string query, bool expected)
+	{
+		ChordDatabase database = CreateGeneratedDatabase(1);
+		database.Songs[0].Tags = [tag];
+		BookSearchIndex index = new(database);
+		(index.Search(query).Count == 1).ShouldBe(expected);
+	}
+
+	[TestMethod]
+	public void PresenceExclusionsAndWildcardTermsWorkPerValueAndIncrementalRefresh()
+	{
+		ChordDatabase database = CreateGeneratedDatabase(4);
+		database.Songs[0].Tags = ["Christian", "Live"];
+		database.Songs[1].Tags = [];
+		database.Songs[2].Tags = [string.Empty, "  "];
+		database.Songs[3].Tags = ["Practice"];
+		BookSearchIndex index = new(database);
+		index.Search("tag:*").Select(hit => hit.SongId).ShouldBe([database.Songs[0].Id, database.Songs[3].Id]);
+		index.Search("tag:!*").Select(hit => hit.SongId).ShouldBe([database.Songs[1].Id, database.Songs[2].Id]);
+		index.Search("tag:* tag:!Christ*").Single().SongId.ShouldBe(database.Songs[3].Id);
+		index.Search("tag:Christ* tag:L?ve").Single().SongId.ShouldBe(database.Songs[0].Id);
+		index.Search("tag:Christian*Live").ShouldBeEmpty();
+		index.Search("key:!*").Count.ShouldBe(4);
+		index.Search("artist:Artist*").Count.ShouldBe(4);
+		database.Songs[1].Tags.Add("Christian");
+		index.RefreshSong(database.Songs[1], []);
+		index.Search("tag:!*").Single().SongId.ShouldBe(database.Songs[2].Id);
+		index.Search("Christ*L?ve").Single().SongId.ShouldBe(database.Songs[0].Id);
+	}
+
+	[TestMethod]
+	public void WildcardsRemainFastForTenThousandSongsAndLongNonmatchingPatterns()
+	{
+		ChordDatabase database = CreateGeneratedDatabase(GeneratedSongCount);
+		database.Songs[^1].Tags = ["Christian", new string('a', 2048)];
+		BookSearchIndex index = new(database);
+		_ = index.Search("tag:Christ* artist:*99");
+		Stopwatch stopwatch = Stopwatch.StartNew();
+		index.Search("tag:Christ* artist:*99").Single().SongId.ShouldBe(database.Songs[^1].Id);
+		stopwatch.Stop();
+		stopwatch.Elapsed.ShouldBeLessThan(SearchBudget);
+		string adversarial = "tag:" + string.Concat(Enumerable.Repeat("*a", 40)) + "b";
+		index.Search(adversarial).ShouldBeEmpty();
+		index.Search("tag:" + new string('*', 4096)).Count.ShouldBe(GeneratedSongCount);
+	}
+
+	[TestMethod]
 	public void TenThousandSongSearchMeetsBudget()
 	{
 		ChordDatabase database = CreateGeneratedDatabase(GeneratedSongCount);

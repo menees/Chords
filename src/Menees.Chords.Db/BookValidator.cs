@@ -1,7 +1,6 @@
 #region Using Directives
 
 using System.IO;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -187,8 +186,13 @@ public static class BookValidator
 				issues.Add(new(BookValidationIssueKind.LengthMismatch, "The sheet length differs from recorded metadata.", file.Id, file.RelativePath));
 			}
 
-			byte[] hashBytes = await SHA256.HashDataAsync(content, cancellationToken).ConfigureAwait(false);
-			string actualHash = Convert.ToHexString(hashBytes).ToLowerInvariant();
+			var (actualHash, _, problem) = await SongFileContentReader.ReadAsync(
+				content, file.RelativePath, computeHash: true, cancellationToken).ConfigureAwait(false);
+			if (problem is not null)
+			{
+				issues.Add(new(BookValidationIssueKind.InvalidSheetContent, problem, file.Id, file.RelativePath));
+			}
+
 			if (!StringComparer.OrdinalIgnoreCase.Equals(actualHash, descriptor.ContentHash)
 				|| (!string.IsNullOrEmpty(file.ContentHash) && !StringComparer.OrdinalIgnoreCase.Equals(actualHash, file.ContentHash)))
 			{

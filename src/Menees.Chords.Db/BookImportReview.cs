@@ -17,6 +17,8 @@ public sealed class BookImportReview : IDisposable
 
 	private const int BufferSize = 81920;
 	private readonly List<BookImportItem> orderedItems = [];
+	private readonly List<BookImportFailure> failures = [];
+	private readonly ReadOnlyCollection<BookImportFailure> failureView;
 	private readonly ReadOnlyCollection<BookImportItem> itemView;
 	private readonly string directory = Path.Combine(Path.GetTempPath(), "ChordBookImportReview-" + Guid.NewGuid().ToString("N"));
 	private readonly Dictionary<Guid, BookImportItem> items = [];
@@ -30,6 +32,7 @@ public sealed class BookImportReview : IDisposable
 	{
 		this.ExpectedCatalog = expectedJson;
 		this.itemView = this.orderedItems.AsReadOnly();
+		this.failureView = this.failures.AsReadOnly();
 		this.BookId = bookId;
 		Directory.CreateDirectory(this.directory);
 	}
@@ -48,6 +51,16 @@ public sealed class BookImportReview : IDisposable
 		{
 			ObjectDisposedException.ThrowIf(this.disposed, this);
 			return this.itemView;
+		}
+	}
+
+	/// <summary>Gets files that could not be read or analyzed, in selection order. These have no import action or snapshot.</summary>
+	public IReadOnlyList<BookImportFailure> Failures
+	{
+		get
+		{
+			ObjectDisposedException.ThrowIf(this.disposed, this);
+			return this.failureView;
 		}
 	}
 
@@ -112,6 +125,8 @@ public sealed class BookImportReview : IDisposable
 	}
 
 	internal string GetPath(Guid id) => Path.Combine(this.directory, id.ToString("N"));
+
+	internal void AddFailure(string path, string message) => this.failures.Add(new(path, message));
 
 	internal void Add(BookImportItem item)
 	{

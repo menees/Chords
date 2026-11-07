@@ -91,7 +91,9 @@ public sealed class MetadataDirectiveImport
 			.Select(pair => new MetadataDirectiveProposal(
 				pair.Key,
 				[.. pair.Value.Where(value => !string.IsNullOrWhiteSpace(value))],
-				occurrences.TryGetValue(pair.Key, out List<MetadataDirectiveOccurrence>? existing) ? existing : []))];
+				occurrences.TryGetValue(pair.Key, out List<MetadataDirectiveOccurrence>? existing) ? existing : []))
+			.Where(proposal => proposal.Occurrences.Any(occurrence => !occurrence.CanReplace)
+				|| !proposal.Values.SequenceEqual(proposal.Occurrences.Select(occurrence => occurrence.Value), StringComparer.Ordinal))];
 	}
 
 	public IReadOnlyList<MetadataDirectiveProposal> Proposals { get; }
@@ -143,7 +145,7 @@ public sealed class MetadataDirectiveImport
 
 			foreach (string value in proposal.Values.Skip(firstAddition))
 			{
-				additions.Add(proposal.Name is "tag" or "genre" ? $"{{meta: {proposal.Name} {value}}}" : $"{{{proposal.Name}: {value}}}");
+				additions.Add(proposal.Name == "genre" ? $"{{meta: {proposal.Name} {value}}}" : $"{{{proposal.Name}: {value}}}");
 			}
 		}
 

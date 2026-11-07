@@ -34,6 +34,12 @@ public sealed class BookGroupingIndex
 		["tempo"] = "Tempo", ["year"] = "Year", ["capo"] = "Capo", ["time"] = "Time Signature",
 	});
 
+	/// <summary>Gets supported sort fields, including dates that are not grouping fields.</summary>
+	public static IReadOnlyDictionary<string, string> SortFields { get; } = new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(Fields)
+	{
+		["created"] = "Date Created", ["modified"] = "Date Modified", ["accessed"] = "Date Last Accessed",
+	});
+
 	/// <summary>Invalidates only the edited song's computed values.</summary>
 	public void RefreshSong(Song song)
 	{
@@ -81,33 +87,53 @@ public sealed class BookGroupingIndex
 
 	/// <summary>Sorts distinct filtered songs by one field. Missing values stay last in either direction.</summary>
 	/// <remarks>Multi-valued fields use their lowest value; ties use title, then identity, in ascending order.</remarks>
-	public IReadOnlyList<Guid> Sort(IReadOnlyList<Guid> songIds, string field, bool descending = false)
+	public IReadOnlyList<Guid> Sort(
+		IReadOnlyList<Guid> songIds, string field, bool descending = false, IReadOnlyDictionary<Guid, DateTimeOffset>? lastAccessedUtc = null)
 	{
 		ArgumentNullException.ThrowIfNull(songIds);
-		if (!Fields.ContainsKey(field))
+		if (!SortFields.ContainsKey(field))
 		{
 			throw new ArgumentException("Choose a supported catalog sort field.", nameof(field));
 		}
 
+		bool date = field is "created" or "modified" or "accessed";
 		bool numeric = field is "tempo" or "year" or "capo";
 		StringComparer comparer = StringComparer.Create(CultureInfo.CurrentCulture, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace);
 		IEnumerable<SortEntry> entries = songIds.Distinct().Select(id =>
 		{
-			string[] values = this.GetValues(id, field);
-			string value = values[0];
-			decimal number = Number(value, numeric);
-			for (int index = 1; index < values.Length; index++)
+			DateTimeOffset? timestamp = field switch
 			{
-				string candidate = values[index];
-				decimal candidateNumber = Number(candidate, numeric);
-				if (candidateNumber < number || (candidateNumber == number && comparer.Compare(candidate, value) < 0))
+				"created" => SongDates.CreatedUtc(id),
+				"modified" => this.songs[id].Revision.ModifiedUtc == default ? null : this.songs[id].Revision.ModifiedUtc,
+				"accessed" => lastAccessedUtc is not null && lastAccessedUtc.TryGetValue(id, out DateTimeOffset accessed)
+					? accessed : this.songs[id].LastAccessedUtc,
+				_ => null,
+			};
+			SortEntry result;
+			if (date)
+			{
+				result = new SortEntry(id, timestamp is null ? string.Empty : "date", timestamp?.UtcTicks ?? 0, this.GetValues(id, "title")[0]);
+			}
+			else
+			{
+				string[] values = this.GetValues(id, field);
+				string value = values[0];
+				decimal number = Number(value, numeric);
+				for (int index = 1; index < values.Length; index++)
 				{
-					value = candidate;
-					number = candidateNumber;
+					string candidate = values[index];
+					decimal candidateNumber = Number(candidate, numeric);
+					if (candidateNumber < number || (candidateNumber == number && comparer.Compare(candidate, value) < 0))
+					{
+						value = candidate;
+						number = candidateNumber;
+					}
 				}
+
+				result = new SortEntry(id, value, number, this.GetValues(id, "title")[0]);
 			}
 
-			return new SortEntry(id, value, number, this.GetValues(id, "title")[0]);
+			return result;
 		});
 		IOrderedEnumerable<SortEntry> ordered = entries.OrderBy(entry => entry.Value.Length == 0);
 		ordered = descending

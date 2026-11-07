@@ -51,6 +51,86 @@ public sealed class SongManagementTests
 	}
 
 	[TestMethod]
+	public async Task BulkTagsUseUnionAndReplaceDistinctSongsIncrementallyWithoutSourceChanges()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, store, location, device, first) = await CreateAsync(token);
+		Guid second = await session.CreateSongAsync("Second", [], ["Practice", "CHRISTIAN"], "[G]Second", device, token);
+		Guid third = await session.CreateSongAsync("Unrelated", [], ["Other"], "[D]Unrelated", device, token);
+		Guid list = await session.CreateSetlistAsync("Christian", device, token);
+		await session.AddSongsToSetlistAsync(list, [first, second, first], device, token);
+		ChordDatabase identity = session.Database!;
+		SongCatalogItem unrelated = session.Search("Unrelated").Single();
+		RevisionStamp secondRevision = identity.Songs.Single(song => song.Id == second).Revision;
+		string files = System.Text.Json.JsonSerializer.Serialize(identity.SongFiles);
+		string entries = System.Text.Json.JsonSerializer.Serialize(identity.Setlists);
+		_ = session.GetMetadataValueSuggestions();
+		_ = session.GroupSongs([first, second, third], "tag");
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		CatalogValueSelection draft = session.GetSongTagSelection([first, second, first]);
+		draft.Values.ShouldBe(["Practice", "CHRISTIAN"]);
+		draft.Filter(null).ShouldContain("Other");
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(before);
+		(await session.SetSongTagsAsync([first, second, first], draft.Values, device, token)).ShouldBe(1);
+		session.Database.ShouldBeSameAs(identity);
+		identity.Songs.Single(song => song.Id == first).Tags.ShouldBe(["Practice", "CHRISTIAN"]);
+		identity.Songs.Single(song => song.Id == second).Tags.ShouldBe(["Practice", "CHRISTIAN"]);
+		identity.Songs.Single(song => song.Id == second).Revision.ShouldBe(secondRevision);
+		session.Search("Unrelated").Single().ShouldBeSameAs(unrelated);
+		session.Search("tag:christian").Count.ShouldBe(2);
+		session.Search("tag:!Christian").Single().Id.ShouldBe(third);
+		session.GroupSongs([first, second, third], "tag").Single(group => group.Name.Equals("Christian", StringComparison.OrdinalIgnoreCase))
+			.SongIds.Count.ShouldBe(2);
+		session.GetMetadataValueSuggestions().GetValues("tag").ShouldContain("CHRISTIAN");
+		System.Text.Json.JsonSerializer.Serialize(identity.SongFiles).ShouldBe(files);
+		System.Text.Json.JsonSerializer.Serialize(identity.Setlists).ShouldBe(entries);
+		string saved = await store.ReadDatabaseJsonAsync(location, token);
+		(await session.SetSongTagsAsync([first, second], ["christian", "PRACTICE"], device, token)).ShouldBe(0);
+		(await session.SetSongTagsAsync([], ["New"], device, token)).ShouldBe(0);
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(saved);
+		draft = session.GetSongTagSelection([first, second]);
+		draft.SetSelected("Practice", false);
+		draft.Add("LyricOnly");
+		(await session.SetSongTagsAsync([first, second], draft.Values, device, token)).ShouldBe(2);
+		session.Search("tag:Practice").ShouldBeEmpty();
+		session.GetMetadataValueSuggestions().GetValues("tag").ShouldNotContain("Practice");
+		identity.Songs.Where(song => song.Id != third).ShouldAllBe(song => song.Tags.Count == 2 && song.Tags.Contains("LyricOnly"));
+		session.Search("Unrelated").Single().ShouldBeSameAs(unrelated);
+		await session.ReloadAsync(token);
+		session.Search("tag:Christian tag:LyricOnly").Count.ShouldBe(2);
+		(await session.SetSongTagsAsync([first, second, first], [], device, token)).ShouldBe(2);
+		session.GetSongTagSelection([first, second]).Values.ShouldBeEmpty();
+		session.Search("tag:*").Single().Id.ShouldBe(third);
+		saved = await store.ReadDatabaseJsonAsync(location, token);
+		(await session.SetSongTagsAsync([first, second], [], device, token)).ShouldBe(0);
+		(await store.ReadDatabaseJsonAsync(location, token)).ShouldBe(saved);
+		await session.ReloadAsync(token);
+		session.Search("tag:!*").Count.ShouldBe(2);
+	}
+
+	[TestMethod]
+	public async Task BulkTagsRejectStaleSelectionAndRollbackConcurrencyOrCancellation()
+	{
+		var token = this.TestContext.CancellationToken;
+		var (session, store, location, device, song) = await CreateAsync(token);
+		string before = await store.ReadDatabaseJsonAsync(location, token);
+		Should.Throw<InvalidOperationException>(() => session.GetSongTagSelection([song, Guid.NewGuid()]));
+		await Should.ThrowAsync<InvalidOperationException>(() => session.SetSongTagsAsync([song, Guid.NewGuid()], ["Tag"], device, token));
+		DatabaseJson.Serialize(session.Database!).ShouldBe(before);
+		using CancellationTokenSource canceled = new();
+		canceled.Cancel();
+		await Should.ThrowAsync<OperationCanceledException>(() => session.SetSongTagsAsync([song], ["Tag"], device, canceled.Token));
+		DatabaseJson.Serialize(session.Database!).ShouldBe(before);
+		ChordDatabase external = DatabaseJson.Deserialize(before);
+		external.Name = "External winner";
+		await store.CommitMetadataAsync(location, before, external, token);
+		await Should.ThrowAsync<BookStoreConcurrencyException>(() => session.SetSongTagsAsync([song], ["Tag"], device, token));
+		DatabaseJson.Serialize(session.Database!).ShouldBe(before);
+		session.Search("tag:Tag").ShouldBeEmpty();
+		DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token)).Name.ShouldBe("External winner");
+	}
+
+	[TestMethod]
 	public async Task NewSongRejectsUnsupportedOrEmptyTextWithoutSaving()
 	{
 		CancellationToken token = this.TestContext.CancellationToken;
@@ -161,7 +241,7 @@ public sealed class SongManagementTests
 		CancellationToken token = this.TestContext.CancellationToken;
 		var (session, _, _, device, songId) = await CreateAsync(token);
 		SongEditDocument original = await session.GetSongEditAsync(songId, token);
-		SongEditMetadata metadata = new(original.Title, original.Artists, original.Tags)
+		SongEditMetadata metadata = new(original.Title, original.Artists, ["Christian"])
 		{
 			Scalars = new Dictionary<string, IReadOnlyList<string>> { ["tempo"] = ["110"], ["album"] = ["Catalog only"], ["duration"] = ["4:28"] },
 		};
@@ -172,12 +252,14 @@ public sealed class SongManagementTests
 		original = await session.GetSongEditAsync(songId, token);
 		original.Metadata["tempo"].Single().ShouldBe("110");
 		MetadataDirectiveImport import = new(original.Text!, metadata);
-		string updated = import.Apply([new("tempo", null), new("duration", null)]);
+		string updated = import.Apply([new("tempo", null), new("duration", null), new("tag", null)]);
 		(await session.GetSongEditAsync(songId, token)).Text.ShouldBe(original.Text);
 		await session.SaveSongEditAsync(original, metadata, updated, device, token);
 		await session.ReloadAsync(token);
 		Song saved = session.Database!.Songs.Single();
 		saved.SourceMetadata["tempo"].Single().Value.ShouldBe("110");
+		saved.SourceMetadata["tag"].Single().Value.ShouldBe("Christian");
+		updated.ShouldContain("{tag: Christian}");
 		saved.DurationSeconds.ShouldBe(268);
 		SongMetadata.GetValues(saved, "album").Single().ShouldBe("Catalog only");
 		(await session.GetSongEditAsync(songId, token)).Text.ShouldBe(updated);
@@ -220,6 +302,42 @@ public sealed class SongManagementTests
 		file.ContentHash.ShouldBe(SongFileAnalyzer.Hash(expected));
 		session.Search("Renamed").Single().Title.ShouldBe("Renamed");
 		await Should.ThrowAsync<InvalidOperationException>(() => session.SaveSongEditAsync(original, "Stale", [], [], original.Text, device, token));
+	}
+
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task GarbledLegacyPunctuationImportsAndExplicitEditorSavePreservesEncoding(bool utf8)
+	{
+		var token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation book = await store.CreateBookAsync("Legacy punctuation", device, token);
+		const string Text = "{title: Legacy}\r\n[C]couldn\u00e2\u0080\u0099t Caf\u00e9\r\n";
+		Encoding encoding = utf8 ? new UTF8Encoding(true, true) : Encoding.Latin1;
+		byte[] original = [.. encoding.GetPreamble(), .. encoding.GetBytes(Text)];
+		using MemoryStream input = new(original);
+		BookImportResult imported = await BookImportService.ImportAsync(store, book, "Legacy.cho", input, device, token);
+		BookApplicationSession session = new();
+		await session.ActivateAsync(store, book, token);
+		SongEditDocument edit = await session.GetSongEditAsync(imported.SongId, token);
+		edit.Text.ShouldBe(Text);
+		using (Stream source = await store.OpenManagedAssetAsync(book, imported.SongFileId, token))
+		{
+			using MemoryStream copy = new();
+			await source.CopyToAsync(copy, token);
+			copy.ToArray().ShouldBe(original);
+		}
+
+		string repaired = Text.Replace("\u00e2\u0080\u0099", "'", StringComparison.Ordinal);
+		await session.SaveSongEditAsync(edit, "Legacy", [], [], repaired, device, token);
+		SongFile file = session.Database!.SongFiles.Single(file => !file.IsArchived);
+		file.TextEncoding.ShouldBe(encoding.WebName);
+		using Stream saved = await store.OpenManagedAssetAsync(book, file.Id, token);
+		using MemoryStream bytes = new();
+		await saved.CopyToAsync(bytes, token);
+		bytes.ToArray().ShouldBe([.. encoding.GetPreamble(), .. encoding.GetBytes(repaired)]);
+		(await session.GetSongEditAsync(imported.SongId, token)).Text.ShouldBe(repaired);
 	}
 
 	[TestMethod]

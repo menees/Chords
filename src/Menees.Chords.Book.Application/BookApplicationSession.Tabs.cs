@@ -9,8 +9,10 @@ public sealed partial class BookApplicationSession
 	public IReadOnlyList<BookSongGroup> GroupSongs(IReadOnlyList<Guid> songIds, string field)
 		=> (this.groupingIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open."))).Group(songIds, field);
 
-	public IReadOnlyList<Guid> SortSongs(IReadOnlyList<Guid> songIds, string field, bool descending = false)
-		=> (this.groupingIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open."))).Sort(songIds, field, descending);
+	public IReadOnlyList<Guid> SortSongs(
+		IReadOnlyList<Guid> songIds, string field, bool descending = false, IReadOnlyDictionary<Guid, DateTimeOffset>? lastAccessedUtc = null)
+		=> (this.groupingIndex ??= new(this.Database ?? throw new InvalidOperationException("No book is open.")))
+			.Sort(songIds, field, descending, lastAccessedUtc);
 
 	public IReadOnlyList<CustomTabCatalogItem> GetCustomTabs()
 		=> [.. (this.Database ?? throw new InvalidOperationException("No book is open.")).CustomTabs
@@ -38,7 +40,7 @@ public sealed partial class BookApplicationSession
 			throw new ArgumentException("Choose a supported catalog grouping field.", nameof(groupBy));
 		}
 
-		if (!BookGroupingIndex.Fields.ContainsKey(sortBy))
+		if (!BookGroupingIndex.SortFields.ContainsKey(sortBy))
 		{
 			throw new ArgumentException("Choose a supported catalog sort field.", nameof(sortBy));
 		}
@@ -87,5 +89,5 @@ public sealed partial class BookApplicationSession
 	private static bool IsSupported(CustomTab tab)
 		=> (tab.Filter is null || (tab.Filter.Operator == "search" && tab.Filter.Field is null && tab.Filter.Children.Count == 0))
 			&& (tab.GroupBy is null || BookGroupingIndex.Fields.ContainsKey(tab.GroupBy))
-			&& tab.Sort.Count <= 1 && tab.Sort.All(sort => BookGroupingIndex.Fields.ContainsKey(sort.Field));
+			&& tab.Sort.Count <= 1 && tab.Sort.All(sort => BookGroupingIndex.SortFields.ContainsKey(sort.Field));
 }

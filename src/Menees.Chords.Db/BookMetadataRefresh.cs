@@ -1,6 +1,7 @@
 #region Using Directives
 
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -24,12 +25,24 @@ public static class BookMetadataRefresh
 		ArgumentNullException.ThrowIfNull(location);
 		string expectedJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
 		ChordDatabase database = DatabaseJson.Deserialize(expectedJson);
-		HashSet<Guid> affectedSongIds =
-		[
-			.. database.SongFiles
-				.Where(file => file.AnalysisVersion < SongFileAnalyzer.CurrentAnalysisVersion)
-				.Select(file => file.SongId),
-		];
+		List<ExternalBookProblem> problems = [];
+		List<SongFile> pending = [];
+		foreach (SongFile file in database.SongFiles.Where(file => file.AnalysisVersion < SongFileAnalyzer.CurrentAnalysisVersion))
+		{
+			if (file.AnalysisFailure is SongFileAnalysisFailure failure && failure.AnalyzerVersion >= SongFileAnalyzer.CurrentAnalysisVersion
+				&& StringComparer.OrdinalIgnoreCase.Equals(failure.ContentHash, file.ContentHash)
+				&& (failure.DeviceId is null || failure.DeviceId == deviceId))
+			{
+				problems.Add(new(file.RelativePath, failure.Message));
+			}
+			else
+			{
+				pending.Add(file);
+			}
+		}
+
+		HashSet<Guid> affectedSongIds = [.. pending.Select(file => file.SongId)];
+		bool metadataChanged = false;
 		int analyzedFileCount = 0;
 		int updatedSongCount = 0;
 		if (affectedSongIds.Count > 0)
@@ -38,19 +51,26 @@ public static class BookMetadataRefresh
 			Dictionary<Guid, SongFileAnalysis> analyses = [];
 			Dictionary<Guid, Song> songs = database.Songs.ToDictionary(song => song.Id);
 			ILookup<Guid, SongFile> filesBySong = database.SongFiles.ToLookup(file => file.SongId);
-			foreach (SongFile file in database.SongFiles.Where(file => affectedSongIds.Contains(file.SongId)
-				&& (file.AnalysisVersion < SongFileAnalyzer.CurrentAnalysisVersion || (!file.IsArchived && file.RecoveryVersion is null))))
+			foreach (SongFile file in pending)
 			{
 				try
 				{
 					using Stream stream = await store.OpenManagedAssetAsync(location, file.Id, cancellationToken).ConfigureAwait(false);
-					using MemoryStream content = new();
-					await stream.CopyToAsync(content, cancellationToken).ConfigureAwait(false);
-					SongFileAnalysis analysis = SongFileAnalyzer.Analyze(content.ToArray(), file.RelativePath);
+					var (_, analysis, problem) = await SongFileContentReader.ReadAsync(
+						stream, file.RelativePath, computeHash: false, cancellationToken).ConfigureAwait(false);
+					if (problem is not null || analysis is null)
+					{
+						RecordFailure(file, problem ?? "The sheet could not be analyzed.", problems, deviceId, now);
+						metadataChanged = true;
+						continue;
+					}
+
 					analyses[file.Id] = analysis;
 					analyzedFileCount++;
 					if (file.AnalysisVersion < SongFileAnalyzer.CurrentAnalysisVersion)
 					{
+						metadataChanged = true;
+						file.AnalysisFailure = null;
 						file.MediaKind = analysis.MediaKind;
 						file.SourceFormat = analysis.SourceFormat;
 						file.TextEncoding = analysis.TextEncoding;
@@ -59,13 +79,12 @@ public static class BookMetadataRefresh
 						file.Revision = NextRevision(file.Revision, deviceId, now);
 					}
 				}
-				catch (FileNotFoundException)
+				catch (Exception exception) when (exception is IOException or UnauthorizedAccessException
+					or BookStoreValidationException or DecoderFallbackException)
 				{
-					// External reconciliation reports missing assets; metadata maintenance must not prevent opening the book.
-				}
-				catch (DirectoryNotFoundException)
-				{
-					// External reconciliation reports missing assets; metadata maintenance must not prevent opening the book.
+					// A failed maintenance read must not hide an otherwise usable book or replace its source observations.
+					RecordFailure(file, exception.Message, problems, deviceId, now, deviceSpecific: true);
+					metadataChanged = true;
 				}
 			}
 
@@ -73,30 +92,38 @@ public static class BookMetadataRefresh
 			{
 				SongFile? metadataFile = filesBySong[songId]
 					.Where(file => !file.IsArchived && file.RecoveryVersion is null
-						&& analyses.TryGetValue(file.Id, out SongFileAnalysis? analysis) && analysis.MediaKind == MediaKind.Text)
+						&& file.MediaKind == MediaKind.Text)
 					.OrderByDescending(file => file.DisplayPriority)
 					.ThenBy(file => file.Id)
 					.FirstOrDefault();
-				if (metadataFile is not null)
+				if (metadataFile is not null && analyses.TryGetValue(metadataFile.Id, out SongFileAnalysis? analysis))
 				{
-					ApplyMetadata(songs[songId], analyses[metadataFile.Id], deviceId, now);
+					ApplyMetadata(songs[songId], analysis, deviceId, now);
 					updatedSongCount++;
 				}
 			}
 
-			if (analyzedFileCount > 0)
+			if (metadataChanged || updatedSongCount > 0)
 			{
 				database.Revision = NextRevision(database.Revision, deviceId, now);
 				await store.CommitMetadataAsync(location, expectedJson, DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
 			}
 		}
 
-		return new(analyzedFileCount, updatedSongCount);
+		return new(analyzedFileCount, updatedSongCount) { Problems = problems.AsReadOnly() };
 	}
 
 	#endregion
 
 	#region Private Methods
+
+	private static void RecordFailure(
+		SongFile file, string message, List<ExternalBookProblem> problems, Guid deviceId, DateTimeOffset now, bool deviceSpecific = false)
+	{
+		file.AnalysisFailure = new(SongFileAnalyzer.CurrentAnalysisVersion, file.ContentHash, message) { DeviceId = deviceSpecific ? deviceId : null };
+		file.Revision = NextRevision(file.Revision, deviceId, now);
+		problems.Add(new(file.RelativePath, message));
+	}
 
 	private static void ApplyMetadata(Song song, SongFileAnalysis analysis, Guid deviceId, DateTimeOffset now)
 	{

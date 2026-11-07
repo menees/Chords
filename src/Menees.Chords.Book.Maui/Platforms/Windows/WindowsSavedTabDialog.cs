@@ -35,8 +35,8 @@ internal static class WindowsSavedTabDialog
 			Header = "Search filter", Text = original.Search, PlaceholderText = "E.g., artist:Eagles",
 			Description = "Leave empty to include all songs.", TextWrapping = TextWrapping.Wrap,
 		};
-		ComboBox grouping = CreateFieldPicker("Group by (optional)", original.GroupBy, optional: true);
-		ComboBox sorting = CreateFieldPicker("Sort songs by", original.SortBy, optional: false);
+		ComboBox grouping = WindowsCatalogFieldPicker.Create("Group by (optional)", original.GroupBy, optional: true);
+		ComboBox sorting = WindowsCatalogFieldPicker.Create("Sort songs by", original.SortBy, optional: false);
 		Microsoft.UI.Xaml.Controls.CheckBox descending = new() { Content = "Descending order", IsChecked = original.SortDescending };
 		TextBlock status = new() { TextWrapping = TextWrapping.Wrap };
 		StackPanel fields = new() { Spacing = Gap };
@@ -121,24 +121,4 @@ internal static class WindowsSavedTabDialog
 
 	#endregion
 
-	#region Private Methods
-
-	private static ComboBox CreateFieldPicker(string header, string? selected, bool optional)
-	{
-		ComboBox result = new() { Header = header, HorizontalAlignment = Microsoft.UI.Xaml.HorizontalAlignment.Stretch };
-		if (optional)
-		{
-			result.Items.Add(new ComboBoxItem { Content = "None" });
-		}
-
-		foreach ((string field, string caption) in BookGroupingIndex.Fields)
-		{
-			result.Items.Add(new ComboBoxItem { Content = caption, Tag = field });
-		}
-
-		result.SelectedIndex = result.Items.OfType<ComboBoxItem>().ToList().FindIndex(item => item.Tag as string == selected);
-		return result;
-	}
-
-	#endregion
 }

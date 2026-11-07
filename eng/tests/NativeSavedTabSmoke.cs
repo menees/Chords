@@ -30,6 +30,9 @@ internal static class NativeSavedTabSmoke
 		ComboBox grouping = fields.Children.OfType<ComboBox>().Single(box => Equals(box.Header, "Group by (optional)"));
 		ComboBox sorting = fields.Children.OfType<ComboBox>().Single(box => Equals(box.Header, "Sort songs by"));
 		CheckBox descending = fields.Children.OfType<CheckBox>().Single();
+		if (!new[] { "created", "modified", "accessed" }.All(field => sorting.Items.OfType<ComboBoxItem>().Any(item => item.Tag as string == field))
+			|| grouping.Items.OfType<ComboBoxItem>().Any(item => item.Tag as string == "created"))
+			throw new Exception("Date sort fields are missing or incorrectly offered as grouping fields.");
 		if (dialog.IsPrimaryButtonEnabled || name.Text != "" || search.Text != "artist:Eagles"
 			|| grouping.SelectedIndex != 0 || SelectedField(sorting) != "title" || descending.IsChecked != false)
 			throw new Exception("New saved-tab defaults or name validation are wrong.");

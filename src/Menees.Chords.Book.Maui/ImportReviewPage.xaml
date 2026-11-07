@@ -19,6 +19,7 @@
 			<Label x:Name="selectedName" FontAttributes="Bold" LineBreakMode="WordWrap" />
 			<Picker x:Name="action" Title="Import action" SelectedIndexChanged="HandleDecisionChanged" />
 			<Picker x:Name="candidate" Title="Related song and sheet" SelectedIndexChanged="HandleDecisionChanged" />
+			<Label x:Name="comparisonHint" IsVisible="False" LineBreakMode="WordWrap" />
 		</VerticalStackLayout>
 		<CollectionView x:Name="files" Grid.Row="3" SelectionMode="Single" SelectionChanged="HandleSelectionChanged">
 			<CollectionView.EmptyView><Label Text="No files in this category." /></CollectionView.EmptyView>

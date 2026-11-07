@@ -13,7 +13,7 @@ public sealed record CustomTabEdit(Guid? Id, string Name, string Search, string?
 {
 	/// <summary>Gets whether the draft has a name and a supported grouping and sorting.</summary>
 	public bool IsValid => !string.IsNullOrWhiteSpace(this.Name) && (this.GroupBy is null || BookGroupingIndex.Fields.ContainsKey(this.GroupBy))
-		&& BookGroupingIndex.Fields.ContainsKey(this.SortBy);
+		&& BookGroupingIndex.SortFields.ContainsKey(this.SortBy);
 
 	/// <summary>Starts new tabs from the current search and edits from the complete saved definition.</summary>
 	public static CustomTabEdit Create(string currentSearch, CustomTabCatalogItem? existing = null)

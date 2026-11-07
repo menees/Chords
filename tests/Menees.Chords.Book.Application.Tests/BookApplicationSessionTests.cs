@@ -70,7 +70,7 @@ public sealed class BookApplicationSessionTests
 		SongCatalogItem match = session.Search("jose worship").Single();
 		match.Title.ShouldBe("Café Song");
 		match.DisplayText.ShouldBe(
-			"Café Song — José · C:4 · T:102 · K:F# · A:Come On Over · Com:A. Writer · Cop:1997 Example · Ta:worship");
+			"Café Song — José · C:4 · T:102 · K:F# · A:Come On Over · Com:A. Writer · Cop:1997 Example · Tg:worship");
 		session.Search("hidden").ShouldBeEmpty();
 		session.Search("hidden", includeArchived: true).Single().IsArchived.ShouldBeTrue();
 	}

@@ -165,12 +165,12 @@ public sealed partial class BookApplicationSession
 	}
 
 	/// <summary>Gets the ordered song occurrences in a setlist.</summary>
-	public IReadOnlyList<SetlistEntryCatalogItem> GetSetlistEntries(Guid setlistId)
+	public IReadOnlyList<SetlistEntryCatalogItem> GetSetlistEntries(Guid setlistId, SetlistEdit? draft = null)
 	{
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
 		Dictionary<Guid, SongCatalogItem> items = this.catalogItems
 			?? throw new InvalidOperationException("The catalog is unavailable.");
-		Setlist setlist = database.Setlists.Single(item => item.Id == setlistId);
+		Setlist setlist = draft?.Value ?? database.Setlists.Single(item => item.Id == setlistId);
 		Dictionary<Guid, string> instruments = database.InstrumentProfiles.ToDictionary(profile => profile.Id, profile => profile.Name);
 		return
 		[
@@ -402,16 +402,7 @@ public sealed partial class BookApplicationSession
 				}
 
 				SetlistEntry entry = setlist.Entries.Single(item => item.Id == original.EntryId);
-				if (preferredFileId is Guid fileId && !database.SongFiles.Any(file => file.Id == fileId && file.SongId == entry.SongId
-					&& !file.IsArchived && file.RecoveryVersion is null))
-				{
-					throw new ArgumentException("Choose an active sheet belonging to this song.", nameof(preferredFileId));
-				}
-
-				if (instrumentId is Guid profileId && !database.InstrumentProfiles.Any(profile => profile.Id == profileId))
-				{
-					throw new ArgumentException("Choose an instrument from this book.", nameof(instrumentId));
-				}
+				SetlistEntrySettings.Validate(database, entry.SongId, preferredFileId, transpose, instrumentId);
 
 				entry.InstrumentProfileId = instrumentId;
 				entry.PreferredSongFileId = preferredFileId;
@@ -467,6 +458,18 @@ public sealed partial class BookApplicationSession
 		Guid songId, Guid? setlistId, Guid? entryId, Guid? activeInstrumentId, CancellationToken cancellationToken)
 		=> this.GetPresentationAsync(songId, setlistId, entryId, activeInstrumentId, null, 0, null, cancellationToken);
 
+	public Task<BookSongPresentation> GetPresentationAsync(
+		Guid songId,
+		Guid? setlistId,
+		Guid? entryId,
+		Guid? activeInstrumentId,
+		string? notationOverride,
+		int transposeOffset,
+		Guid? instrumentOverride,
+		CancellationToken cancellationToken)
+		=> this.GetPresentationAsync(
+			songId, setlistId, entryId, activeInstrumentId, notationOverride, transposeOffset, instrumentOverride, null, cancellationToken);
+
 	/// <summary>Resolves and renders the preferred active file for a song.</summary>
 	public async Task<BookSongPresentation> GetPresentationAsync(
 		Guid songId,
@@ -476,6 +479,7 @@ public sealed partial class BookApplicationSession
 		string? notationOverride = null,
 		int transposeOffset = 0,
 		Guid? instrumentOverride = null,
+		Guid? sheetOverride = null,
 		CancellationToken cancellationToken = default)
 	{
 		const int MaximumQuickTranspose = 11;
@@ -487,23 +491,13 @@ public sealed partial class BookApplicationSession
 		Song song = database.Songs.Single(item => item.Id == songId);
 		SetlistEntry? entry = setlistId is Guid listId && entryId is Guid itemId
 			? database.Setlists.Single(list => list.Id == listId).Entries.Single(item => item.Id == itemId && item.SongId == songId) : null;
-		SongFile[] activeFiles = [.. this.GetOrderedSongFiles(songId).Where(item => !item.IsArchived && item.RecoveryVersion is null)];
-		SongFile? file = activeFiles.FirstOrDefault();
 		Guid? instrumentId = instrumentOverride ?? entry?.InstrumentProfileId
 			?? new InstrumentSettingsService(this).ResolveInstrument(songId, activeInstrumentId);
 		InstrumentProfile? instrument = instrumentId is Guid profileId ? database.InstrumentProfiles.Single(item => item.Id == profileId) : null;
 		SongInstrumentOptions setting = instrument is not null
 			? new InstrumentSettingsService(this).GetEffectiveOptions(song, instrument) : new();
 		int? capoFret = setting.CapoFret ?? InstrumentSettingsService.GetCatalogCapo(song);
-		if (setting.PreferredSongFileId is Guid instrumentFileId)
-		{
-			file = activeFiles.FirstOrDefault(item => item.Id == instrumentFileId) ?? file;
-		}
-
-		if (entry?.PreferredSongFileId is Guid entryFileId)
-		{
-			file = activeFiles.FirstOrDefault(item => item.Id == entryFileId) ?? file;
-		}
+		SongFile? file = this.SelectPresentationFile(songId, setting.PreferredSongFileId, entry?.PreferredSongFileId, sheetOverride);
 
 		BookSongPresentation result;
 		if (file is null)
@@ -725,7 +719,8 @@ public sealed partial class BookApplicationSession
 		foreach ((string name, IReadOnlyList<string> metadata) in SongMetadata.Enumerate(song))
 		{
 			metadataNames.Add(name);
-			if (!IsIdentityMetadata(name))
+			if (!IsIdentityMetadata(name) && !name.Equals("tag", StringComparison.OrdinalIgnoreCase)
+				&& !name.Equals("tags", StringComparison.OrdinalIgnoreCase))
 			{
 				string[] values = [.. metadata.Where(value => !string.IsNullOrWhiteSpace(value))];
 				if (values.Length > 0)
@@ -735,7 +730,7 @@ public sealed partial class BookApplicationSession
 			}
 		}
 
-		if (song.Tags.Count > 0 && !metadataNames.Contains("tag") && !metadataNames.Contains("tags"))
+		if (song.Tags.Count > 0)
 		{
 			displayMetadata.Add(("tags", string.Join(", ", song.Tags)));
 		}
@@ -772,10 +767,10 @@ public sealed partial class BookApplicationSession
 			for (int length = 1; length <= name.Length; length++)
 			{
 				string candidate = name[..length];
-				bool conflictsWithCommonLabel = length == 1
-					&& (candidate.Equals("C", StringComparison.OrdinalIgnoreCase)
-						|| candidate.Equals("T", StringComparison.OrdinalIgnoreCase)
-						|| candidate.Equals("K", StringComparison.OrdinalIgnoreCase));
+				bool conflictsWithCommonLabel = candidate.Equals("C", StringComparison.OrdinalIgnoreCase)
+					|| candidate.Equals("T", StringComparison.OrdinalIgnoreCase)
+					|| candidate.Equals("K", StringComparison.OrdinalIgnoreCase)
+					|| candidate.Equals("Tg", StringComparison.OrdinalIgnoreCase);
 				bool conflictsWithAnotherName = displayedNames.Any(otherName =>
 					!otherName.Equals(name, StringComparison.OrdinalIgnoreCase)
 					&& otherName.StartsWith(candidate, StringComparison.OrdinalIgnoreCase));
@@ -797,6 +792,7 @@ public sealed partial class BookApplicationSession
 		"CAPO" => "C",
 		"BPM" or "TEMPO" or "TEMPOS" => "T",
 		"KEY" or "KEYS" => "K",
+		"TAG" or "TAGS" => "Tg",
 		_ => null,
 	};
 
@@ -830,13 +826,38 @@ public sealed partial class BookApplicationSession
 		return (active, archived, recovery, previousSave);
 	}
 
+	private SongFile? SelectPresentationFile(Guid songId, Guid? instrumentFile, Guid? entryFile, Guid? explicitFile)
+	{
+		SongFile[] active = [.. this.GetOrderedSongFiles(songId).Where(file => !file.IsArchived && file.RecoveryVersion is null)];
+		SongFile? result = active.FirstOrDefault();
+		if (instrumentFile is Guid instrument)
+		{
+			result = active.FirstOrDefault(file => file.Id == instrument) ?? result;
+		}
+
+		if (entryFile is Guid entry)
+		{
+			result = active.FirstOrDefault(file => file.Id == entry) ?? result;
+		}
+
+		if (explicitFile is Guid requested)
+		{
+			result = this.Database!.SongFiles.Single(file => file.Id == requested && file.SongId == songId);
+		}
+
+		return result;
+	}
+
 	private (IBookStore Store, BookLocation Location) GetActiveBook()
 		=> (this.store ?? throw new InvalidOperationException("No book is open."),
 			this.location ?? throw new InvalidOperationException("No book is open."));
 
 	private void RefreshSongCatalog(Song song)
+		=> this.RefreshSongCatalog(song, this.Database!.SongFiles.Where(file => file.SongId == song.Id));
+
+	private void RefreshSongCatalog(Song song, IEnumerable<SongFile> songFiles)
 	{
-		SongFile[] files = [.. this.Database!.SongFiles.Where(file => file.SongId == song.Id)];
+		SongFile[] files = [.. songFiles];
 		this.searchIndex!.RefreshSong(song, files);
 		this.groupingIndex?.RefreshSong(song);
 		var (active, archived, recovery, previousSave) = CountSongFiles(files);

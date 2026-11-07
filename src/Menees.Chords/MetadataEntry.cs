@@ -38,6 +38,7 @@ public sealed class MetadataEntry : Entry
 		"st",
 		"subtitle",
 		"t",
+		"tag",
 		"tempo",
 		"time",
 		"title",

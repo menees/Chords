@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using Menees.Chords.Formatters;
 
 #endregion
 
@@ -35,6 +36,37 @@ public sealed class SongFileAnalyzerTests
 	[DataRow("{start_of_verse}\n[C]A new song\n{end_of_verse}\n", SourceFormat.ChordPro)]
 	public void DetectsGroupedAndNestedSongSyntax(string text, SourceFormat expected)
 		=> SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(text), "Song.txt").SourceFormat.ShouldBe(expected);
+
+	[TestMethod]
+	[DataRow("\r\n")]
+	[DataRow("\n")]
+	[DataRow("\r")]
+	public void RejectedControlDiagnosticsIdentifyCharacterLineAndColumn(string newline)
+	{
+		string text = "Intro" + newline + "[C]x\u0001";
+		BookStoreValidationException exception = Should.Throw<BookStoreValidationException>(() =>
+			SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(text), "Legacy.cho"));
+		exception.Message.ShouldContain("U+0001");
+		exception.Message.ShouldContain("line 2, column 5");
+		SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(text.Replace("\u0001", "’", StringComparison.Ordinal)), "Repaired.cho")
+			.MediaKind.ShouldBe(MediaKind.Text);
+	}
+
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public void LegacySingleByteAndUtf8MojibakeRemainReadable(bool utf8)
+	{
+		const string Text = "{title: Legacy}\r\n[C]couldn\u00e2\u0080\u0099t Caf\u00e9";
+		Encoding encoding = utf8 ? new UTF8Encoding(true, true) : Encoding.Latin1;
+		byte[] bytes = [.. encoding.GetPreamble(), .. encoding.GetBytes(Text)];
+		SongFileAnalyzer.ValidateTextPrefix(bytes);
+		SongFileAnalysis analysis = SongFileAnalyzer.Analyze(bytes, "Legacy.cho");
+		analysis.TextEncoding.ShouldBe(encoding.WebName);
+		analysis.Title.ShouldBe("Legacy");
+		using MemoryStream source = new(bytes);
+		new TextFormatter(Document.Load(source)).ToString().ShouldContain("couldn\u00e2\u0080\u0099t Caf\u00e9");
+	}
 
 	[TestMethod]
 	public void DetectsExtensionlessOpenSong()

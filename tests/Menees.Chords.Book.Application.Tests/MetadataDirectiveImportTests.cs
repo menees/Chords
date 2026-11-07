@@ -69,11 +69,53 @@ public sealed class MetadataDirectiveImportTests
 	}
 
 	[TestMethod]
-	public void ImportsEveryArtistAndMapsTagsToMetaDirectives()
+	public void ImportsEveryArtistAndMapsTagsToDedicatedDirectives()
 	{
 		MetadataDirectiveImport import = new("[C]Body", new(string.Empty, ["One", "Two"], ["Practice"]));
 		import.Apply([new("artist", null), new("tag", null)]).ShouldBe(
-			string.Join(Environment.NewLine, "{artist: One}", "{artist: Two}", "{meta: tag Practice}", "[C]Body"));
+			string.Join(Environment.NewLine, "{artist: One}", "{artist: Two}", "{tag: Practice}", "[C]Body"));
+	}
+
+	[TestMethod]
+	public void UnchangedMetadataIsNotProposedAndTagInsertionBecomesAnIdempotentImport()
+	{
+		const string Source = "{title: Sound Of Heaven}\r\n{key: Ab}\r\n[C]Body";
+		SongEditMetadata metadata = new("Sound Of Heaven", [], ["Christian"])
+		{
+			Scalars = new Dictionary<string, IReadOnlyList<string>> { ["key"] = ["Ab"] },
+		};
+		MetadataDirectiveImport import = new(Source, metadata);
+		import.Proposals.Select(proposal => proposal.Name).ShouldBe(["tag"]);
+		string updated = import.Apply([new("tag", null)]);
+		updated.ShouldBe("{title: Sound Of Heaven}\r\n{key: Ab}\r\n{tag: Christian}\r\n[C]Body");
+		MetadataDirectiveImport repeated = new(updated, metadata);
+		repeated.Proposals.ShouldBeEmpty();
+		repeated.Apply([]).ShouldBe(updated);
+	}
+
+	[TestMethod]
+	[DataRow("{tag: Old}")]
+	[DataRow("{meta: tag Old}")]
+	public void SingleTagReplacementPreservesExistingSyntaxAndOnlyChangesTheValue(string directive)
+	{
+		string source = directive + "\n[C]Body";
+		MetadataDirectiveImport import = new(source, new(string.Empty, [], ["Christian"]));
+		MetadataDirectiveProposal proposal = import.Proposals.Single();
+		proposal.Occurrences.Single().SourceLine.ShouldBe(directive);
+		import.Apply([new("tag", 0)]).ShouldBe(source.Replace("Old", "Christian", StringComparison.Ordinal));
+	}
+
+	[TestMethod]
+	public void MatchingMultipleValuesAreNotProposedButConflictsAndUnsafeMatchesRemainReviewable()
+	{
+		MetadataDirectiveImport matched = new("{artist: One}\n{artist: Two}\n{tag: A}\n{tag: B}", new(string.Empty, ["One", "Two"], ["A", "B"]));
+		matched.Proposals.ShouldBeEmpty();
+		MetadataDirectiveImport conflict = new("{tag: Old}\n{tag: Other}", new(string.Empty, [], ["Christian"]));
+		conflict.Proposals.Single().Occurrences.Count.ShouldBe(2);
+		Should.Throw<InvalidOperationException>(() => conflict.Preview([new("tag", null)]));
+		conflict.Apply([new("tag", 1)]).ShouldBe("{tag: Old}\n{tag: Christian}");
+		MetadataDirectiveImport conditional = new("{tag-guitar: Christian}", new(string.Empty, [], ["Christian"]));
+		conditional.Proposals.Single().Occurrences.Single().CanReplace.ShouldBeFalse();
 	}
 
 	[TestMethod]

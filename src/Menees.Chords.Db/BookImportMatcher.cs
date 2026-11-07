@@ -12,11 +12,17 @@ internal sealed class BookImportMatcher
 	{
 		Dictionary<Guid, Song> songs = database.Songs.ToDictionary(song => song.Id);
 		HashSet<Guid> withSheets = [];
+		HashSet<Guid> defaults = [.. database.SongFiles.Where(file => !file.IsArchived && file.RecoveryVersion is null)
+			.GroupBy(file => file.SongId).Select(group => group.OrderByDescending(file => file.DisplayPriority)
+				.ThenBy(file => file.MediaKind).ThenBy(file => file.Id).First().Id)];
 		foreach (SongFile file in database.SongFiles)
 		{
 			Song song = songs[file.SongId];
 			withSheets.Add(song.Id);
-			this.Add(new(song.Id, file.Id, song.Title, song.Artists.AsReadOnly(), file.RelativePath, song.IsArchived, false, file.ContentHash));
+			this.Add(new(song.Id, file.Id, song.Title, song.Artists.AsReadOnly(), file.RelativePath, song.IsArchived, false, file.ContentHash)
+			{
+				IsDefault = defaults.Contains(file.Id),
+			});
 		}
 
 		foreach (Song song in database.Songs.Where(song => !withSheets.Contains(song.Id)))

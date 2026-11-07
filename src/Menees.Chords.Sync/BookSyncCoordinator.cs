@@ -215,7 +215,10 @@ public static class BookSyncCoordinator
 		DateTimeOffset completed = await CheckpointAsync(lease, document, cancellationToken).ConfigureAwait(false);
 		journal.Clear(document);
 		progress?.Report("Sync completed.");
-		return new(confirmed.UploadCount, confirmed.DownloadCount, confirmed.RecoveryCount, confirmed.Conflicts.Count, completed);
+		return new(confirmed.UploadCount, confirmed.DownloadCount, confirmed.RecoveryCount, confirmed.Conflicts.Count, completed)
+		{
+			Changes = confirmed.Changes,
+		};
 	}
 
 	#endregion

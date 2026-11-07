@@ -138,8 +138,11 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 			this.copyRight,
 			this.cancel));
 		Grid labels = new() { ColumnSpacing = Gap, ColumnDefinitions = { new(GridLength.Star), new(GridLength.Star) } };
-		labels.Add(DescribeSide("Left", this.comparison.Left));
-		labels.Add(DescribeSide("Right", this.comparison.Right), 1, 0);
+		string leftCaption = this.openImportPdf is null ? "Left"
+			: this.comparison.Left.IsIncoming ? "Left — Earlier selected import file" : "Left — Existing sheet in ChordBook";
+		string rightCaption = this.openImportPdf is null ? "Right" : "Right — File being imported";
+		labels.Add(DescribeSide(leftCaption, this.comparison.Left));
+		labels.Add(DescribeSide(rightCaption, this.comparison.Right), 1, 0);
 		layout.Add(labels, 0, 1);
 		if (this.comparison.Left.Text is not null && this.comparison.Right.Text is not null)
 		{

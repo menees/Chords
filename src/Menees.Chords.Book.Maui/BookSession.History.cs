@@ -25,6 +25,12 @@ public sealed partial class BookSession
 	{
 		if (this.historyBookId is Guid id && this.history.IsDirty)
 		{
+			if (this.Database?.Id == id)
+			{
+				this.history.PruneAccessTimes(this.Database.Songs.Select(song => song.Id));
+			}
+
+			Preferences.Default.Set("ChordBook.SongAccessTimes." + id.ToString("D"), JsonSerializer.Serialize(this.history.AccessedUtc));
 			Preferences.Default.Set("ChordBook.RecentSongs." + id.ToString("D"), JsonSerializer.Serialize(this.history.SongIds));
 			this.history.MarkSaved();
 		}
@@ -47,12 +53,15 @@ public sealed partial class BookSession
 			this.FlushRecentHistory();
 			this.historyBookId = id;
 			Guid[]? saved = null;
+			Dictionary<Guid, DateTimeOffset>? accessed = null;
 			if (id is Guid bookId)
 			{
 				string? json = Preferences.Default.Get<string?>("ChordBook.RecentSongs." + bookId.ToString("D"), null);
 				try
 				{
 					saved = json is null ? null : JsonSerializer.Deserialize<Guid[]>(json);
+					string? dates = Preferences.Default.Get<string?>("ChordBook.SongAccessTimes." + bookId.ToString("D"), null);
+					accessed = dates is null ? null : JsonSerializer.Deserialize<Dictionary<Guid, DateTimeOffset>>(dates);
 				}
 				catch (JsonException)
 				{
@@ -60,7 +69,7 @@ public sealed partial class BookSession
 				}
 			}
 
-			this.history = new(saved);
+			this.history = new(saved, accessed);
 		}
 	}
 }

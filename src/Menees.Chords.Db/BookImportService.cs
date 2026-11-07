@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml;
 
 #endregion
 
@@ -170,27 +171,18 @@ public static class BookImportService
 			{
 				cancellationToken.ThrowIfCancellationRequested();
 				Guid id = Guid.CreateVersion7();
-				await using FileStream source = new(
-					path,
-					FileMode.Open,
-					FileAccess.Read,
-					FileShare.Read,
-					bufferSize: BufferSize,
-					options: FileOptions.Asynchronous | FileOptions.SequentialScan);
-				PendingImport pending = await ReadAsync(Path.GetFileName(path), source, cancellationToken, review.GetPath(id)).ConfigureAwait(false);
-				await using (Stream content = pending.Content)
+				PendingImport pending;
+				try
 				{
-					if (pending.Analysis.MediaKind != MediaKind.Pdf)
-					{
-						await using FileStream snapshot = new(
-							review.GetPath(id),
-							FileMode.CreateNew,
-							FileAccess.Write,
-							FileShare.None,
-							bufferSize: BufferSize,
-							options: FileOptions.Asynchronous | FileOptions.SequentialScan);
-						await content.CopyToAsync(snapshot, cancellationToken).ConfigureAwait(false);
-					}
+					pending = await CaptureReviewFileAsync(path, review.GetPath(id), cancellationToken).ConfigureAwait(false);
+				}
+				catch (Exception exception) when (exception is BookStoreValidationException or IOException
+					or UnauthorizedAccessException or DecoderFallbackException or XmlException)
+				{
+					cancellationToken.ThrowIfCancellationRequested();
+					File.Delete(review.GetPath(id));
+					review.AddFailure(path, exception.Message);
+					continue;
 				}
 
 				review.Add(matcher.Match(id, pending.SourceName, pending.ContentHash, pending.Analysis));
@@ -273,6 +265,34 @@ public static class BookImportService
 	#endregion
 
 	#region Private Methods
+
+	private static async Task<PendingImport> CaptureReviewFileAsync(string path, string snapshotPath, CancellationToken cancellationToken)
+	{
+		await using FileStream source = new(
+			path,
+			FileMode.Open,
+			FileAccess.Read,
+			FileShare.Read,
+			bufferSize: BufferSize,
+			options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+		PendingImport pending = await ReadAsync(Path.GetFileName(path), source, cancellationToken, snapshotPath).ConfigureAwait(false);
+		await using (Stream content = pending.Content)
+		{
+			if (pending.Analysis.MediaKind != MediaKind.Pdf)
+			{
+				await using FileStream snapshot = new(
+					snapshotPath,
+					FileMode.CreateNew,
+					FileAccess.Write,
+					FileShare.None,
+					bufferSize: BufferSize,
+					options: FileOptions.Asynchronous | FileOptions.SequentialScan);
+				await content.CopyToAsync(snapshot, cancellationToken).ConfigureAwait(false);
+			}
+		}
+
+		return pending;
+	}
 
 	private static async Task<IReadOnlyList<BookImportResult>> SkipReviewAsync(
 		IBookStore store, BookLocation location, string expectedCatalog, CancellationToken cancellationToken)

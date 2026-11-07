@@ -22,6 +22,7 @@ public static class MauiProgram
 			.AddHandler<FluentIconToggle, FluentIconToggleHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<BookTabs, BookTabsHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<PositionEntry, PositionEntryHandler>());
+		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<OutputEditor, OutputEditorHandler>());
 		builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<OpenBookSplitButton, FluentIconSplitButtonHandler>()
 			.AddHandler<FluentIconSplitButton, FluentIconSplitButtonHandler>());
 		Microsoft.Maui.Handlers.CheckBoxHandler.Mapper.AppendToMapping("CompactCheckBox", (handler, _) =>
