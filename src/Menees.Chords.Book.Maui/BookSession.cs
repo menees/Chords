@@ -199,11 +199,7 @@ public sealed partial class BookSession : IDisposable
 		return
 		[
 			.. this.application.Search(query, includeArchived)
-				.Select(song => new SongRow(
-					song.Id,
-					song.Title,
-					song.DisplayText,
-					song.IsArchived)),
+				.Select(song => new SongRow(song)),
 		];
 	}
 
@@ -223,19 +219,17 @@ public sealed partial class BookSession : IDisposable
 
 	public IReadOnlyList<SetlistEntryRow> GetSetlistEntries(Guid setlistId, bool isEditing = false, SetlistEdit? draft = null)
 	{
-		Dictionary<Guid, SongRow> songs = this.SearchSongs(string.Empty, includeArchived: true)
-			.ToDictionary(song => song.Id);
 		IReadOnlyList<SetlistEntryCatalogItem> entries = this.application.GetSetlistEntries(setlistId, draft);
 		return
 		[
 			.. entries.Select((entry, index) => new SetlistEntryRow(
 				entry.EntryId,
-				songs[entry.SongId],
+				new SongRow(entry.Song),
 				index + 1,
 				isEditing,
 				index > 0,
 				index + 1 < entries.Count,
-				entry.DisplayText)),
+				entry.Details)),
 		];
 	}
 

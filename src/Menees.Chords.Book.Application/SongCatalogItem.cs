@@ -12,4 +12,17 @@ public sealed record SongCatalogItem(
 	int ArchivedFileCount = 0,
 	int RecoveryFileCount = 0,
 	bool HasDisplayOverride = false,
-	bool HasMetronomeOverride = false);
+	bool HasMetronomeOverride = false)
+{
+	public string Artist { get; init; } = string.Empty;
+
+	public string Key { get; init; } = string.Empty;
+
+	public string Tempo { get; init; } = string.Empty;
+
+	public string Capo { get; init; } = string.Empty;
+
+	public string Tags { get; init; } = string.Empty;
+
+	public string Indicators { get; init; } = string.Empty;
+}

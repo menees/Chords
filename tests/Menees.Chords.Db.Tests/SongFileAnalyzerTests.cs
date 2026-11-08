@@ -38,6 +38,14 @@ public sealed class SongFileAnalyzerTests
 		=> SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(text), "Song.txt").SourceFormat.ShouldBe(expected);
 
 	[TestMethod]
+	public void SourceCapoMetadataIncludesOnlySupportedWholeFrets()
+	{
+		const string Text = "{capo: 0}\n{capo: Xyz}\n{capo: -2}\n{capo: 1.5}\n{capo: 1}\n{meta: capo 24}\n{capo: 25}\n[C]Song";
+		SongFileAnalysis analysis = SongFileAnalyzer.Analyze(Encoding.UTF8.GetBytes(Text), "Song.cho");
+		analysis.Metadata["capo"].Select(value => value.Value).ShouldBe(["1", "24"]);
+	}
+
+	[TestMethod]
 	[DataRow("\r\n")]
 	[DataRow("\n")]
 	[DataRow("\r")]

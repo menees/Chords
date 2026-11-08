@@ -257,12 +257,7 @@ public sealed class InstrumentSettingsService
 	internal static int? GetCatalogCapo(Song song)
 	{
 		IReadOnlyList<string> values = SongMetadata.GetValues(song, "capo");
-		const int MaximumCapo = 24;
-		return values.Count > 0 && int.TryParse(
-			values[0],
-			System.Globalization.NumberStyles.Integer,
-			System.Globalization.CultureInfo.InvariantCulture,
-			out int capo) && capo is >= 0 and <= MaximumCapo ? capo : null;
+		return values.Count > 0 && SongMetadata.TryParseCapo(values[0], out int capo) ? capo : null;
 	}
 
 	internal static bool IsPiano(InstrumentProfile profile) => profile.Id == StandardInstruments.All[5].Id

@@ -24,6 +24,7 @@ public partial class MainPage : ContentPage
 	private const int ArtistsTabIndex = 3;
 	private const int HistoryFlushSeconds = 30;
 	private readonly WindowsSongListPosition songListPosition = new();
+	private readonly WindowsCatalogTextMeasure catalogTextMeasure = new();
 	private readonly Queue<string> pendingFiles = [];
 	private readonly HashSet<string> pendingFilePaths = new(StringComparer.OrdinalIgnoreCase);
 
@@ -219,6 +220,56 @@ public partial class MainPage : ContentPage
 			{
 				scroll.HeightRequest = grid.Height;
 			}
+		}
+	}
+
+	private static void HandleCatalogHeaderSizeChanged(object? sender, EventArgs e)
+	{
+		if (sender is CatalogGrid header)
+		{
+			header.UpdateHeaderLayout();
+		}
+	}
+
+	private static void SetSongColumns(CatalogGrid header, IEnumerable<(SongRow Song, string Details)> rows, WindowsCatalogTextMeasure measure)
+	{
+		const CatalogColumn All = CatalogColumn.Artist | CatalogColumn.Key | CatalogColumn.Tempo | CatalogColumn.Capo | CatalogColumn.Tags;
+		CatalogColumn columns = CatalogColumn.None;
+		foreach (var row in rows)
+		{
+			columns |= row.Song.Columns;
+			if (columns == All)
+			{
+				break;
+			}
+		}
+
+		header.SizeToContent(columns, GetSongColumnContent(rows), measure);
+	}
+
+	private static IEnumerable<CatalogCellContent> GetSongColumnContent(IEnumerable<(SongRow Song, string Details)> rows)
+	{
+		foreach ((SongRow song, string details) in rows)
+		{
+			yield return new(CatalogColumn.None, song.Title, Archived: song.IsArchived);
+			yield return new(CatalogColumn.None, details, Secondary: true);
+			yield return new(CatalogColumn.Artist, song.Artist);
+			yield return new(CatalogColumn.Key, song.Key);
+			yield return new(CatalogColumn.Tempo, song.Tempo);
+			yield return new(CatalogColumn.Capo, song.Capo);
+			yield return new(CatalogColumn.Tags, song.Tags);
+		}
+	}
+
+	private static IEnumerable<CatalogCellContent> GetSetlistColumnContent(IEnumerable<SetlistRow> setlists)
+	{
+		foreach (SetlistRow setlist in setlists)
+		{
+			yield return new(CatalogColumn.None, setlist.Name, Archived: setlist.IsArchived);
+			yield return new(CatalogColumn.None, setlist.ArchiveText, Secondary: true);
+			yield return new(CatalogColumn.Songs, setlist.EntryCount.ToString("N0", CultureInfo.CurrentCulture));
+			yield return new(CatalogColumn.Date, setlist.DateText);
+			yield return new(CatalogColumn.Duration, setlist.DurationText);
 		}
 	}
 
@@ -719,6 +770,8 @@ public partial class MainPage : ContentPage
 		{
 			this.visibleSongs = [];
 			this.songGroups = [];
+			this.SongHeader.IsVisible = false;
+			SetSongColumns(this.SongHeader, [], this.catalogTextMeasure);
 			this.SongList.ItemsSource = this.songGroups;
 			this.JumpLetters.Children.Clear();
 			this.SongJumps.IsVisible = false;
@@ -775,6 +828,8 @@ public partial class MainPage : ContentPage
 			this.SongList.IsGrouped = grouped;
 		}
 
+		SetSongColumns(this.SongHeader, this.visibleSongs.Select(song => (song, song.Indicators)), this.catalogTextMeasure);
+		this.SongHeader.IsVisible = this.visibleSongs.Count > 0;
 		this.SongList.ItemsSource = grouped ? this.songGroups : this.visibleSongs;
 		this.RefreshJumpLetters();
 		this.Status.Text = $"Showing {this.visibleSongs.Count:N0} of {this.allSongs.Count:N0} songs.";
@@ -798,6 +853,19 @@ public partial class MainPage : ContentPage
 				.OrderBy(group => group.Key == "#" ? 0 : 1)
 				.ThenBy(group => group.Key, StringComparer.Ordinal),
 		];
+		CatalogColumn fields = CatalogColumn.Songs;
+		if (this.visibleSetlists.Any(setlist => setlist.Date.HasValue))
+		{
+			fields |= CatalogColumn.Date;
+		}
+
+		if (this.visibleSetlists.Any(setlist => setlist.KnownDurationCount > 0))
+		{
+			fields |= CatalogColumn.Duration;
+		}
+
+		this.SetlistHeader.SizeToContent(fields, GetSetlistColumnContent(this.visibleSetlists), this.catalogTextMeasure);
+		this.SetlistHeader.IsVisible = this.visibleSetlists.Count > 0;
 		this.SetlistList.ItemsSource = this.setlistGroups;
 		this.RefreshSetlistJumpLetters();
 		this.Status.Text = $"Showing {this.visibleSetlists.Count:N0} of {this.allSetlists.Count:N0} setlists.";
@@ -964,9 +1032,10 @@ public partial class MainPage : ContentPage
 
 	private void RefreshSelectedSetlist()
 	{
+		IReadOnlyList<SetlistEntryRow> entries = [];
 		if (this.currentSetlist is SetlistRow setlist)
 		{
-			this.selectedSetlistEntries = new(this.session.GetSetlistEntries(setlist.Id, this.editingSetlist, this.setlistEdit));
+			entries = this.session.GetSetlistEntries(setlist.Id, this.editingSetlist, this.setlistEdit);
 			this.SetlistDetailName.Text = this.setlistEdit?.Value.Name ?? setlist.Name;
 			this.SetlistDetailMetadata.Text = this.setlistEdit is SetlistEdit draft ? $"{draft.Value.Entries.Count:N0} songs" : setlist.MetadataText;
 			bool archived = this.setlistEdit?.Value.IsArchived ?? setlist.IsArchived;
@@ -974,11 +1043,13 @@ public partial class MainPage : ContentPage
 		}
 		else
 		{
-			this.selectedSetlistEntries = [];
 			this.SetlistDetailName.Text = string.Empty;
 			this.SetlistDetailMetadata.Text = string.Empty;
 		}
 
+		this.selectedSetlistEntries = new(entries);
+		SetSongColumns(this.EntrySongHeader, entries.Select(entry => (entry.Song, entry.Details)), this.catalogTextMeasure);
+		this.SetlistEntryHeader.IsVisible = this.selectedSetlistEntries.Count > 0;
 		this.SetlistEntries.ItemsSource = this.selectedSetlistEntries;
 		this.SetlistEntries.CanReorderItems = this.editingSetlist && !this.bookMutationInProgress;
 		this.SelectSetlistSongsButton.IsEnabled = this.selectedSetlistEntries.Count > 0;

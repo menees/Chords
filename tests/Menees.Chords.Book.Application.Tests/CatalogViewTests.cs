@@ -56,12 +56,15 @@ public sealed class CatalogViewTests
 		Guid id = await session.CreateSongAsync("Song", [], ["Catalog"], "{tag: Authored}\n[C]Song", device, token);
 		Song song = session.Database!.Songs.Single();
 		song.SourceMetadata["tag"].Single().Value.ShouldBe("Authored");
+		session.Search(string.Empty).Single().Tags.ShouldBe("Catalog");
 		session.Search(string.Empty).Single().DisplayText.ShouldContain("Tg:Catalog");
 		(await session.SetSongTagsAsync([id], ["Replacement"], device, token)).ShouldBe(1);
 		session.Search(string.Empty).Single().DisplayText.ShouldContain("Tg:Replacement");
+		session.Search(string.Empty).Single().Tags.ShouldBe("Replacement");
 		session.Search(string.Empty).Single().DisplayText.ShouldNotContain("Authored");
 		(await session.SetSongTagsAsync([id], [], device, token)).ShouldBe(1);
 		session.Search(string.Empty).Single().DisplayText.ShouldNotContain("Tg:");
+		session.Search(string.Empty).Single().Tags.ShouldBeEmpty();
 		song.SourceMetadata["tag"].Single().Value.ShouldBe("Authored");
 		(await session.GetSongEditAsync(id, token)).Text.ShouldBe("{tag: Authored}\n[C]Song");
 		await session.ReloadAsync(token);

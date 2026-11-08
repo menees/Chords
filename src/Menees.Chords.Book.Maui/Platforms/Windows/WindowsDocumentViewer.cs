@@ -158,7 +158,11 @@ public sealed partial class WindowsDocumentViewer : IDocumentViewer, IDisposable
 	{
 		this.generation++;
 		this.content = null;
-		this.view.Source = new HtmlWebViewSource { Html = string.Empty };
+		if (this.view.Source is not null and not HtmlWebViewSource { Html.Length: 0 })
+		{
+			this.view.Source = new HtmlWebViewSource { Html = string.Empty };
+		}
+
 		foreach (IRandomAccessStream stream in this.responseStreams)
 		{
 			stream.Dispose();

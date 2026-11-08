@@ -22,16 +22,24 @@ internal static class NativeSongBrowserSmoke
 		BookLocation book = await store.CreateBookAsync("Browser viewport", device);
 		BookApplicationSession application = new();
 		await application.ActivateAsync(store, book);
-		Guid maybe = await application.CreateSongAsync("Maybe", ["Synthetic Artist"], [], "[C]Maybe original", device);
+		Guid maybe = await application.CreateSongAsync("Maybe", ["Synthetic Artist"], ["Acoustic"],
+			"{key: F#m}\n{tempo: 96}\n{capo: 2}\n[F#m]Maybe original", device);
 		string before = await store.ReadDatabaseJsonAsync(book);
 		ChordDatabase database = DatabaseJson.Deserialize(before);
 		for (int index = 0; index < 720; index++)
 		{
+			string title = $"{(char)('A' + (index % 26))} Scroll fixture {index:D4}";
+			if (index == 719) title += " With a much longer title in an off-screen group";
 			database.Songs.Add(new()
 			{
-				Id = Guid.CreateVersion7(), Title = $"{(char)('A' + (index % 26))} Scroll fixture {index:D4}",
+				Id = Guid.CreateVersion7(), Title = title,
 				Artists = ["Synthetic Artist"], Revision = RevisionStamp.Initial(device),
 			});
+			if (index == 0)
+			{
+				database.Songs[^1].MetadataOverrides["tempo"] = ["108"];
+				database.Songs[^1].MetadataOverrides["capo"] = ["12"];
+			}
 		}
 		await store.CommitMetadataAsync(book, before, DatabaseJson.Serialize(database));
 		using BookSession session = new(application, device);
@@ -45,6 +53,7 @@ internal static class NativeSongBrowserSmoke
 			window.Width = 1100;
 			window.Height = 800;
 			await WaitAsync(() => page.FindByName<Microsoft.Maui.Controls.Label>("Status").Text.StartsWith("Ready."));
+			await VerifyColumnsAsync(page);
 			foreach (bool grouped in new[] { true, false })
 			{
 				session.SaveViewSort("Songs", grouped ? new() : new("title", true));
@@ -105,6 +114,83 @@ internal static class NativeSongBrowserSmoke
 			}
 		}
 		Program.Trace("Browser viewport, real source Save/return, grouped/flat and stale-search cancellation passed");
+	}
+
+	private static async Task VerifyColumnsAsync(MainPage page)
+	{
+		Program.Trace("Verify column alignment, filtering and compact layout");
+		CatalogGrid header = page.FindByName<CatalogGrid>("SongHeader");
+		MauiCollection list = page.FindByName<MauiCollection>("SongList");
+		FrameworkElement platform = (FrameworkElement)list.Handler!.PlatformView!;
+		TextBlock? FindRowCell(string value) => Descendants(platform).OfType<TextBlock>().FirstOrDefault(text => text.Text == value);
+		CatalogCell FindHeaderCell(CatalogColumn field) => header.Children.OfType<CatalogCell>().Single(cell => CatalogGrid.GetField(cell) == field);
+		Microsoft.Maui.GridLength ColumnWidth(CatalogColumn field) => header.ColumnDefinitions[MauiGrid.GetColumn((BindableObject)FindHeaderCell(field))].Width;
+		static double ScreenX(FrameworkElement element) => element.TransformToVisual(null).TransformPoint(new(0, 0)).X;
+
+		Call(page, "ApplyFilter", "title:Maybe");
+		Program.Trace($"Filtered header fields: {header.Fields}");
+		await WaitAsync(() => FindRowCell("F♯m") is { ActualWidth: > 0 } && FindRowCell("Acoustic") is { ActualWidth: > 0 });
+		await CaptureAsync(page, "song-columns-wide.png");
+		double shortTitleWidth = ColumnWidth(CatalogColumn.None).Value;
+		Check(ColumnWidth(CatalogColumn.None).IsAbsolute && shortTitleWidth < header.Width / 4
+			&& ColumnWidth(CatalogColumn.Capo).IsAbsolute && ColumnWidth(CatalogColumn.Tags).IsAbsolute
+			&& ColumnWidth(CatalogColumn.Tags).Value < header.Width / 4,
+			"Wide columns did not fit their content");
+		ListViewItem nativeRow = Descendants(platform).OfType<ListViewItem>()
+			.Single(row => row.Content is Microsoft.Maui.Controls.Platform.ItemTemplateContext { Item: SongRow { Title: "Maybe" } });
+		Program.Trace($"Header width {header.Width:F1}, list width {list.Width:F1}, item width {nativeRow.ActualWidth:F1}, item padding {nativeRow.Padding}");
+		foreach ((CatalogColumn field, string value) in new[] { (CatalogColumn.Key, "F♯m"), (CatalogColumn.Tags, "Acoustic") })
+		{
+			var column = (FrameworkElement)FindHeaderCell(field).Handler!.PlatformView!;
+			double headerX = ScreenX(column);
+			double rowX = ScreenX(FindRowCell(value)!);
+			Check(Math.Abs(headerX - rowX) < 1, $"Header and {field} cell do not align ({headerX:F1} vs {rowX:F1})");
+		}
+		page.Window.Width = 480;
+		await WaitAsync(() => (header.Fields & CatalogColumn.Compact) != 0
+			&& !FindHeaderCell(CatalogColumn.Artist).IsVisible && !FindHeaderCell(CatalogColumn.Tags).IsVisible);
+		await WaitAsync(() => FindRowCell("Acoustic") is { ActualWidth: > 0 } && FindRowCell("Maybe") is { ActualWidth: > 0 }
+			&& Math.Abs(ScreenX(FindRowCell("Acoustic")!) - ScreenX(FindRowCell("Maybe")!)) < 1);
+		Check(ColumnWidth(CatalogColumn.Capo).IsAbsolute && ColumnWidth(CatalogColumn.Capo).Value < header.Width / 4,
+			"The last visible compact column consumed spare width");
+		await CaptureAsync(page, "song-columns-compact.png");
+		page.Window.Width = 1100;
+		await WaitAsync(() => (header.Fields & CatalogColumn.Compact) == 0);
+		var timer = System.Diagnostics.Stopwatch.StartNew();
+		Call(page, "ApplyFilter", "Scroll fixture");
+		double resultUpdate = timer.Elapsed.TotalMilliseconds;
+		await WaitAsync(() => header.Fields == (CatalogColumn.Artist | CatalogColumn.Tempo | CatalogColumn.Capo)
+			&& ColumnWidth(CatalogColumn.None).Value > shortTitleWidth * 2);
+		timer.Stop();
+		Program.Trace($"Updated the 720-song grouped result in {resultUpdate:F1} ms, autosized in {timer.Elapsed.TotalMilliseconds:F1} ms including the wait interval");
+		Check(ColumnWidth(CatalogColumn.Artist).IsAbsolute && !Descendants(platform).OfType<TextBlock>()
+			.Any(cell => cell.Text.EndsWith("an off-screen group", StringComparison.Ordinal)),
+			"Autosizing realized an off-screen row or failed to fit the Artist column");
+		Check(!FindHeaderCell(CatalogColumn.Key).IsVisible && !FindHeaderCell(CatalogColumn.Tags).IsVisible,
+			"Columns without values in the filtered result are still visible");
+		Call(page, "ApplyFilter", "0000");
+		SongRow capoSong = Rows(page).Single();
+		list.ScrollTo(capoSong, ((IReadOnlyList<SongGroup>)Field(page, "songGroups")!).Single(),
+			ScrollToPosition.Start, animate: false);
+		await WaitAsync(() => NativeRows(list).Any(row => row.Id == capoSong.Id
+			&& row.Y + row.Height > 0 && row.Y < Scroll(list).ViewportHeight));
+		await CaptureAsync(page, "song-columns-filtered-capo.png");
+		ListViewItem capoRow = Descendants(platform).OfType<ListViewItem>().Single(item =>
+			item.Content is Microsoft.Maui.Controls.Platform.ItemTemplateContext { Item: SongRow song } && song.Id == capoSong.Id);
+		var capo = Descendants(capoRow).OfType<TextBlock>().Single(cell => cell.Text == "12");
+		var tempo = Descendants(capoRow).OfType<TextBlock>().Single(cell => cell.Text == "108");
+		double capoGap = ScreenX(capo) - ScreenX(tempo);
+		Check(ColumnWidth(CatalogColumn.Capo).IsAbsolute && capo.ActualWidth < header.Width / 4
+			&& Math.Abs(capoGap - ColumnWidth(CatalogColumn.Tempo).Value) < 2,
+			$"Capo moved away from BPM when Tags disappeared (gap {capoGap:F1}, Capo width {capo.ActualWidth:F1})");
+		Call(page, "ApplyFilter", string.Empty);
+		Call(page, "ApplyFilter", "title:Maybe");
+		await Task.Delay(150);
+		Check(Math.Abs(ColumnWidth(CatalogColumn.None).Value - shortTitleWidth) < 1,
+			"A previous result changed widths after the current search");
+		Call(page, "ApplyFilter", "No matching synthetic song");
+		Check(!header.IsVisible, "An empty result displayed column headers");
+		Call(page, "ApplyFilter", string.Empty);
 	}
 
 	private static async Task VerifySelectionAsync(MainPage page, BookSession session)

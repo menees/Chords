@@ -17,6 +17,26 @@ public sealed record SetlistRow(
 		get => $"{this.Name} · {this.MetadataText}";
 	}
 
+	public string DateText => this.Date?.ToString("d", CultureInfo.CurrentCulture) ?? string.Empty;
+
+	public string DurationText
+	{
+		get
+		{
+			string result = string.Empty;
+			if (this.KnownDurationCount > 0)
+			{
+				TimeSpan duration = TimeSpan.FromSeconds(this.TotalDurationSeconds);
+				string value = duration.TotalHours >= 1
+					? duration.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+					: duration.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+				result = this.KnownDurationCount == this.EntryCount ? value : $"{value} ({this.KnownDurationCount:N0}/{this.EntryCount:N0} timed)";
+			}
+
+			return result;
+		}
+	}
+
 	public string MetadataText
 	{
 		get
@@ -29,13 +49,7 @@ public sealed record SetlistRow(
 
 			if (this.KnownDurationCount > 0)
 			{
-				TimeSpan duration = TimeSpan.FromSeconds(this.TotalDurationSeconds);
-				string value = duration.TotalHours >= 1
-					? duration.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
-					: duration.ToString(@"m\:ss", CultureInfo.InvariantCulture);
-				metadata.Add(this.KnownDurationCount == this.EntryCount
-					? $"duration {value}"
-					: $"duration {value} ({this.KnownDurationCount:N0}/{this.EntryCount:N0} timed)");
+				metadata.Add($"duration {this.DurationText}");
 			}
 
 			if (this.Date is DateOnly date)
@@ -48,6 +62,8 @@ public sealed record SetlistRow(
 	}
 
 	public string SearchText => $"{this.Name} {this.Notes} {this.Date:yyyy-MM-dd}";
+
+	public string ArchiveText => this.IsArchived ? "Archived" : string.Empty;
 
 	public FontAttributes RowFontAttributes => this.IsArchived ? FontAttributes.Italic : FontAttributes.None;
 }

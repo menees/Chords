@@ -61,7 +61,9 @@ public static class SongFileAnalyzer
 			bool openSong = OpenSongParser.LooksLikeOpenSong(text);
 			List<MetadataEntry> entries = [.. GetMetadata(document)];
 			SortedDictionary<string, IReadOnlyList<SourceMetadataValue>> metadata = new(StringComparer.Ordinal);
-			foreach (IGrouping<string, MetadataEntry> group in entries.GroupBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
+			foreach (IGrouping<string, MetadataEntry> group in entries
+				.Where(entry => !entry.Name.Equals("capo", StringComparison.OrdinalIgnoreCase) || SongMetadata.TryParseCapo(entry.Argument, out _))
+				.GroupBy(entry => entry.Name, StringComparer.OrdinalIgnoreCase))
 			{
 				metadata[group.Key.ToLowerInvariant()] =
 				[

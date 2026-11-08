@@ -104,10 +104,14 @@ public sealed partial class SmokeMauiApp : Microsoft.Maui.Controls.Application
 		BookLocation location = await store.CreateBookAsync("Disposable setlist acceptance", device);
 		BookApplicationSession app = new();
 		await app.ActivateAsync(store, location);
-		Guid zulu = await app.CreateSongAsync("Zulu", ["Synthetic Artist"], [], "[C]Zulu", device);
+		Guid zulu = await app.CreateSongAsync("Zulu", ["Synthetic Artist"], ["Acoustic"],
+			"{key: Bb}\n{tempo: 108}\n{capo: 2}\n{duration: 3:08}\n[Bb]Zulu", device);
 		Guid alpha = await app.CreateSongAsync("Alpha", ["Synthetic Artist"], [], "[G]Alpha", device);
 		Guid list = await app.CreateSetlistAsync("Practice", device);
 		IReadOnlyList<Guid> original = await app.AddSongsToSetlistAsync(list, [zulu, alpha, zulu], device);
+		SetlistEdit dated = app.GetSetlistEdit(list);
+		dated.Value.Date = new DateOnly(2026, 11, 7);
+		await app.SaveSetlistEditAsync(dated, device);
 		using BookSession session = new(app, device);
 		typeof(BookSession).GetField("store", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(session, store);
 		typeof(BookSession).GetField("location", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(session, location);
@@ -118,7 +122,20 @@ public sealed partial class SmokeMauiApp : Microsoft.Maui.Controls.Application
 		window.Page = new NavigationPage(page);
 		await WaitAsync(() => page.FindByName<Label>("Status").Text.StartsWith("Ready"));
 		Call(page, "ShowManagementTab", true, false);
+		var overview = page.FindByName<CatalogGrid>("SetlistHeader");
+		Check(overview.IsVisible && overview.Fields == (CatalogColumn.Songs | CatalogColumn.Date | CatalogColumn.Duration),
+			"Setlist overview did not show its date, song count and partial duration columns");
+		CatalogCell durationHeader = overview.Children.OfType<CatalogCell>().Single(cell => cell.Text == "Duration");
+		Check(overview.ColumnDefinitions[Grid.GetColumn((BindableObject)durationHeader)].Width.IsAbsolute
+			&& overview.ColumnDefinitions[0].Width.IsAbsolute, "Setlist overview did not fit the final Duration column");
+		SetlistRow setlist = session.GetSetlists().Single();
+		Check(setlist.DurationText == "6:16 (2/3 timed)", "Setlist duration did not identify partial timing");
+		await CaptureAsync(page, "setlist-columns-overview.png");
 		Call(page, "OpenSetlist", list);
+		var entryHeader = page.FindByName<CatalogGrid>("EntrySongHeader");
+		Check((entryHeader.Fields & (CatalogColumn.Key | CatalogColumn.Capo | CatalogColumn.Tags))
+			== (CatalogColumn.Key | CatalogColumn.Capo | CatalogColumn.Tags), "Setlist detail lost catalog columns");
+		await CaptureAsync(page, "setlist-columns-detail.png");
 		string initial = await store.ReadDatabaseJsonAsync(location);
 		Click(page, "EditSetlistButton");
 		await WaitAsync(() => page.FindByName<FluentIconButton>("EditSetlistButton").Description == "Save");
@@ -134,7 +151,7 @@ public sealed partial class SmokeMauiApp : Microsoft.Maui.Controls.Application
 		rows = (ObservableCollection<SetlistEntryRow>)page.FindByName<CollectionView>("SetlistEntries").ItemsSource;
 		Check(rows.Select(row => row.EntryId).SequenceEqual(new[] { original[1], original[2], original[0] }), "Sort lost repeated occurrence ordering");
 		await WaitAsync(() => Descendants((NativeElement)page.Handler!.PlatformView!).OfType<Microsoft.UI.Xaml.Controls.TextBlock>()
-			.Count(t => t.Text == "Zulu — Synthetic Artist" && t.ActualWidth > 0) >= 2);
+			.Count(t => t.Text == "Zulu" && t.ActualWidth > 0) >= 2);
 		await CaptureAsync(page, "setlist-editor.png");
 		Click(page, "EditSetlistButton");
 		await WaitAsync(() => !Busy(page) && page.FindByName<FluentIconButton>("EditSetlistButton").Description == "Edit");
@@ -204,7 +221,7 @@ public sealed partial class SmokeMauiApp : Microsoft.Maui.Controls.Application
 		await NativeImportReviewSmoke.RunAsync(page, session);
 		await NativeFileOpeningSmoke.RunAsync(page, session, app, store, location);
 		await NativeOutputEditorSmoke.RunAsync(window, session);
-		Program.Result("PASS: Filtered/grouped/flat Select All and Unselect All, batched 721-song selection, narrow toolbar and setlist-addition selection; setlist Select Songs, compact toolbar, Tg labels and selection Edit Tags union/add/remove/clear-all, cancel/no source changes and exclusion search; mixed import review failure categories/named errors/valid Apply; grouped/flat browser row preservation after actual text Save/Back and stale-search cancellation; legacy-source startup/recent books, file activation/opening, metadata directive review, view date sorting, output auto-scroll and production setlist Sort/Save, stable repeated entries, no writes before Save, editor Back, Keep Editing, staged song addition, song-selection cancel, Discard, unchanged Back and failed-save/retry all passed on a disposable book.");
+		Program.Result("PASS: Wide and compact song columns, empty filtered columns, setlist overview/detail columns and partial durations; filtered/grouped/flat Select All and Unselect All, batched 721-song selection, narrow toolbar and setlist-addition selection; setlist Select Songs, compact toolbar, Tags column and selection Edit Tags union/add/remove/clear-all, cancel/no source changes and exclusion search; mixed import review failure categories/named errors/valid Apply; grouped/flat browser row preservation after actual text Save/Back and stale-search cancellation; legacy-source startup/recent books, file activation/opening, metadata directive review, view date sorting, output auto-scroll and production setlist Sort/Save, stable repeated entries, no writes before Save, editor Back, Keep Editing, staged song addition, song-selection cancel, Discard, unchanged Back and failed-save/retry all passed on a disposable book.");
 	}
 
 	internal static object? Field(MainPage page, string name) => typeof(MainPage).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(page);

@@ -49,13 +49,13 @@ public sealed class BookGroupingIndexTests
 	}
 
 	[TestMethod]
-	[DataRow("tempo")]
-	[DataRow("year")]
-	[DataRow("capo")]
-	public void NumericValuesSortNumericallyAndBlankValuesFollow(string field)
+	[DataRow("tempo", "100", 3, 1)]
+	[DataRow("year", "100", 3, 1)]
+	[DataRow("capo", "24", 2, 2)]
+	public void NumericValuesSortNumericallyAndBlankValuesFollow(string field, string largest, int threeCount, int unspecifiedCount)
 	{
 		ChordDatabase database = ChordDatabase.Create("Numbers", Guid.NewGuid());
-		foreach (string value in new[] { "100", "20", "3", string.Empty, "003", "003.00" })
+		foreach (string value in new[] { largest, "20", "3", string.Empty, "003", "003.00" })
 		{
 			Song song = new() { Id = Guid.NewGuid(), Title = value };
 			song.MetadataOverrides[field] = [value];
@@ -63,8 +63,9 @@ public sealed class BookGroupingIndexTests
 		}
 
 		IReadOnlyList<BookSongGroup> groups = new BookGroupingIndex(database).Group([.. database.Songs.Select(song => song.Id)], field);
-		groups.Select(group => group.Name).ShouldBe(["3", "20", "100", "Unspecified"]);
-		groups[0].SongIds.Count.ShouldBe(3);
+		groups.Select(group => group.Name).ShouldBe(["3", "20", largest, "Unspecified"]);
+		groups[0].SongIds.Count.ShouldBe(threeCount);
+		groups[^1].SongIds.Count.ShouldBe(unspecifiedCount);
 	}
 
 	[TestMethod]

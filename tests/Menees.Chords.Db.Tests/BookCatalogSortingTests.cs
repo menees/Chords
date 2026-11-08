@@ -18,10 +18,10 @@ public sealed class BookCatalogSortingTests
 	#region Public Methods
 
 	[TestMethod]
-	[DataRow("tempo")]
-	[DataRow("year")]
-	[DataRow("capo")]
-	public void NumericSortUsesEffectiveValuesAndKeepsMissingLastInBothDirections(string field)
+	[DataRow("tempo", "30")]
+	[DataRow("year", "30")]
+	[DataRow("capo", "24")]
+	public void NumericSortUsesEffectiveValuesAndKeepsMissingLastInBothDirections(string field, string updatedValue)
 	{
 		ChordDatabase database = ChordDatabase.Create("Sorting", Guid.NewGuid());
 		Song first = new() { Id = Guid.NewGuid(), Title = "Zulu" };
@@ -39,7 +39,7 @@ public sealed class BookCatalogSortingTests
 		index.Sort(ids, field).ShouldBe([first.Id, third.Id, second.Id, missing.Id]);
 		index.Sort(ids, field, descending: true).ShouldBe([second.Id, third.Id, first.Id, missing.Id]);
 		index.Group(index.Sort(ids, field, descending: true), field).Single(group => group.Name == "2").SongIds.ShouldBe([first.Id]);
-		first.MetadataOverrides[field] = ["30"];
+		first.MetadataOverrides[field] = [updatedValue];
 		index.Sort(ids, field)[0].ShouldBe(first.Id);
 		index.RefreshSong(first);
 		index.Sort(ids, field).ShouldBe([third.Id, second.Id, first.Id, missing.Id]);

@@ -41,9 +41,19 @@
 				</HorizontalStackLayout>
 			</FlexLayout>
 
-			<Grid SizeChanged="HandleJumpViewportChanged" x:Name="SongSurface" Grid.Row="3" ColumnDefinitions="*,Auto">
+			<Grid SizeChanged="HandleJumpViewportChanged" x:Name="SongSurface" Grid.Row="3" ColumnDefinitions="*,Auto" RowDefinitions="Auto,*">
+				<local:CatalogGrid x:Name="SongHeader" IsHeader="True" CompactOnNarrow="True" IsVisible="False" Margin="8,0,2,0"
+					BackgroundColor="{DynamicResource AppSurface}" SizeChanged="HandleCatalogHeaderSizeChanged">
+					<local:CatalogCell Text="Title" FontAttributes="Bold" />
+					<local:CatalogCell Text="Artist" FontAttributes="Bold" local:CatalogGrid.Field="Artist" />
+					<local:CatalogCell Text="Key" FontAttributes="Bold" local:CatalogGrid.Field="Key" />
+					<local:CatalogCell Text="BPM" FontAttributes="Bold" HorizontalTextAlignment="End" local:CatalogGrid.Field="Tempo" />
+					<local:CatalogCell Text="Capo" FontAttributes="Bold" HorizontalTextAlignment="End" local:CatalogGrid.Field="Capo" />
+					<local:CatalogCell Text="Tags" FontAttributes="Bold" local:CatalogGrid.Field="Tags" />
+				</local:CatalogGrid>
 				<CollectionView
 					x:Name="SongList"
+					Grid.Row="1"
 					Margin="8,0,2,0"
 					IsGrouped="True"
 					ItemSizingStrategy="MeasureAllItems"
@@ -64,17 +74,22 @@
 					</CollectionView.GroupHeaderTemplate>
 					<CollectionView.ItemTemplate>
 						<DataTemplate x:DataType="local:SongRow">
-							<Grid Padding="8,4">
-								<Label
-									Text="{Binding DisplayText}" TextColor="{DynamicResource AppText}" FontAttributes="{Binding RowFontAttributes}"
-									FontSize="14"
-									LineBreakMode="WordWrap" />
-							</Grid>
+							<local:CatalogGrid ColumnLayout="{Binding ColumnLayout, Source={x:Reference SongHeader}, x:DataType=local:CatalogGrid}">
+								<VerticalStackLayout>
+									<local:CatalogCell Text="{Binding Title}" FontAttributes="{Binding RowFontAttributes}" />
+									<local:CatalogCell Text="{Binding Indicators}" FontSize="12" TextColor="{DynamicResource AppMuted}" />
+								</VerticalStackLayout>
+								<local:CatalogCell Text="{Binding Artist}" local:CatalogGrid.Field="Artist" />
+								<local:CatalogCell Text="{Binding Key}" local:CatalogGrid.Field="Key" />
+								<local:CatalogCell Text="{Binding Tempo}" HorizontalTextAlignment="End" local:CatalogGrid.Field="Tempo" />
+								<local:CatalogCell Text="{Binding Capo}" HorizontalTextAlignment="End" local:CatalogGrid.Field="Capo" />
+								<local:CatalogCell Text="{Binding Tags}" local:CatalogGrid.Field="Tags" />
+							</local:CatalogGrid>
 						</DataTemplate>
 					</CollectionView.ItemTemplate>
 				</CollectionView>
 
-				<ScrollView x:Name="SongJumps" Grid.Column="1" WidthRequest="56" MinimumHeightRequest="0" Orientation="Vertical" VerticalScrollBarVisibility="Always">
+				<ScrollView x:Name="SongJumps" Grid.Column="1" Grid.RowSpan="2" WidthRequest="56" MinimumHeightRequest="0" Orientation="Vertical" VerticalScrollBarVisibility="Always">
 					<VerticalStackLayout x:Name="JumpLetters" Spacing="0" Padding="2,0" />
 				</ScrollView>
 			</Grid>
@@ -87,9 +102,17 @@
 						<local:ArchiveToggle x:Name="ShowArchivedSetlists" Grid.Column="2" CheckedChanged="HandleShowArchivedSetlistsChanged" />
 						<local:FluentIconButton Grid.Column="3" Icon="LayerDiagonal" Description="New Setlist" Clicked="HandleNewSetlistClicked" />
 					</Grid>
-					<Grid Grid.Row="1" ColumnDefinitions="*,Auto" SizeChanged="HandleJumpViewportChanged">
+					<Grid Grid.Row="1" ColumnDefinitions="*,Auto" RowDefinitions="Auto,*" SizeChanged="HandleJumpViewportChanged">
+						<local:CatalogGrid x:Name="SetlistHeader" IsHeader="True" IsVisible="False" Margin="8,0,2,0"
+							BackgroundColor="{DynamicResource AppSurface}" SizeChanged="HandleCatalogHeaderSizeChanged">
+							<local:CatalogCell Text="Setlist" FontAttributes="Bold" />
+							<local:CatalogCell Text="Songs" FontAttributes="Bold" HorizontalTextAlignment="End" local:CatalogGrid.Field="Songs" />
+							<local:CatalogCell Text="Date" FontAttributes="Bold" local:CatalogGrid.Field="Date" />
+							<local:CatalogCell Text="Duration" FontAttributes="Bold" local:CatalogGrid.Field="Duration" />
+						</local:CatalogGrid>
 						<CollectionView
 							x:Name="SetlistList"
+							Grid.Row="1"
 							Margin="8,0,2,0"
 							IsGrouped="True"
 							ItemSizingStrategy="MeasureAllItems"
@@ -102,17 +125,25 @@
 							</CollectionView.GroupHeaderTemplate>
 							<CollectionView.ItemTemplate>
 								<DataTemplate x:DataType="local:SetlistRow">
-									<Label Text="{Binding DisplayText}" TextColor="{DynamicResource AppText}" FontAttributes="{Binding RowFontAttributes}" Padding="8,4" FontSize="14" LineBreakMode="WordWrap" />
+									<local:CatalogGrid ColumnLayout="{Binding ColumnLayout, Source={x:Reference SetlistHeader}, x:DataType=local:CatalogGrid}">
+										<VerticalStackLayout>
+											<local:CatalogCell Text="{Binding Name}" FontAttributes="{Binding RowFontAttributes}" />
+											<local:CatalogCell Text="{Binding ArchiveText}" FontSize="12" TextColor="{DynamicResource AppMuted}" />
+										</VerticalStackLayout>
+										<local:CatalogCell Text="{Binding EntryCount, StringFormat='{0:N0}'}" HorizontalTextAlignment="End" local:CatalogGrid.Field="Songs" />
+										<local:CatalogCell Text="{Binding DateText}" local:CatalogGrid.Field="Date" />
+										<local:CatalogCell Text="{Binding DurationText}" local:CatalogGrid.Field="Duration" />
+									</local:CatalogGrid>
 								</DataTemplate>
 							</CollectionView.ItemTemplate>
 						</CollectionView>
-						<ScrollView Grid.Column="1" WidthRequest="56" MinimumHeightRequest="0" Orientation="Vertical" VerticalScrollBarVisibility="Always">
+						<ScrollView Grid.Column="1" Grid.RowSpan="2" WidthRequest="56" MinimumHeightRequest="0" Orientation="Vertical" VerticalScrollBarVisibility="Always">
 							<VerticalStackLayout x:Name="SetlistJumpLetters" Spacing="0" Padding="2,0" />
 						</ScrollView>
 					</Grid>
 				</Grid>
 
-				<Grid x:Name="SetlistDetail" IsVisible="False" RowDefinitions="Auto,*">
+				<Grid x:Name="SetlistDetail" IsVisible="False" RowDefinitions="Auto,Auto,*">
 					<Grid x:Name="SetlistEditorToolbar" Padding="8,4" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
 						<local:FluentIconButton x:Name="SetlistEditorBackButton" Icon="ArrowLeft" Description="Back" IsVisible="False" Clicked="HandleBackClicked" />
 						<VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
@@ -129,9 +160,22 @@
 							<local:FluentIconButton x:Name="SelectSetlistSongsButton" Icon="MultiselectLtr" Description="Select Songs" Clicked="HandleSelectSetlistSongsClicked" />
 						</HorizontalStackLayout>
 					</Grid>
+					<Grid x:Name="SetlistEntryHeader" IsVisible="False" Grid.Row="1" Margin="8,0" Padding="8,0" ColumnDefinitions="64,*,Auto"
+						ColumnSpacing="5" BackgroundColor="{DynamicResource AppSurface}">
+						<local:CatalogCell Text="#" FontAttributes="Bold" HorizontalTextAlignment="Center" VerticalOptions="Center" />
+						<local:CatalogGrid x:Name="EntrySongHeader" Grid.Column="1" IsHeader="True" CompactOnNarrow="True" SizeChanged="HandleCatalogHeaderSizeChanged">
+							<local:CatalogCell Text="Title" FontAttributes="Bold" />
+							<local:CatalogCell Text="Artist" FontAttributes="Bold" local:CatalogGrid.Field="Artist" />
+							<local:CatalogCell Text="Key" FontAttributes="Bold" local:CatalogGrid.Field="Key" />
+							<local:CatalogCell Text="BPM" FontAttributes="Bold" HorizontalTextAlignment="End" local:CatalogGrid.Field="Tempo" />
+							<local:CatalogCell Text="Capo" FontAttributes="Bold" HorizontalTextAlignment="End" local:CatalogGrid.Field="Capo" />
+							<local:CatalogCell Text="Tags" FontAttributes="Bold" local:CatalogGrid.Field="Tags" />
+						</local:CatalogGrid>
+						<BoxView Grid.Column="2" WidthRequest="143" HeightRequest="0" IsVisible="{Binding IsVisible, Source={x:Reference SortSetlistButton}, x:DataType=local:FluentIconButton}" />
+					</Grid>
 					<CollectionView
 						x:Name="SetlistEntries"
-						Grid.Row="1"
+						Grid.Row="2"
 						Margin="8,0"
 						SelectionMode="Single"
 						ReorderCompleted="HandleSetlistReorderCompleted" SelectionChanged="HandleSetlistEntrySelected">
@@ -140,15 +184,26 @@
 						</CollectionView.EmptyView>
 						<CollectionView.ItemTemplate>
 							<DataTemplate x:DataType="local:SetlistEntryRow">
-								<Grid ColumnDefinitions="64,*,Auto,Auto,Auto,Auto" Padding="8,3" ColumnSpacing="5">
-
+								<Grid ColumnDefinitions="64,*,Auto" Padding="8,0" ColumnSpacing="5">
 									<Label Text="{Binding Position}" IsVisible="{Binding IsViewing}" HorizontalTextAlignment="Center" VerticalOptions="Center" />
-                                    <local:PositionEntry Text="{Binding Position, Mode=OneWay}" IsVisible="{Binding IsEditing}" Keyboard="Numeric" HorizontalTextAlignment="Center" PositionSubmitted="HandleSetlistPositionCompleted" Unfocused="HandleSetlistPositionUnfocused" SemanticProperties.Description="Song position, starting at 1. Press Enter to move." />
-									<Label Grid.Column="1" Text="{Binding DisplayText}" TextColor="{DynamicResource AppText}" FontAttributes="{Binding Song.RowFontAttributes}" FontSize="14" LineBreakMode="WordWrap" VerticalOptions="Center" />
-									<local:FluentIconButton Grid.Column="2" Icon="ArrowUp" Description="Move Up" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveUp}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryUpClicked" />
-									<local:FluentIconButton Grid.Column="3" Icon="ArrowDown" Description="Move Down" IsVisible="{Binding IsEditing}" IsEnabled="{Binding CanMoveDown}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryDownClicked" />
-									<local:FluentIconButton Grid.Column="4" Icon="Subtract" Description="Remove" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleRemoveSetlistEntryClicked" />
-									<local:FluentIconButton Grid.Column="5" Icon="Settings" Description="Settings…" IsVisible="{Binding IsEditing}" CommandParameter="{Binding .}" Clicked="HandleEntrySettingsClicked" />
+									<local:PositionEntry Text="{Binding Position, Mode=OneWay}" IsVisible="{Binding IsEditing}" Keyboard="Numeric" HorizontalTextAlignment="Center" PositionSubmitted="HandleSetlistPositionCompleted" Unfocused="HandleSetlistPositionUnfocused" SemanticProperties.Description="Song position, starting at 1. Press Enter to move." />
+									<local:CatalogGrid Grid.Column="1" ColumnLayout="{Binding ColumnLayout, Source={x:Reference EntrySongHeader}, x:DataType=local:CatalogGrid}">
+										<VerticalStackLayout>
+											<local:CatalogCell Text="{Binding Song.Title}" FontAttributes="{Binding Song.RowFontAttributes}" />
+											<local:CatalogCell Text="{Binding Details}" FontSize="12" TextColor="{DynamicResource AppMuted}" />
+										</VerticalStackLayout>
+										<local:CatalogCell Text="{Binding Song.Artist}" local:CatalogGrid.Field="Artist" />
+										<local:CatalogCell Text="{Binding Song.Key}" local:CatalogGrid.Field="Key" />
+										<local:CatalogCell Text="{Binding Song.Tempo}" HorizontalTextAlignment="End" local:CatalogGrid.Field="Tempo" />
+										<local:CatalogCell Text="{Binding Song.Capo}" HorizontalTextAlignment="End" local:CatalogGrid.Field="Capo" />
+										<local:CatalogCell Text="{Binding Song.Tags}" local:CatalogGrid.Field="Tags" />
+									</local:CatalogGrid>
+									<HorizontalStackLayout Grid.Column="2" IsVisible="{Binding IsEditing}" Spacing="5" VerticalOptions="Center">
+										<local:FluentIconButton Icon="ArrowUp" Description="Move Up" IsEnabled="{Binding CanMoveUp}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryUpClicked" />
+										<local:FluentIconButton Icon="ArrowDown" Description="Move Down" IsEnabled="{Binding CanMoveDown}" CommandParameter="{Binding .}" Clicked="HandleMoveSetlistEntryDownClicked" />
+										<local:FluentIconButton Icon="Subtract" Description="Remove" CommandParameter="{Binding .}" Clicked="HandleRemoveSetlistEntryClicked" />
+										<local:FluentIconButton Icon="Settings" Description="Settings…" CommandParameter="{Binding .}" Clicked="HandleEntrySettingsClicked" />
+									</HorizontalStackLayout>
 								</Grid>
 							</DataTemplate>
 						</CollectionView.ItemTemplate>

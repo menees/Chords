@@ -177,23 +177,23 @@ public sealed partial class BookApplicationSession
 			.. setlist.Entries.Select(entry =>
 			{
 				SongCatalogItem song = items[entry.SongId];
-				string display = song.DisplayText;
+				List<string> details = [];
 				if (entry.InstrumentProfileId is Guid profileId && instruments.TryGetValue(profileId, out string? name))
 				{
-					display += " · " + name;
+					details.Add(name);
 				}
 
 				if (entry.PreferredSongFileId is not null)
 				{
-					display += " · Sheet override";
+					details.Add("Sheet override");
 				}
 
 				if (entry.TransposeSemitones is int transpose)
 				{
-					display += FormattableString.Invariant($" · Transpose {transpose:+0;-0;0}");
+					details.Add(FormattableString.Invariant($"Transpose {transpose:+0;-0;0}"));
 				}
 
-				return new SetlistEntryCatalogItem(entry.Id, song.Id, display);
+				return new SetlistEntryCatalogItem(entry.Id, song, string.Join(" · ", details));
 			}),
 		];
 	}
@@ -657,7 +657,7 @@ public sealed partial class BookApplicationSession
 
 	private static SongCatalogItem CreateCatalogItem(Song song, int active, int archived, int recovery)
 	{
-		List<string> parts = [CreateDisplayText(song)];
+		List<string> parts = [];
 		if (active > 1)
 		{
 			parts.Add($"{active} sheets");
@@ -685,18 +685,48 @@ public sealed partial class BookApplicationSession
 			parts.Add("Metronome override");
 		}
 
+		string displayText = CreateDisplayText(song);
+		string sheetIndicators = string.Join(" · ", parts);
+		if (song.IsArchived)
+		{
+			parts.Insert(0, "Archived");
+		}
+
 		return new(
 			song.Id,
 			song.Title,
 			[.. song.Artists],
-			string.Join(" · ", parts),
+			sheetIndicators.Length == 0 ? displayText : $"{displayText} · {sheetIndicators}",
 			song.IsArchived,
 			active,
 			song.LastAccessedUtc,
 			archived,
 			recovery,
 			display,
-			metronome);
+			metronome)
+		{
+			Artist = string.Join(", ", song.Artists.Where(artist => !string.IsNullOrWhiteSpace(artist))),
+			Key = string.Join(", ", GetCatalogColumnValues(song, "key", "keys").Select(FormatCatalogKey)),
+			Tempo = string.Join(", ", GetCatalogColumnValues(song, "tempo", "tempos", "bpm")),
+			Capo = string.Join(", ", GetCatalogColumnValues(song, "capo")),
+			Tags = string.Join(", ", song.Tags.Where(tag => !string.IsNullOrWhiteSpace(tag))),
+			Indicators = song.IsArchived ? string.Join(" · ", parts) : sheetIndicators,
+		};
+	}
+
+	private static IEnumerable<string> GetCatalogColumnValues(Song song, params string[] names)
+		=> names.SelectMany(name => SongMetadata.GetValues(song, name))
+			.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase);
+
+	private static string FormatCatalogKey(string value)
+	{
+		string result = value;
+		if (value.Length > 1 && value[1] is '#' or 'b' && char.ToUpperInvariant(value[0]) is >= 'A' and <= 'G')
+		{
+			result = string.Concat(value.AsSpan(0, 1), value[1] == '#' ? "♯" : "♭", value.AsSpan(2));
+		}
+
+		return result;
 	}
 
 	private static string CreateDisplayText(Song song)

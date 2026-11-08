@@ -4,10 +4,11 @@ namespace Menees.Chords.Book.Maui;
 
 public sealed partial class SetlistEntryRow : INotifyPropertyChanged
 {
-	public SetlistEntryRow(Guid entryId, SongRow song, int position, bool isEditing, bool canMoveUp, bool canMoveDown, string? displayText = null)
+	public SetlistEntryRow(Guid entryId, SongRow song, int position, bool isEditing, bool canMoveUp, bool canMoveDown, string details)
 	{
 		this.EntryId = entryId;
-		this.DisplayText = displayText ?? song.DisplayText;
+		this.Details = details.Length == 0 || song.Indicators.Length == 0
+			? song.Indicators + details : $"{song.Indicators} · {details}";
 		this.Song = song;
 		this.Position = position;
 		this.IsEditing = isEditing;
@@ -31,7 +32,7 @@ public sealed partial class SetlistEntryRow : INotifyPropertyChanged
 
 	public bool CanMoveDown { get; private set; }
 
-	public string DisplayText { get; }
+	public string Details { get; }
 
 	public void UpdatePosition(int position, int count)
 	{

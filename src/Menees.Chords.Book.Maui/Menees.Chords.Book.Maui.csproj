@@ -8,6 +8,7 @@
 	<PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
 		<OutputType>WinExe</OutputType>
 		<UseMaui>true</UseMaui>
+		<MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
 		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 		<SingleProject>true</SingleProject>
 		<SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>

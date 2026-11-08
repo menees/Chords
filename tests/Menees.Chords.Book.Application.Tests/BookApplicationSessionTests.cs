@@ -69,10 +69,36 @@ public sealed class BookApplicationSessionTests
 
 		SongCatalogItem match = session.Search("jose worship").Single();
 		match.Title.ShouldBe("Café Song");
+		match.Artist.ShouldBe("José");
+		match.Key.ShouldBe("F♯");
+		match.Tempo.ShouldBe("102");
+		match.Capo.ShouldBe("4");
+		match.Tags.ShouldBe("worship");
 		match.DisplayText.ShouldBe(
 			"Café Song — José · C:4 · T:102 · K:F# · A:Come On Over · Com:A. Writer · Cop:1997 Example · Tg:worship");
 		session.Search("hidden").ShouldBeEmpty();
 		session.Search("hidden", includeArchived: true).Single().IsArchived.ShouldBeTrue();
+	}
+
+	[TestMethod]
+	public async Task SongCreationIgnoresInvalidCapoDirectivesAndPreservesAuthoredText()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		Guid device = Guid.NewGuid();
+		InMemoryBookStore store = new();
+		BookLocation location = await store.CreateBookAsync("Capo", device, token);
+		BookApplicationSession session = new();
+		await session.ActivateAsync(store, location, token);
+		const string Text = "{title: Capo}\r\n{capo: 0}\r\n{capo: Xyz}\r\n{capo: 25}\r\n{key: Bbm}\r\n[Bbm]Song";
+		Guid id = await session.CreateSongAsync("Capo", [], [], Text, device, token);
+		ChordDatabase saved = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, token));
+		saved.Songs.Single().SourceMetadata.ShouldNotContainKey("capo");
+		SongCatalogItem row = session.Search(null).Single();
+		row.Capo.ShouldBeEmpty();
+		row.Key.ShouldBe("B♭m");
+		session.Search("capo:0").ShouldBeEmpty();
+		session.Search("capo:Xyz").ShouldBeEmpty();
+		(await session.GetSongEditAsync(id, token)).Text.ShouldBe(Text);
 	}
 
 	[TestMethod]

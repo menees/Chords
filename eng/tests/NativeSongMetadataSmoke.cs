@@ -76,7 +76,7 @@ internal static class NativeSongMetadataSmoke
 		Check(ids.All(id => session.Database.Songs.Single(song => song.Id == id).Tags.ToHashSet().SetEquals(["Shared", "Live", "Christian"])),
 			"Apply did not replace every song with the checked tag set");
 		Check(!(bool)Field(owner, "selectingSongs")!, "Apply did not leave selection mode");
-		Check(((IReadOnlyList<SongRow>)Field(owner, "allSongs")!).All(song => song.DisplayText.Contains("Tg:") && song.DisplayText.Contains("Christian")), "Tag abbreviation was not Tg");
+		Check(((IReadOnlyList<SongRow>)Field(owner, "allSongs")!).All(song => song.Tags.Split(", ").Contains("Christian")), "The Tags column did not show the saved tag");
 		Check(System.Text.Json.JsonSerializer.Serialize(session.Database.SongFiles) == files, "Tagging changed source records");
 		Call(owner, "ShowManagementTab", false, false);
 		Call(owner, "BeginSongSelection", new object?[] { null });
