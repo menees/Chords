@@ -12,7 +12,6 @@ public sealed record SongVersionSide(
 	DateTimeOffset? RecoveredUtc,
 	string ContentHash,
 	string? Text,
-	DateTimeOffset? SavedUtc = null,
 	bool UsedBySetlists = false,
 	bool UsedByInstruments = false)
 {

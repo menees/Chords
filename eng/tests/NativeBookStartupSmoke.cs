@@ -81,13 +81,9 @@ internal static class NativeBookStartupSmoke
 			SongEditDocument edit = await session.GetSongEditAsync(bad.SongId);
 			await session.SaveSongEditAsync(edit, edit.Title, edit.Artists, edit.Tags, "[C]Repaired text");
 			CallScan(integrity);
-			await WaitAsync(() => output.Text?.Contains("Sheet type: Previous save") == true);
-			Check(!output.Text.Contains("Sheet type: Current sheet"), "Repaired current sheet still reported invalid");
-			Guid previous = session.Database!.SongFiles.Single(file => file.SavedVersion is not null).Id;
-			await session.DeleteArchivedSongFileAsync(bad.SongId, previous);
-			CallScan(integrity);
 			await WaitAsync(() => output.Text?.Contains("No integrity problems found.") == true);
-			Check(!output.Text.Contains("U+0001") && !output.Text.Contains("last book open"), "Deleted previous-save warning remained");
+			Check(session.Database!.SongFiles.Count(file => file.SongId == bad.SongId) == 1, "Repair unexpectedly created a sheet");
+			Check(!output.Text.Contains("U+0001") && !output.Text.Contains("last book open"), "Repaired-sheet warning remained");
 			await CaptureAsync(integrity, "current-validation-clean.png");
 			typeof(BookIntegrityPage).GetMethod("HandleClose", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(integrity, [null, EventArgs.Empty]);
 			await WaitAsync(() => page.Navigation.NavigationStack.Count == 1);

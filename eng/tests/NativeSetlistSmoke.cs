@@ -203,7 +203,7 @@ public sealed partial class SmokeMauiApp : Microsoft.Maui.Controls.Application
 		await NativeSongMetadataSmoke.RunBulkTagsAsync(page, session);
 		await NativeImportReviewSmoke.RunAsync(page, session);
 		await NativeFileOpeningSmoke.RunAsync(page, session, app, store, location);
-		await NativeOutputEditorSmoke.RunAsync(window);
+		await NativeOutputEditorSmoke.RunAsync(window, session);
 		Program.Result("PASS: Filtered/grouped/flat Select All and Unselect All, batched 721-song selection, narrow toolbar and setlist-addition selection; setlist Select Songs, compact toolbar, Tg labels and selection Edit Tags union/add/remove/clear-all, cancel/no source changes and exclusion search; mixed import review failure categories/named errors/valid Apply; grouped/flat browser row preservation after actual text Save/Back and stale-search cancellation; legacy-source startup/recent books, file activation/opening, metadata directive review, view date sorting, output auto-scroll and production setlist Sort/Save, stable repeated entries, no writes before Save, editor Back, Keep Editing, staged song addition, song-selection cancel, Discard, unchanged Back and failed-save/retry all passed on a disposable book.");
 	}
 

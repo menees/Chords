@@ -77,7 +77,7 @@ public partial class MainPage
 						+ "Use backslash for literal special characters: tag:\\!Important, tag:\\*, tag:what\\?, \\\\ for a backslash, \\\" for a quote.\n"
 						+ "Double quotes group spaces; wildcards still work inside quotes. Square brackets are literal.\n\n"
 						+ "Genre comes from source metadata such as {meta: genre Folk}; it is separate from tags.\n\n"
-						+ "Use true or false with: archived, display, metronome, multiple, recovery, previoussave, archivedfiles.\n"
+						+ "Use true or false with: archived, display, metronome, multiple, recovery, archivedfiles.\n"
 						+ "Enable Show Archived to include archived songs. All terms must match. Save a search as a tab from Views.";
 				await this.DisplayAlertAsync("Search", Help, "Close").ConfigureAwait(true);
 			}

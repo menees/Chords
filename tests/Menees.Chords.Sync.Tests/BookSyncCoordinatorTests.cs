@@ -65,6 +65,132 @@ public sealed class BookSyncCoordinatorTests
 	}
 
 	[TestMethod]
+	public async Task LockedSyncMigratesOldNamesThenOverwritesTheStableNameAndPurgesSupersededAssets()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		SongFile old = (await this.ReadAsync(this.storeA, this.bookA)).SongFiles.Single();
+		string clean = PortableManagedFileName.WithoutLegacySyncToken(old.RelativePath, old.Id);
+		clean.ShouldNotBe(old.RelativePath);
+		await this.cloud.SeedAsync("README.md", new MemoryStream([1, 2, 3]), token);
+		string older = PortableManagedFileName.Create("Older 0123456789abcdef", old.Id, ".cho");
+		await this.cloud.SeedAsync(older, new MemoryStream([4, 5, 6]), token);
+		(await LegacySheetNames.CleanAsync(this.storeA, this.bookA, token)).ShouldBe(1);
+
+		RecordingSyncProgress progress = new();
+		(await this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA, progress: progress)).UploadedSheets.ShouldBe(1);
+		BookSyncProgress[] cleanup = [.. progress.Values.Where(value => value.Message.StartsWith("Removing obsolete cloud sheets:", StringComparison.Ordinal))];
+		cleanup.Select(value => value.CompletedSheets).ShouldBe([0, 1, 2]);
+		cleanup.ShouldAllBe(value => value.TotalSheets == 2);
+		string[] messages = [.. progress.Values.Select(value => value.Message)];
+		int saving = Array.IndexOf(messages, "Saving the cloud book…");
+		saving.ShouldBeGreaterThanOrEqualTo(0);
+		saving.ShouldBeLessThan(Array.IndexOf(messages, cleanup[0].Message));
+		CloudBookSnapshot migrated = (await CloudBookReader.ReadAsync(this.cloud, token))!;
+		migrated.Database.SongFiles.Single().RelativePath.ShouldBe(clean);
+		migrated.FolderItems.ContainsKey(old.RelativePath).ShouldBeFalse();
+		migrated.FolderItems.ContainsKey("README.md").ShouldBeTrue();
+		await this.EditAsync(this.storeA, this.bookA, this.deviceA, "new stable bytes");
+		(await this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA)).UploadedSheets.ShouldBe(1);
+		CloudBookSnapshot updated = (await CloudBookReader.ReadAsync(this.cloud, token))!;
+		updated.ManagedItems[old.Id].Id.ShouldBe(migrated.ManagedItems[old.Id].Id);
+		updated.Database.SongFiles.Single().RelativePath.ShouldBe(clean);
+		updated.FolderItems.Keys.ShouldBe(["database.json", clean, "README.md"], ignoreOrder: true);
+	}
+
+	[TestMethod]
+	[DataRow(false)]
+	[DataRow(true)]
+	public async Task InterruptedOverwriteCanResumeOrBeReconciledByAStaleLockTakeover(bool takeOver)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		using MemoryStream extra = new("{title: Second}\n[C]Second original"u8.ToArray());
+		await BookImportService.ImportAsync(this.storeA, this.bookA, "second.cho", extra, this.deviceA, token);
+		await this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA);
+		this.bookB = await this.DownloadAsync();
+		CloudBookSnapshot before = (await CloudBookReader.ReadAsync(this.cloud, token))!;
+		SongFile[] originals = [.. before.Database.SongFiles.OrderBy(file => file.Id)];
+		SongFile file = originals[0];
+		await this.EditAsync(this.storeA, this.bookA, this.deviceA, "partially uploaded", file.Id);
+		await this.EditAsync(this.storeA, this.bookA, this.deviceA, "not yet uploaded", originals[1].Id);
+		string catalog = before.DatabaseJson;
+		this.cloud.AfterMutation = operation =>
+		{
+			if (operation == "Replace:" + file.RelativePath)
+			{
+				throw new IOException("Lost overwrite response.");
+			}
+		};
+
+		await Should.ThrowAsync<IOException>(() => this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA));
+		this.cloud.AfterMutation = null;
+		(await this.cloud.ReadCatalogAsync(token)).ShouldBe(catalog);
+		CloudBookLockedException locked = await Should.ThrowAsync<CloudBookLockedException>(
+			() => this.SyncLockedAsync(this.storeB, this.bookB, this.deviceB, takeOver: true));
+		locked.CanTakeOver.ShouldBeFalse();
+
+		if (takeOver)
+		{
+			await this.AgeCloudLockAsync(token);
+
+			await this.SyncLockedAsync(this.storeB, this.bookB, this.deviceB, takeOver: true);
+			(await this.TextAsync(this.storeB, this.bookB, file.Id)).ShouldBe("partially uploaded");
+			(await this.ReadAsync(this.storeB, this.bookB)).SongFiles.Single(sheet => sheet.Id == originals[1].Id).ContentHash
+				.ShouldBe(originals[1].ContentHash);
+			await this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA);
+		}
+		else
+		{
+			await this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA);
+		}
+
+		CloudBookSnapshot after = (await CloudBookReader.ReadAsync(this.cloud, token))!;
+		after.Database.SongFiles.Single(sheet => sheet.Id == file.Id).ContentHash
+			.ShouldBe(SongFileAnalyzer.Hash("partially uploaded"u8));
+		after.Database.SongFiles.Count.ShouldBe(2);
+		after.Database.SongFiles.Single(sheet => sheet.Id == originals[1].Id).ContentHash.ShouldBe(SongFileAnalyzer.Hash("not yet uploaded"u8));
+		this.cloud.Mutations.Count(operation => operation == "Replace:" + file.RelativePath).ShouldBe(1);
+		after.FolderItems.Keys.ShouldNotContain("chordbook-sync-lock.json");
+		after.FolderItems.Keys.ShouldNotContain("chordbook-sync-intent.json");
+	}
+
+	[TestMethod]
+	public async Task TakeoverFinishesSupersededFilenameCleanupAfterCatalogWasPublished()
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		await this.InitializeAsync(token);
+		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		this.bookB = await this.DownloadAsync();
+		SongFile old = (await this.ReadAsync(this.storeA, this.bookA)).SongFiles.Single();
+		await LegacySheetNames.CleanAsync(this.storeA, this.bookA, token);
+		this.cloud.AfterMutation = operation =>
+		{
+			if (operation == "Replace:database.json")
+			{
+				throw new IOException("Lost catalog response.");
+			}
+		};
+
+		await Should.ThrowAsync<IOException>(() => this.SyncLockedAsync(this.storeA, this.bookA, this.deviceA));
+		this.cloud.AfterMutation = null;
+		CloudBookSnapshot interrupted = (await CloudBookReader.ReadAsync(this.cloud, token))!;
+		interrupted.FolderItems.ContainsKey(old.RelativePath).ShouldBeTrue();
+		interrupted.Database.SongFiles.Single().RelativePath.ShouldNotBe(old.RelativePath);
+
+		await this.AgeCloudLockAsync(token);
+		RecordingSyncProgress progress = new();
+		await this.SyncLockedAsync(this.storeB, this.bookB, this.deviceB, takeOver: true, progress: progress);
+		progress.Values.Where(value => value.Message.StartsWith("Removing obsolete cloud sheets:", StringComparison.Ordinal))
+			.Select(value => value.CompletedSheets).ShouldBe([0, 1]);
+		CloudBookSnapshot finished = (await CloudBookReader.ReadAsync(this.cloud, token))!;
+		finished.FolderItems.ContainsKey(old.RelativePath).ShouldBeFalse();
+		finished.FolderItems.ContainsKey("chordbook-sync-intent.json").ShouldBeFalse();
+		finished.Database.SongFiles.Single().RelativePath.ShouldBe(interrupted.Database.SongFiles.Single().RelativePath);
+	}
+
+	[TestMethod]
 	[DataRow(false, 1, 12)]
 	[DataRow(false, 4, 12)]
 	[DataRow(true, 4, 12)]
@@ -954,6 +1080,33 @@ public sealed class BookSyncCoordinatorTests
 		using ReplicaStateLease lease = this.States(device).Acquire(new(database.Id, device, this.cloud.Identity));
 		BookSyncPreview review = await BookSyncCoordinator.PrepareAsync(store, location, this.cloud, lease, SyncDirection.TwoWay, Guid.Empty, token);
 		return await BookSyncCoordinator.ExecuteAsync(store, location, this.cloud, lease, review, cancellationToken: token);
+	}
+
+	private async Task AgeCloudLockAsync(CancellationToken token)
+	{
+		CloudReplicaItem item = (await this.cloud.ListOrGetChangesAsync(null, token)).Items
+			.Single(item => item.Name == "chordbook-sync-lock.json");
+		using Stream input = await this.cloud.DownloadAsync(item.Id, token);
+		var document = (await System.Text.Json.Nodes.JsonNode.ParseAsync(input, cancellationToken: token))!;
+		document["RenewedUtc"] = DateTimeOffset.UtcNow.AddMinutes(-11);
+		using MemoryStream content = new(Encoding.UTF8.GetBytes(document.ToJsonString()));
+		await this.cloud.ReplaceAsync(item.Id, item.Version, content, token);
+	}
+
+	private async Task<BookSyncResult> SyncLockedAsync(
+		FileSystemBookStore store, BookLocation location, Guid device, bool takeOver = false, RecordingSyncProgress? progress = null)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		ChordDatabase database = await this.ReadAsync(store, location);
+		using ReplicaStateLease lease = this.States(device).Acquire(new(database.Id, device, this.cloud.Identity));
+		await using CloudBookLease cloudLease = await CloudBookLease.AcquireAsync(this.cloud, device, device.ToString(), takeOver, token);
+		progress ??= new();
+		BookSyncPreview review = await BookSyncCoordinator.PrepareWithProgressAsync(
+			store, location, cloudLease, lease, SyncDirection.TwoWay, Guid.Empty, progress, token);
+		BookSyncResult result = await BookSyncCoordinator.ExecuteWithProgressAsync(
+			store, location, cloudLease, lease, review, progress, cancellationToken: token);
+		cloudLease.Complete();
+		return result;
 	}
 
 	private async Task<ChordDatabase> ReadAsync(FileSystemBookStore store, BookLocation location)

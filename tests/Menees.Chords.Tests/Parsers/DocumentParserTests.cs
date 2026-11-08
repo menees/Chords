@@ -6,6 +6,19 @@ public sealed class DocumentParserTests
 	#region Public Methods
 
 	[TestMethod]
+	[DataRow("{sortartist: Beatles, The}")]
+	[DataRow("sortartist: Beatles, The")]
+	[DataRow("{meta: sortartist Beatles, The}")]
+	public void SortArtistIsRecognizedAsMetadata(string source)
+	{
+		Entry parsed = Document.Parse(source).Entries.Single();
+		MetadataEntry? entry = parsed as MetadataEntry ?? MetadataEntry.TryParse((ChordProDirectiveLine)parsed);
+		entry.ShouldNotBeNull();
+		entry.Name.ShouldBe("sortartist");
+		entry.Argument.ShouldBe("Beatles, The");
+	}
+
+	[TestMethod]
 	public void ConvertTabsToSpacesTest()
 	{
 		DocumentParser.ConvertTabsToSpaces(null, DocumentParser.DefaultTabWidth).ShouldBeNull();

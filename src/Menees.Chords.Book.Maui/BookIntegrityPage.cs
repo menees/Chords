@@ -35,7 +35,7 @@ public sealed partial class BookIntegrityPage : ContentPage
 		layout.Add(ScreenLayout.Header("Validate Book", this.close, this.scan, this.cancel), 0, 0);
 		Label description = new()
 		{
-			Text = "Checks every sheet, including archived sheets, previous saves and recovery sheets. Files remain unchanged.",
+			Text = "Checks every sheet, including archived and recovery sheets. Files remain unchanged.",
 		};
 		layout.Add(description, 0, 1);
 		layout.Add(this.report, 0, 2);

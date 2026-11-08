@@ -112,11 +112,6 @@ internal sealed partial class SongVersionComparisonPage : ContentPage
 			description += $"\nPreserved by sync {recovered.ToLocalTime():g}";
 		}
 
-		if (side.SavedUtc is DateTimeOffset saved)
-		{
-			description += $"\nRetained before save {saved.ToLocalTime():g}";
-		}
-
 		return new() { Text = description, LineBreakMode = LineBreakMode.WordWrap };
 	}
 

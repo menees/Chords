@@ -12,7 +12,9 @@ public static class BookSyncChangeReport
 		void Sheets(string heading, IReadOnlyList<SyncSheetDetail> items)
 		{
 			result.AppendLine().Append(heading).Append(" (").Append(items.Count).AppendLine("):");
-			foreach (SyncSheetDetail item in items)
+			foreach (SyncSheetDetail item in items.OrderBy(item => item.Title, StringComparer.CurrentCultureIgnoreCase)
+				.ThenBy(item => string.Join(", ", item.Artists), StringComparer.CurrentCultureIgnoreCase)
+				.ThenBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
 			{
 				result.Append("  • ").Append(item.Title);
 				if (item.Artists.Count > 0)
@@ -27,7 +29,7 @@ public static class BookSyncChangeReport
 		void Setlists(string heading, IReadOnlyList<SyncSetlistDetail> items)
 		{
 			result.AppendLine().Append(heading).Append(" (").Append(items.Count).AppendLine("):");
-			foreach (SyncSetlistDetail item in items)
+			foreach (SyncSetlistDetail item in items.OrderBy(item => item.Name, StringComparer.CurrentCultureIgnoreCase))
 			{
 				result.Append("  • ").AppendLine(item.Name);
 			}

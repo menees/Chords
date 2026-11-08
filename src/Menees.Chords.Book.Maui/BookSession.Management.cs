@@ -159,6 +159,9 @@ public sealed partial class BookSession
 		return count;
 	}
 
+	public Task<Guid> DuplicateSongFileAsync(Guid songId, Guid fileId, CancellationToken cancellationToken = default)
+		=> Task.Run(() => this.application.DuplicateSongFileAsync(songId, fileId, this.DeviceId, cancellationToken), cancellationToken);
+
 	public Task SetSongFilePositionAsync(Guid songId, Guid fileId, int position, CancellationToken cancellationToken = default)
 		=> Task.Run(() => this.application.SetSongFilePositionAsync(songId, fileId, position, this.DeviceId, cancellationToken), cancellationToken);
 

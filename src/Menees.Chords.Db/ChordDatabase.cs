@@ -4,7 +4,7 @@ namespace Menees.Chords.Db;
 public sealed class ChordDatabase
 {
 	/// <summary>Gets the current database schema version.</summary>
-	public const int CurrentSchemaVersion = 1;
+	public const int CurrentSchemaVersion = 2;
 
 	/// <summary>Gets or sets the database identifier.</summary>
 	public Guid Id { get; set; }

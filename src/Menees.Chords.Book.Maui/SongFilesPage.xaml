@@ -9,6 +9,7 @@
 		</local:ScreenHeader>
 		<FlexLayout x:Name="actions" Grid.Row="1" Wrap="Wrap" AlignItems="Center">
 			<local:FluentIconButton x:Name="add" Icon="DocumentOnePageAdd" Description="Add Sheets…" Clicked="HandleAdd" Margin="0,0,8,4" />
+			<local:FluentIconButton x:Name="duplicate" Icon="Copy" Description="Duplicate Sheet" Clicked="HandleDuplicate" Margin="0,0,8,4" />
 			<local:FluentIconButton x:Name="prefer" Icon="Star" Description="Make Default" Clicked="HandlePrefer" Margin="0,0,8,4" />
 			<Button x:Name="compare" Text="Compare Sheets…" Clicked="HandleCompare" IsEnabled="False" Opacity="0.4" Margin="0,0,8,4" />
 			<local:FluentIconButton x:Name="edit" Icon="EditLineHorizontal3" Description="Edit Sheet…" Clicked="HandleEdit" Margin="0,0,8,4" />

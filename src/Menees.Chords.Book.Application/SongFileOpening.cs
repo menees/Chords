@@ -25,7 +25,7 @@ public static class SongFileOpening
 			BookImportItem? item = review.Items.SingleOrDefault();
 			BookImportCandidate[] matches = [.. (item?.Candidates ?? []).Where(candidate => !candidate.IsIncoming
 				&& StringComparer.OrdinalIgnoreCase.Equals(candidate.ContentHash, item?.ContentHash))
-				.OrderBy(candidate => candidate.IsArchived).DistinctBy(candidate => candidate.SongId)];
+				.OrderBy(candidate => candidate.IsArchived).ThenByDescending(candidate => candidate.IsDefault).DistinctBy(candidate => candidate.SongId)];
 			SongFileOpenResult result;
 			if (item is null)
 			{

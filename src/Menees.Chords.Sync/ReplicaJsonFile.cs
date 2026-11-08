@@ -20,7 +20,8 @@ internal static class ReplicaJsonFile
 
 	#region Public Methods
 
-	public static async Task<T?> ReadAsync<T>(string path, CancellationToken cancellationToken, long maximumBytes = MaximumDocumentBytes)
+	public static async Task<T?> ReadAsync<T>(
+		string path, CancellationToken cancellationToken, long maximumBytes = MaximumDocumentBytes, JsonSerializerOptions? options = null)
 		where T : class
 	{
 		cancellationToken.ThrowIfCancellationRequested();
@@ -35,7 +36,7 @@ internal static class ReplicaJsonFile
 
 			try
 			{
-				result = await JsonSerializer.DeserializeAsync<T>(stream, cancellationToken: cancellationToken).ConfigureAwait(false)
+				result = await JsonSerializer.DeserializeAsync<T>(stream, options, cancellationToken).ConfigureAwait(false)
 					?? throw new InvalidDataException("The synchronization checkpoint is empty.");
 			}
 			catch (Exception exception) when (exception is JsonException or ArgumentException)

@@ -8,4 +8,7 @@ public sealed record CloudBookSnapshot(
 	CloudReplicaItem DatabaseItem,
 	IReadOnlyDictionary<Guid, CloudReplicaItem> ManagedItems,
 	IReadOnlyDictionary<string, CloudReplicaItem> FolderItems,
-	ChordDatabase Database);
+	ChordDatabase Database)
+{
+	internal bool RequiresCatalogUpgrade { get; init; }
+}

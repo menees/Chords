@@ -44,27 +44,6 @@ public sealed class BookSearchIndexTests
 	}
 
 	[TestMethod]
-	public void PreviousSaveAndRecoveryPredicatesRemainIndependentAcrossIncrementalRefresh()
-	{
-		ChordDatabase database = CreateGeneratedDatabase(2);
-		Song song = database.Songs[0];
-		SongFile previous = new() { Id = Guid.NewGuid(), SongId = song.Id, IsArchived = true, SavedVersion = new() };
-		database.SongFiles.Add(previous);
-		BookSearchIndex index = new(database);
-		index.Search("previoussave:true recovery:false archivedfiles:true").Single().SongId.ShouldBe(song.Id);
-		index.Search("previoussave:tru").ShouldBeEmpty();
-		index.Search("recovery:true").ShouldBeEmpty();
-		SongFile recovery = new() { Id = Guid.NewGuid(), SongId = song.Id, IsArchived = true, RecoveryVersion = new() };
-		index.RefreshSong(song, [previous, recovery]);
-		index.Search("previoussave:true recovery:true").Single().SongId.ShouldBe(song.Id);
-		index.RefreshSong(song, [recovery]);
-		index.Search("previoussave:false recovery:true").Single().SongId.ShouldBe(song.Id);
-		index.RefreshSong(song, []);
-		index.Search("previoussave:true").ShouldBeEmpty();
-		index.Search("recovery:true").ShouldBeEmpty();
-	}
-
-	[TestMethod]
 	public void SearchIsCaseAndDiacriticInsensitive()
 	{
 		ChordDatabase database = CreateGeneratedDatabase(3);

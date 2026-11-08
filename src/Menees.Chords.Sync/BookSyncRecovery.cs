@@ -53,6 +53,12 @@ public static class BookSyncRecovery
 			foreach (SyncTransferAsset asset in pending.Assets.Where(asset => asset.Stage))
 			{
 				cancellationToken.ThrowIfCancellationRequested();
+				if (pending.CloudLeaseToken != Guid.Empty && currentFiles.TryGetValue(asset.FileId, out SongFile? unchanged)
+					&& StringComparer.OrdinalIgnoreCase.Equals(unchanged.ContentHash, asset.ContentHash))
+				{
+					continue;
+				}
+
 				string path = journal.AssetPath(pending, asset.FileId);
 				if (!File.Exists(path))
 				{

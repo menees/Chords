@@ -1,6 +1,7 @@
 #region Using Directives
 
 using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
@@ -61,6 +62,29 @@ public sealed class ReplicaStateStoreTests
 		restored.NeedsFullComparison(Guid.NewGuid()).ShouldBeTrue();
 		reopened.ClearJournal();
 		(await reopened.LoadJournalAsync(this.TestContext.CancellationToken)).ShouldBeNull();
+	}
+
+	[TestMethod]
+	public async Task OffsetlessCheckpointIsMigratedOnce()
+	{
+		var token = this.TestContext.CancellationToken;
+		using ReplicaStateLease lease = new ReplicaStateStore(this.directory).Acquire(this.key);
+		await lease.SaveStateAsync(new(this.key) { LastLocalRevision = "preserved" }, token);
+		string path = Directory.GetFiles(this.directory, "state.json", SearchOption.AllDirectories).Single();
+		JsonNode document = JsonNode.Parse(await File.ReadAllTextAsync(path, token))!;
+		document["LastSuccessfulSyncUtc"] = "2026-01-15T09:30:00";
+		await File.WriteAllTextAsync(path, document.ToJsonString(), token);
+
+		CloudReplicaState state = await lease.LoadStateAsync(token);
+		DateTime wallTime = new(2026, 1, 15, 9, 30, 0, DateTimeKind.Unspecified);
+		DateTimeOffset expected = new(wallTime, TimeZoneInfo.Local.GetUtcOffset(wallTime));
+		state.LastSuccessfulSyncUtc!.Value.EqualsExact(expected).ShouldBeTrue();
+		state.LastLocalRevision.ShouldBe("preserved");
+		string upgraded = await File.ReadAllTextAsync(path, token);
+		upgraded.ShouldContain(JsonSerializer.Serialize(expected));
+
+		using FileStream locked = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+		(await lease.LoadStateAsync(token)).LastSuccessfulSyncUtc.ShouldBe(state.LastSuccessfulSyncUtc);
 	}
 
 	[TestMethod]

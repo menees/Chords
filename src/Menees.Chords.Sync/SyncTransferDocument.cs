@@ -33,6 +33,8 @@ internal sealed class SyncTransferDocument
 
 	public Guid RecoveryEpoch { get; set; }
 
+	public Guid CloudLeaseToken { get; set; }
+
 	public CloudReplicaIdentity? Target { get; set; }
 
 	public SyncDirection Direction { get; set; }

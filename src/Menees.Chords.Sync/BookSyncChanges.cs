@@ -1,7 +1,6 @@
 #region Using Directives
 
 using System.Collections.ObjectModel;
-using System.IO;
 using Menees.Chords.Db;
 
 #endregion
@@ -11,13 +10,6 @@ namespace Menees.Chords.Sync;
 /// <summary>Detached descriptions of transferred assets and changed whole setlists. Never reads sheet bytes.</summary>
 public sealed class BookSyncChanges
 {
-	#region Private Data
-
-	private const int VersionTokenLength = 16;
-	private const int LegacyVersionTokenLength = 32;
-
-	#endregion
-
 	#region Constructors
 
 	internal BookSyncChanges(SyncTransferDocument document, ChordDatabase target, ChordDatabase local, ChordDatabase? cloud)
@@ -100,6 +92,16 @@ public sealed class BookSyncChanges
 
 	#endregion
 
+	#region Internal Methods
+
+	internal static string SheetName(SongFile file)
+	{
+		string name = PortableManagedFileName.WithoutLegacySyncToken(file.RelativePath, file.Id);
+		return name.Replace($" [{file.Id:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
+	}
+
+	#endregion
+
 	#region Private Methods
 
 	private static SyncSheetDetail CreateSheetDetail(SongFile file, Song song, Dictionary<Guid, IReadOnlyList<string>> artists)
@@ -110,7 +112,7 @@ public sealed class BookSyncChanges
 			artists.Add(song.Id, capturedArtists);
 		}
 
-		string kind = file.SavedVersion is not null ? "Previous save" : file.RecoveryVersion is not null
+		string kind = file.RecoveryVersion is not null
 			? "Recovery version" : file.IsArchived ? "Archived sheet" : "Current sheet";
 		return new(file.Id, song.Id, song.Title, capturedArtists, SheetName(file), kind);
 	}
@@ -120,22 +122,6 @@ public sealed class BookSyncChanges
 		Dictionary<Guid, Setlist> previous = baseline.ToDictionary(list => list.Id);
 		return Array.AsReadOnly(target.Where(list => !previous.TryGetValue(list.Id, out Setlist? old) || !SetlistContent.AreEqual(list, old))
 			.Select(list => new SyncSetlistDetail(list.Id, list.Name)).ToArray());
-	}
-
-	private static string SheetName(SongFile file)
-	{
-		string name = Path.GetFileNameWithoutExtension(file.RelativePath).Replace($" [{file.Id:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
-		int lastSpace = name.LastIndexOf(' ');
-		if (lastSpace >= 0)
-		{
-			ReadOnlySpan<char> suffix = name.AsSpan(lastSpace + 1);
-			if (suffix.Length is VersionTokenLength or LegacyVersionTokenLength && suffix.IndexOfAnyExcept("0123456789abcdefABCDEF") < 0)
-			{
-				name = name[..lastSpace];
-			}
-		}
-
-		return name + Path.GetExtension(file.RelativePath);
 	}
 
 	#endregion

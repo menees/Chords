@@ -55,7 +55,8 @@ public sealed class TwoDeviceAuthoringTests
 			string?[] versions = [comparison.Left.Text, comparison.Right.Text];
 			versions.ShouldContain("Office\r\n[D]Exact\n");
 			versions.ShouldContain("Music room\n[G]Exact\r\n");
-			appB.Database.SongFiles.Count(file => file.SavedVersion is not null).ShouldBe(2);
+			appB.Database.SongFiles.Count.ShouldBe(2);
+			appB.Database.SongFiles.ShouldAllBe(file => file.SavedVersion == null);
 			await appB.ResolveSongVersionsAsync(comparison, SongVersionChoice.KeepRight, deviceB, token);
 			using (ReplicaStateLease lease = statesB.Acquire(new(appB.Database.Id, deviceB, cloud.Identity)))
 			{

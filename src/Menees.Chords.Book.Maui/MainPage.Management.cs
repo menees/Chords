@@ -145,7 +145,7 @@ public partial class MainPage
 			}
 			else if (action == "OneDrive")
 			{
-				OneDriveSyncPage page = new(this.session);
+				CloudSyncPage page = new(this.session, new WindowsOneDriveConnection());
 				await ScreenNavigation.PushAsync(this, page).ConfigureAwait(true);
 				await page.Completion.ConfigureAwait(true);
 				this.RefreshSongs("OneDrive review closed.");

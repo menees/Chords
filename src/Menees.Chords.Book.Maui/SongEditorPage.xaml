@@ -7,6 +7,7 @@
         <local:ScreenHeader BackRequested="HandleCancel">
             <Label x:Name="heading" Text="Edit Song" FontSize="22" VerticalOptions="Center" />
             <local:FluentIconButton Icon="Save" Description="Save and Return (Ctrl+S)" Clicked="HandleSave" Margin="8,0,0,0" />
+            <local:FluentIconButton x:Name="songDetails" Icon="Info" Description="Song Details" Clicked="HandleSongDetails" Margin="8,0,0,0" />
             <HorizontalStackLayout x:Name="newSongActions" IsVisible="False">
                 <local:FluentIconButton Icon="PreviewLink" Description="Preview Metadata" Clicked="HandlePreviewMetadata" Margin="8,0,0,0" />
             </HorizontalStackLayout>

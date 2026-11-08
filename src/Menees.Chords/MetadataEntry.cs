@@ -34,6 +34,7 @@ public sealed class MetadataEntry : Entry
 		"key",
 		"lyricist",
 		"meta",
+		"sortartist",
 		"sorttitle",
 		"st",
 		"subtitle",

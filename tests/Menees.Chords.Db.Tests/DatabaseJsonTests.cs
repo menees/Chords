@@ -132,10 +132,39 @@ public sealed class DatabaseJsonTests
 
 		ChordDatabase migrated = DatabaseJson.Deserialize(legacy);
 
-		migrated.SchemaVersion.ShouldBe(1);
+		migrated.SchemaVersion.ShouldBe(ChordDatabase.CurrentSchemaVersion);
 		migrated.Id.ShouldBe(id);
 		migrated.Songs.ShouldBeEmpty();
-		DatabaseJson.Serialize(migrated).ShouldContain("\"schemaVersion\": 1");
+		DatabaseJson.Serialize(migrated).ShouldContain("\"schemaVersion\": 2");
+	}
+
+	[TestMethod]
+	[DataRow("2026-01-15T09:30:00")]
+	[DataRow("2026-07-15T09:30:00.125")]
+	[DataRow("2026-11-01T01:30:00")]
+	[DataRow("2026-03-08T02:30:00")]
+	public void LegacyWallTimesUseTheSystemOffsetForTheirDate(string wallTime)
+	{
+		ChordDatabase source = TestData.CreateDatabase();
+		DateTimeOffset explicitDate = new(2026, 7, 15, 3, 0, 0, TimeSpan.FromHours(2));
+		source.Songs[0].LastAccessedUtc = explicitDate;
+		string json = DatabaseJson.Serialize(source).Replace("\"schemaVersion\": 2", "\"schemaVersion\": 1", StringComparison.Ordinal);
+		var node = System.Text.Json.Nodes.JsonNode.Parse(json)!;
+		node["revision"]!["modifiedUtc"] = wallTime;
+		node["songFiles"]![0]!["observedWriteUtc"] = wallTime;
+
+		ChordDatabase database = DatabaseJson.Deserialize(node.ToJsonString(), out bool upgraded);
+		upgraded.ShouldBeTrue();
+		DateTimeOffset migrated = database.Revision.ModifiedUtc;
+		DateTime localWallTime = DateTime.Parse(wallTime, System.Globalization.CultureInfo.InvariantCulture);
+		migrated.Offset.ShouldBe(TimeZoneInfo.Local.GetUtcOffset(localWallTime));
+		migrated.DateTime.ShouldBe(localWallTime);
+		database.SongFiles[0].ObservedWriteUtc.ShouldBe(migrated);
+		database.Songs[0].LastAccessedUtc!.Value.EqualsExact(explicitDate).ShouldBeTrue();
+
+		ChordDatabase reopened = DatabaseJson.Deserialize(DatabaseJson.Serialize(database), out upgraded);
+		upgraded.ShouldBeFalse();
+		reopened.Revision.ModifiedUtc.EqualsExact(migrated).ShouldBeTrue();
 	}
 
 	[TestMethod]

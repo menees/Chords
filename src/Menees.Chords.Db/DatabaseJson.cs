@@ -5,7 +5,7 @@ using System.Text.Json.Serialization.Metadata;
 
 namespace Menees.Chords.Db;
 
-/// <summary>Reads and writes the canonical, stable schema-v1 JSON representation.</summary>
+/// <summary>Reads and writes the canonical, stable catalog JSON representation.</summary>
 public static class DatabaseJson
 {
 	private static readonly JsonSerializerOptions Options = CreateOptions();
@@ -18,7 +18,10 @@ public static class DatabaseJson
 	}
 
 	/// <summary>Migrates, deserializes, and validates database JSON.</summary>
-	public static ChordDatabase Deserialize(string json)
+	public static ChordDatabase Deserialize(string json) => Deserialize(json, out _);
+
+	/// <summary>Reads a catalog and indicates whether its on-disk schema needs upgrading.</summary>
+	public static ChordDatabase Deserialize(string json, out bool upgraded)
 	{
 		ChordDatabase database;
 		try
@@ -35,7 +38,8 @@ public static class DatabaseJson
 				throw new UnsupportedSchemaVersionException(version);
 			}
 
-			database = (version == ChordDatabase.CurrentSchemaVersion
+			upgraded = version != ChordDatabase.CurrentSchemaVersion;
+			database = (!upgraded
 				? document.RootElement.Deserialize<ChordDatabase>(Options)
 				: DatabaseSchema.Migrate(JsonNode.Parse(json)!).Deserialize<ChordDatabase>(Options))
 				?? throw new DatabaseFormatException("The database JSON did not contain an object.");
@@ -65,6 +69,7 @@ public static class DatabaseJson
 			UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
 		};
 		result.Converters.Add(new SourceMetadataJsonConverter());
+		result.Converters.Add(new OffsetDateTimeJsonConverter());
 		result.Converters.Add(new JsonStringEnumConverter());
 		return result;
 	}

@@ -1,6 +1,7 @@
 #region Using Directives
 
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -428,16 +429,13 @@ public sealed partial class BookApplicationSession
 			{
 				SongFile file = database.SongFiles.Single(item => item.Id == original.FileId);
 				using Stream existing = await activeStore.OpenManagedAssetAsync(activeLocation, file.Id, cancellationToken).ConfigureAwait(false);
-				using MemoryStream existingBytes = new();
-				await existing.CopyToAsync(existingBytes, cancellationToken).ConfigureAwait(false);
-				string existingHash = SongFileAnalyzer.Hash(existingBytes.GetBuffer().AsSpan(0, checked((int)existingBytes.Length)));
+				string existingHash = Convert.ToHexStringLower(await SHA256.HashDataAsync(existing, cancellationToken).ConfigureAwait(false));
 				if (!StringComparer.Ordinal.Equals(existingHash, original.ContentHash))
 				{
 					throw new InvalidOperationException("The song file changed outside the editor. Reopen it before saving.");
 				}
 
 				write.VerifyOriginalAssets = true;
-				await SavedSongVersionService.StageAsync(write, database, file, existingBytes, deviceId, now, cancellationToken).ConfigureAwait(false);
 				file.ContentHash = SongFileAnalyzer.Hash(bytes);
 				file.ContentRevision++;
 				file.SourceFormat = analysis!.SourceFormat;

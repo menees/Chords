@@ -115,10 +115,57 @@ internal static class NativeSongMetadataSmoke
 		Call(owner, "OpenSetlist", listId);
 	}
 
+	private static async Task VerifySongDetailsAndDuplicationAsync(MainPage owner, BookSession session)
+	{
+		Guid songId = session.Database!.Setlists.First().Entries[0].SongId;
+		SongEditDocument original = await session.GetSongEditAsync(songId);
+		Guid sourceId = original.FileId!.Value;
+		string catalogPath = Path.Combine(session.DirectoryPath!, "database.json");
+		string before = await File.ReadAllTextAsync(catalogPath);
+		SongEditorPage editor = new(original, session);
+		await owner.Navigation.PushAsync(editor, false);
+		var form = editor.FindByName<SongMetadataEditor>("metadataEditor");
+		await WaitAsync(() => (bool)typeof(SongEditorPage).GetField("ready", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(editor)!);
+		form.TitleEntry.Text = "Unsaved title";
+		((IButtonController)editor.FindByName<FluentIconButton>("songDetails")).SendClicked();
+		await WaitAsync(() => owner.Navigation.NavigationStack.Last().Title == "Song Details");
+		var details = owner.Navigation.NavigationStack.Last();
+		var output = Elements(details).OfType<Microsoft.Maui.Controls.Editor>().Single();
+		Check(output.IsReadOnly && output.Text.Contains("Modified:") && output.Text.Contains("+00:00")
+			&& output.Text.Contains(session.Database.Setlists.First().Name) && output.Text.Contains(original.Title),
+			"Song Details did not include read-only saved timestamps or setlist membership");
+		await CaptureAsync(details, "song-details.png");
+		await owner.Navigation.PopAsync(false);
+		Check(form.TitleEntry.Text == "Unsaved title" && await File.ReadAllTextAsync(catalogPath) == before, "Details changed the draft or book");
+		form.Load(original);
+		typeof(SongEditorPage).GetMethod("HandleCancel", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(editor, [null, EventArgs.Empty]);
+		await editor.Completion;
+
+		SongFilesPage sheets = new(songId, session, null!);
+		await owner.Navigation.PushAsync(sheets, false);
+		var duplicate = sheets.FindByName<FluentIconButton>("duplicate");
+		var files = sheets.FindByName<Microsoft.Maui.Controls.CollectionView>("files");
+		Check(!duplicate.IsEnabled, "Duplicate is enabled without a sheet selection");
+		files.SelectedItem = ((IEnumerable<SongFileRow>)files.ItemsSource).Single(row => row.Id == sourceId);
+		Check(duplicate.IsEnabled, "Duplicate is disabled for a selected sheet");
+		((IButtonController)duplicate).SendClicked();
+		await WaitAsync(() => files.SelectedItem is SongFileRow row && row.Id != sourceId && duplicate.IsEnabled);
+		SongFileRow copy = (SongFileRow)files.SelectedItem!;
+		Check(copy.Name.StartsWith("Copy of ") && !copy.IsArchived && copy.CanEdit, "Duplicate is not an editable independent sheet");
+		Check(session.GetSongFiles(songId).Single(file => file.IsDefault).Id == sourceId, "Duplicate changed the default sheet");
+		await CaptureAsync(sheets, "duplicate-sheet.png");
+		typeof(SongFilesPage).GetMethod("HandleClose", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(sheets, [null, EventArgs.Empty]);
+		Check(await sheets.Completion, "Duplicate did not report a changed sheet list");
+		await session.SetSongFileArchivedAsync(songId, copy.Id, true);
+		await session.DeleteArchivedSongFileAsync(songId, copy.Id);
+		Program.Trace("Song Details preserved the draft; Duplicate Sheet selected an editable copy and retained the default");
+	}
+
 	internal static async Task RunAsync(MainPage owner, BookSession session)
 	{
 		Program.Trace("Verify compact full-editor metadata and shared value dialogs");
 		await VerifyPickerPlaceholderAsync(owner, session);
+		await VerifySongDetailsAndDuplicationAsync(owner, session);
 		string catalogPath = Path.Combine(session.DirectoryPath!, "database.json");
 		string before = await File.ReadAllTextAsync(catalogPath);
 		Guid songId = session.Database!.Songs.First().Id;

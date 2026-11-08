@@ -24,7 +24,19 @@ public static class BookMetadataRefresh
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(location);
 		string expectedJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
-		ChordDatabase database = DatabaseJson.Deserialize(expectedJson);
+		ChordDatabase database = DatabaseJson.Deserialize(expectedJson, out bool upgraded);
+		Dictionary<Guid, SongFile> copies = database.SongFiles.Where(LegacyPreviousSaves.IsAutomaticCopy).ToDictionary(file => file.Id);
+		if (copies.Count > 0)
+		{
+			expectedJson = await LegacyPreviousSaves.CommitAsync(store, location, expectedJson, database, copies, deviceId, cancellationToken)
+				.ConfigureAwait(false);
+			upgraded = false;
+		}
+
+		var (normalizedJson, renamed) = await LegacySheetNames.CleanCoreAsync(store, location, database, expectedJson, cancellationToken)
+			.ConfigureAwait(false);
+		expectedJson = normalizedJson;
+		upgraded &= renamed == 0;
 		List<ExternalBookProblem> problems = [];
 		List<SongFile> pending = [];
 		foreach (SongFile file in database.SongFiles.Where(file => file.AnalysisVersion < SongFileAnalyzer.CurrentAnalysisVersion))
@@ -106,8 +118,12 @@ public static class BookMetadataRefresh
 			if (metadataChanged || updatedSongCount > 0)
 			{
 				database.Revision = NextRevision(database.Revision, deviceId, now);
-				await store.CommitMetadataAsync(location, expectedJson, DatabaseJson.Serialize(database), cancellationToken).ConfigureAwait(false);
 			}
+		}
+
+		if (upgraded || metadataChanged || updatedSongCount > 0)
+		{
+			await store.CommitMetadataAsync(location, expectedJson, database, cancellationToken).ConfigureAwait(false);
 		}
 
 		return new(analyzedFileCount, updatedSongCount) { Problems = problems.AsReadOnly() };

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Menees.Chords.Book.Application;
+using Menees.Chords.Db;
 
 namespace Menees.Chords.Book.Maui;
 
@@ -19,6 +20,12 @@ public sealed partial class BookSession
 		this.EnsureRecentHistory();
 		Dictionary<Guid, SongRow> matches = this.SearchSongs(query, includeArchived).ToDictionary(song => song.Id);
 		return [.. this.history.SongIds.Where(matches.ContainsKey).Select(id => matches[id])];
+	}
+
+	public DateTimeOffset? GetSongLastAccessed(Guid songId)
+	{
+		this.EnsureRecentHistory();
+		return this.history.AccessedUtc.TryGetValue(songId, out DateTimeOffset localAccess) ? localAccess : null;
 	}
 
 	public void FlushRecentHistory()
@@ -60,8 +67,18 @@ public sealed partial class BookSession
 				try
 				{
 					saved = json is null ? null : JsonSerializer.Deserialize<Guid[]>(json);
-					string? dates = Preferences.Default.Get<string?>("ChordBook.SongAccessTimes." + bookId.ToString("D"), null);
-					accessed = dates is null ? null : JsonSerializer.Deserialize<Dictionary<Guid, DateTimeOffset>>(dates);
+					string preference = "ChordBook.SongAccessTimes." + bookId.ToString("D");
+					if (Preferences.Default.Get<string?>(preference, null) is string dates)
+					{
+						bool upgraded = false;
+						JsonSerializerOptions options = new();
+						options.Converters.Add(new OffsetDateTimeJsonConverter(() => upgraded = true));
+						accessed = JsonSerializer.Deserialize<Dictionary<Guid, DateTimeOffset>>(dates, options);
+						if (upgraded)
+						{
+							Preferences.Default.Set(preference, JsonSerializer.Serialize(accessed));
+						}
+					}
 				}
 				catch (JsonException)
 				{

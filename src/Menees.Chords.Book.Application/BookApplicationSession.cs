@@ -620,7 +620,7 @@ public sealed partial class BookApplicationSession
 					this.searchIndex!.RefreshSongPredicates(song);
 					SongCatalogItem previous = this.catalogItems![songId];
 					this.catalogItems[songId] = CreateCatalogItem(
-						song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount, previous.PreviousSaveCount);
+						song, previous.ActiveFileCount, previous.ArchivedFileCount, previous.RecoveryFileCount);
 				}
 			}
 			catch
@@ -655,7 +655,7 @@ public sealed partial class BookApplicationSession
 
 	#region Private Methods
 
-	private static SongCatalogItem CreateCatalogItem(Song song, int active, int archived, int recovery, int previousSave)
+	private static SongCatalogItem CreateCatalogItem(Song song, int active, int archived, int recovery)
 	{
 		List<string> parts = [CreateDisplayText(song)];
 		if (active > 1)
@@ -663,20 +663,14 @@ public sealed partial class BookApplicationSession
 			parts.Add($"{active} sheets");
 		}
 
-		int otherArchived = archived - previousSave;
-		if (otherArchived > 0)
+		if (archived > 0)
 		{
-			parts.Add($"{otherArchived} archived {(otherArchived == 1 ? "sheet" : "sheets")}");
+			parts.Add($"{archived} archived {(archived == 1 ? "sheet" : "sheets")}");
 		}
 
 		if (recovery > 0)
 		{
 			parts.Add($"{recovery} recovery {(recovery == 1 ? "sheet" : "sheets")}");
-		}
-
-		if (previousSave > 0)
-		{
-			parts.Add($"{previousSave} previous {(previousSave == 1 ? "save" : "saves")}");
 		}
 
 		bool display = song.DisplayOverride?.HasValues == true;
@@ -702,8 +696,7 @@ public sealed partial class BookApplicationSession
 			archived,
 			recovery,
 			display,
-			metronome,
-			previousSave);
+			metronome);
 	}
 
 	private static string CreateDisplayText(Song song)
@@ -812,18 +805,17 @@ public sealed partial class BookApplicationSession
 			|| name.Equals("artists", StringComparison.OrdinalIgnoreCase)
 			|| name.Equals("author", StringComparison.OrdinalIgnoreCase);
 
-	private static (int Active, int Archived, int Recovery, int PreviousSave) CountSongFiles(IEnumerable<SongFile> files)
+	private static (int Active, int Archived, int Recovery) CountSongFiles(IEnumerable<SongFile> files)
 	{
-		int active = 0, archived = 0, recovery = 0, previousSave = 0;
+		int active = 0, archived = 0, recovery = 0;
 		foreach (SongFile file in files)
 		{
 			active += !file.IsArchived && file.RecoveryVersion is null ? 1 : 0;
 			archived += file.IsArchived ? 1 : 0;
 			recovery += file.RecoveryVersion is not null ? 1 : 0;
-			previousSave += file.IsArchived && file.RecoveryVersion is null && file.SavedVersion is not null ? 1 : 0;
 		}
 
-		return (active, archived, recovery, previousSave);
+		return (active, archived, recovery);
 	}
 
 	private SongFile? SelectPresentationFile(Guid songId, Guid? instrumentFile, Guid? entryFile, Guid? explicitFile)
@@ -860,8 +852,8 @@ public sealed partial class BookApplicationSession
 		SongFile[] files = [.. songFiles];
 		this.searchIndex!.RefreshSong(song, files);
 		this.groupingIndex?.RefreshSong(song);
-		var (active, archived, recovery, previousSave) = CountSongFiles(files);
-		this.catalogItems![song.Id] = CreateCatalogItem(song, active, archived, recovery, previousSave);
+		var (active, archived, recovery) = CountSongFiles(files);
+		this.catalogItems![song.Id] = CreateCatalogItem(song, active, archived, recovery);
 		this.metadataValueIndex = null;
 	}
 
@@ -877,8 +869,8 @@ public sealed partial class BookApplicationSession
 			song => song.Id,
 			song =>
 			{
-				var (active, archived, recovery, previousSave) = CountSongFiles(files[song.Id]);
-				return CreateCatalogItem(song, active, archived, recovery, previousSave);
+				var (active, archived, recovery) = CountSongFiles(files[song.Id]);
+				return CreateCatalogItem(song, active, archived, recovery);
 			});
 	}
 

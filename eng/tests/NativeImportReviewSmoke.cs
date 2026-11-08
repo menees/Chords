@@ -75,6 +75,8 @@ internal static class NativeImportReviewSmoke
 	{
 		Guid songId = session.Database!.Songs.Single(song => song.Title == "Before bad file").Id;
 		SongEditDocument edit = await session.GetSongEditAsync(songId);
+		Guid copyId = await session.DuplicateSongFileAsync(songId, edit.FileId!.Value);
+		await session.SetSongFileArchivedAsync(songId, copyId, true);
 		await session.SaveSongEditAsync(edit, edit.Title, edit.Artists, edit.Tags, edit.Text + "\nCurrent edited sheet");
 		Guid expected = session.GetSongFiles(songId).Single(sheet => sheet.IsDefault).Id;
 		Check(session.GetSongFiles(songId).Count >= 2, "Default comparison fixture needs multiple sheets");
@@ -108,10 +110,10 @@ internal static class NativeImportReviewSmoke
 		comparison.GetType().GetMethod("HandleClose", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(comparison, [null, EventArgs.Empty]);
 		await WaitAsync(() => owner.Navigation.NavigationStack.Last() == review);
 		await WaitAsync(() => review.GetType().GetField("operation", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(review) is null);
-		Program.Trace("Returned from import comparison; review ready; select historical sheet");
+		Program.Trace("Returned from import comparison; review ready; select archived manual sheet");
 		int other = row.Item!.Candidates.ToList().FindIndex(item => item.SheetId != expected);
 		candidates.SelectedIndex = other;
-		Program.Trace("Historical sheet selected; deselect import row");
+		Program.Trace("Archived manual sheet selected; deselect import row");
 		files.SelectedItem = null;
 		Program.Trace("Reselect import row");
 		files.SelectedItem = row;

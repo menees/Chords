@@ -10,7 +10,7 @@ using Menees.Chords.Db;
 
 namespace Menees.Chords.Sync;
 
-/// <summary>Creates a local replica, preserving the cloud book identity and exact sheet bytes.</summary>
+/// <summary>Creates a local replica, preserving the cloud book identity and exact retained sheet bytes.</summary>
 public static class CloudBookDownloader
 {
 	#region Private Constants
@@ -82,6 +82,11 @@ public static class CloudBookDownloader
 		ArgumentOutOfRangeException.ThrowIfLessThan(concurrency, 1);
 		ArgumentOutOfRangeException.ThrowIfGreaterThan(concurrency, MaximumTransferConcurrency);
 		progress?.Report("Reading the cloud book…");
+		if (replica is CloudBookLease cloudLease)
+		{
+			await CloudWriteIntent.RecoverDownloadAsync(cloudLease, expectedBookId, progress, cancellationToken).ConfigureAwait(false);
+		}
+
 		CloudBookSnapshot snapshot = await CloudBookReader.ReadAsync(replica, cancellationToken).ConfigureAwait(false)
 			?? throw new SyncMergeException("This cloud book has not been uploaded yet.");
 		ChordDatabase database = snapshot.Database;
@@ -95,6 +100,14 @@ public static class CloudBookDownloader
 		if (previous.PendingJournal is not null || await new SyncTransferJournal(lease).LoadAsync(cancellationToken).ConfigureAwait(false) is not null)
 		{
 			throw new SyncMergeException("This device has a pending transfer for that book. Open its local copy and recover or resume it first.");
+		}
+
+		BookMergeBase cloudBase = BookSyncMerger.CreateBase(database);
+		Dictionary<Guid, SongFile> copies = database.SongFiles.Where(LegacyPreviousSaves.IsAutomaticCopy).ToDictionary(file => file.Id);
+		if (copies.Count > 0 || snapshot.RequiresCatalogUpgrade)
+		{
+			LegacyPreviousSaves.Retire(database, copies, deviceId, DateTimeOffset.UtcNow);
+			snapshot = snapshot with { DatabaseJson = DatabaseJson.Serialize(database) };
 		}
 
 		BookLocation location;
@@ -146,7 +159,7 @@ public static class CloudBookDownloader
 			{
 				LastSuccessfulSyncUtc = DateTimeOffset.UtcNow,
 				LastLocalRevision = database.Revision.Revision.ToString(),
-				MergeBase = JsonSerializer.Serialize(BookSyncMerger.CreateBase(database)),
+				MergeBase = JsonSerializer.Serialize(cloudBase),
 			},
 			CancellationToken.None).ConfigureAwait(false);
 		progress?.Report("Book download completed.");

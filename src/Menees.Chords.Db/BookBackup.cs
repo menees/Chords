@@ -46,8 +46,8 @@ public static class BookBackup
 		ArgumentNullException.ThrowIfNull(store);
 		ArgumentNullException.ThrowIfNull(output);
 		string databaseJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
-		ChordDatabase database = DatabaseJson.Deserialize(databaseJson);
-		byte[] databaseBytes = Utf8NoBom.GetBytes(databaseJson);
+		ChordDatabase database = DatabaseJson.Deserialize(databaseJson, out bool upgraded);
+		byte[] databaseBytes = Utf8NoBom.GetBytes(upgraded ? DatabaseJson.Serialize(database) : databaseJson);
 		BookBackupManifest manifest = new();
 		manifest.Entries.Add(DatabaseEntryName, SongFileAnalyzer.Hash(databaseBytes));
 		using ZipArchive archive = new(output, ZipArchiveMode.Create, leaveOpen: true);
@@ -92,6 +92,8 @@ public static class BookBackup
 		try
 		{
 			ChordDatabase created = DatabaseJson.Deserialize(await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false));
+			var copies = restored.SongFiles.Where(LegacyPreviousSaves.IsAutomaticCopy).ToDictionary(file => file.Id);
+			LegacyPreviousSaves.Retire(restored, copies, deviceId, DateTimeOffset.UtcNow);
 			ResetClone(restored, created.Id, name, deviceId);
 			await using IStagedBookWrite write = await store.StageWriteAsync(location, cancellationToken).ConfigureAwait(false);
 			foreach (SongFile file in restored.SongFiles)
@@ -162,6 +164,8 @@ public static class BookBackup
 			DeviceId = deviceId,
 			ModifiedUtc = DateTimeOffset.UtcNow,
 		};
+		var copies = restored.SongFiles.Where(LegacyPreviousSaves.IsAutomaticCopy).ToDictionary(file => file.Id);
+		LegacyPreviousSaves.Retire(restored, copies, deviceId, restored.Revision.ModifiedUtc);
 		await using IStagedBookWrite write = await store.StageRecoveryAsync(location, expectedJson, safetyBackupPath, cancellationToken).ConfigureAwait(false);
 		HashSet<Guid> restoredIds = [.. restored.SongFiles.Select(file => file.Id)];
 		foreach (SongFile file in current.SongFiles)

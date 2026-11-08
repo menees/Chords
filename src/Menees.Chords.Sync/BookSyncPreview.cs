@@ -12,7 +12,13 @@ public sealed class BookSyncPreview
 {
 	#region Constructors
 
-	internal BookSyncPreview(SyncTransferDocument document, bool resumed, string? canonicalLocal = null, string? canonicalCloud = null)
+	internal BookSyncPreview(
+		SyncTransferDocument document,
+		bool resumed,
+		string? canonicalLocal = null,
+		string? canonicalCloud = null,
+		bool upgradeLocal = false,
+		bool upgradeCloud = false)
 	{
 		this.Document = document;
 		this.IsResuming = resumed;
@@ -23,10 +29,12 @@ public sealed class BookSyncPreview
 		this.Changes = new(document, target, local, cloud);
 		HashSet<Guid> targetSongs = [.. target.Songs.Select(song => song.Id)];
 		this.LocalRemovedSongCount = local.Songs.Count(song => !targetSongs.Contains(song.Id));
-		this.CloudRemovedSongCount = cloud?.Songs.Count(song => !targetSongs.Contains(song.Id)) ?? 0;
+		this.CloudRemovedSongCount = document.Direction == SyncDirection.UpdateThisDevice
+			? 0 : cloud?.Songs.Count(song => !targetSongs.Contains(song.Id)) ?? 0;
 		HashSet<Guid> targetFiles = [.. target.SongFiles.Select(file => file.Id)];
 		this.LocalRemovedSheetCount = local.SongFiles.Count(file => !targetFiles.Contains(file.Id));
-		this.CloudRemovedSheetCount = cloud?.SongFiles.Count(file => !targetFiles.Contains(file.Id)) ?? 0;
+		this.CloudRemovedSheetCount = document.Direction == SyncDirection.UpdateThisDevice
+			? 0 : cloud?.SongFiles.Count(file => !targetFiles.Contains(file.Id)) ?? 0;
 		this.ConflictDescriptions = document.Conflicts.Count == 0 ? Array.Empty<string>()
 			: DescribeConflicts(document.Conflicts, target, local, cloud);
 		bool localChanged = document.TargetJson != document.LocalJson
@@ -35,7 +43,8 @@ public sealed class BookSyncPreview
 			&& document.TargetJson != document.CloudJson
 			&& document.TargetJson != (document.CloudJson == document.LocalJson
 				? canonicalLocal ?? DatabaseJson.Serialize(local) : canonicalCloud ?? DatabaseJson.Serialize(cloud)));
-		this.HasChanges = resumed || localChanged || cloudChanged || document.Assets.Any(asset => asset.Stage || asset.Upload);
+		this.HasChanges = resumed || upgradeLocal || localChanged || cloudChanged
+			|| (upgradeCloud && document.Direction != SyncDirection.UpdateThisDevice) || document.Assets.Any(asset => asset.Stage || asset.Upload);
 	}
 
 	#endregion

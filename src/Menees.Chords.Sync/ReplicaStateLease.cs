@@ -1,6 +1,7 @@
 #region Using Directives
 
 using System.IO;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
@@ -222,12 +223,26 @@ public sealed class ReplicaStateLease : IDisposable
 	private async Task<ReplicaStateDocument?> ReadAsync(string name, CancellationToken cancellationToken)
 	{
 		ObjectDisposedException.ThrowIf(this.disposed, this);
+		bool upgraded = false;
+		JsonSerializerOptions? options = null;
+		if (name == "state.json")
+		{
+			options = new();
+			options.Converters.Add(new OffsetDateTimeJsonConverter(() => upgraded = true));
+		}
+
 		ReplicaStateDocument? result = await ReplicaJsonFile.ReadAsync<ReplicaStateDocument>(
-			Path.Combine(this.directory, name), cancellationToken, MaximumFileSize).ConfigureAwait(false);
+			Path.Combine(this.directory, name), cancellationToken, MaximumFileSize, options).ConfigureAwait(false);
 		if (result is not null && (!result.Matches(this.key) || result.DocumentKind != name || result.Items is null || result.Operations is null
 			|| result.Conflicts is null || result.CompletedOperationIds is null))
 		{
 			throw new InvalidDataException("Invalid, unsupported, or mismatched replica checkpoint. Existing state was retained.");
+		}
+
+		if (upgraded && result is not null)
+		{
+			ValidateItems(result.Items);
+			await this.WriteAsync(name, result, cancellationToken).ConfigureAwait(false);
 		}
 
 		return result;

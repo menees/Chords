@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="Menees.Chords.Book.Maui.SongDetailsPage"
+	xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+	xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+	xmlns:local="clr-namespace:Menees.Chords.Book.Maui" Title="Song Details">
+	<Grid Padding="8" RowSpacing="8" RowDefinitions="Auto,*">
+		<local:ScreenHeader BackRequested="HandleBack">
+			<Label Text="Song Details" FontSize="22" VerticalOptions="Center" />
+		</local:ScreenHeader>
+		<Editor x:Name="report" Grid.Row="1" IsReadOnly="True" AutoSize="Disabled" />
+	</Grid>
+</ContentPage>

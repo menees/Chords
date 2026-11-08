@@ -14,7 +14,7 @@ public sealed class MetadataDirectiveImport
 
 	private static readonly HashSet<string> SupportedNames = new(StringComparer.Ordinal)
 	{
-		"title", "subtitle", "sorttitle", "artist", "album", "year", "composer", "lyricist", "copyright",
+		"title", "subtitle", "sorttitle", "artist", "sortartist", "album", "year", "composer", "lyricist", "copyright",
 		"key", "capo", "tempo", "time", "duration", "tag", "genre",
 	};
 

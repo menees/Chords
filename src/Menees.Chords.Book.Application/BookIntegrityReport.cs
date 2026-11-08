@@ -46,7 +46,7 @@ public static class BookIntegrityReport
 					text.AppendLine($"Song: {song.Title}" + (song.Artists.Count > 0 ? $" — {string.Join(", ", song.Artists)}" : string.Empty));
 				}
 
-				string kind = file.SavedVersion is not null ? "Previous save" : file.RecoveryVersion is not null ? "Recovery sheet"
+				string kind = file.RecoveryVersion is not null ? "Recovery sheet"
 					: file.IsArchived ? "Archived sheet" : "Current sheet";
 				text.AppendLine($"Sheet type: {kind}");
 			}
@@ -68,7 +68,7 @@ public static class BookIntegrityReport
 			text.AppendLine("Recover missing or damaged sheets from a known good backup; Restore as New Book lets you inspect a separate copy.");
 			text.AppendLine("For invalid text, keep a backup outside the book folder, correct the reported characters and save as UTF-8.");
 			text.AppendLine("Use ChordBook's editor to Save, or review external edits with Review Folder Changes. Then choose Validate Again.");
-			text.AppendLine("Previous saves and recovery sheets are checked too; review their sheet type before repairing or removing them.");
+			text.AppendLine("Archived and recovery sheets are checked too; review their sheet type before repairing or removing them.");
 		}
 
 		return text.ToString();

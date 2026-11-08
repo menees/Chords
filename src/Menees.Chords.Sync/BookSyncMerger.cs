@@ -92,6 +92,9 @@ public sealed class BookSyncMerger
 
 	private static string Key<T>(Guid id) => typeof(T).Name + ":" + id.ToString("D");
 
+	private static IReadOnlyList<SongFile> WithoutRetired(List<SongFile> files, Dictionary<Guid, SongFile> retired)
+		=> retired.Count == 0 ? files : files.Where(file => !retired.ContainsKey(file.Id)).ToArray();
+
 	private BookMergeResult MergeCore(ChordDatabase local, ChordDatabase cloud)
 	{
 		foreach (Tombstone deletion in local.Tombstones.Concat(cloud.Tombstones))
@@ -100,6 +103,22 @@ public sealed class BookSyncMerger
 			if (!this.tombstones.TryGetValue(key, out Tombstone? existing) || deletion.Revision.ModifiedUtc > existing.Revision.ModifiedUtc)
 			{
 				this.tombstones[key] = SyncEntityFingerprint.Clone(deletion);
+			}
+		}
+
+		SongFile[] automaticCopies = [.. local.SongFiles.Concat(cloud.SongFiles).Where(LegacyPreviousSaves.IsAutomaticCopy)];
+		Dictionary<Guid, SongFile> retired = [];
+		if (automaticCopies.Length > 0)
+		{
+			// A copy explicitly restored by a peer is an ordinary sheet and follows normal conflict rules.
+			HashSet<Guid> retained = [.. local.SongFiles.Concat(cloud.SongFiles)
+				.Where(file => !LegacyPreviousSaves.IsAutomaticCopy(file)).Select(file => file.Id)];
+			foreach (SongFile file in automaticCopies.OrderByDescending(file => file.Revision.Revision))
+			{
+				if (!retained.Contains(file.Id))
+				{
+					retired.TryAdd(file.Id, file);
+				}
 			}
 		}
 
@@ -113,7 +132,8 @@ public sealed class BookSyncMerger
 				value => value.Revision).Name,
 			BookSettings = this.Select(Key<BookSettings>(local.Id), local.BookSettings, cloud.BookSettings, value => value.Revision),
 			Songs = this.MergeEntities(local.Songs, cloud.Songs, value => value.Id, value => value.Revision),
-			SongFiles = this.MergeEntities(local.SongFiles, cloud.SongFiles, value => value.Id, value => value.Revision),
+			SongFiles = this.MergeEntities(
+				WithoutRetired(local.SongFiles, retired), WithoutRetired(cloud.SongFiles, retired), value => value.Id, value => value.Revision),
 			Setlists = this.MergeEntities(local.Setlists, cloud.Setlists, value => value.Id, value => value.Revision),
 			InstrumentProfiles = this.MergeEntities(local.InstrumentProfiles, cloud.InstrumentProfiles, value => value.Id, value => value.Revision),
 			SongInstrumentSettings = this.MergeEntities(local.SongInstrumentSettings, cloud.SongInstrumentSettings, value => value.Id, value => value.Revision),
@@ -135,6 +155,7 @@ public sealed class BookSyncMerger
 			}
 		}
 
+		LegacyPreviousSaves.Retire(merged, retired, this.deviceId, this.now);
 		IReadOnlyList<ValidationProblem> problems = DatabaseValidation.Validate(merged);
 		if (problems.Count > 0)
 		{
@@ -168,7 +189,15 @@ public sealed class BookSyncMerger
 			}
 			else if (localValue is not null && cloudValue is not null)
 			{
-				result.Add(this.Select(key, localValue, cloudValue, stamp));
+				if (localValue is SongFile localFile && cloudValue is SongFile cloudFile
+					&& LegacyPreviousSaves.IsAutomaticCopy(localFile) != LegacyPreviousSaves.IsAutomaticCopy(cloudFile))
+				{
+					result.Add(SyncEntityFingerprint.Clone(LegacyPreviousSaves.IsAutomaticCopy(localFile) ? cloudValue : localValue));
+				}
+				else
+				{
+					result.Add(this.Select(key, localValue, cloudValue, stamp));
+				}
 			}
 			else
 			{

@@ -1,6 +1,7 @@
 #region Using Directives
 
 using System.IO;
+using Menees.Chords.Sync;
 using Menees.Chords.Sync.OneDrive;
 using Microsoft.Identity.Client;
 
@@ -9,10 +10,11 @@ using Microsoft.Identity.Client;
 namespace Menees.Chords.Book.Maui.Platforms.Windows;
 
 /// <summary>Owns device-local OneDrive registration and protected sign-in. Books contain no credentials.</summary>
-internal sealed partial class WindowsOneDriveConnection : IDisposable
+internal sealed partial class WindowsOneDriveConnection : ICloudSyncConnection
 {
 	#region Private Data
 
+	private const int TransferConcurrency = 4;
 	private const string ClientPreference = "ChordBook.OneDrive.ClientId";
 	private const string AccountPreference = "ChordBook.OneDrive.AccountId";
 	private WindowsOneDriveTokenProvider? tokens;
@@ -26,7 +28,15 @@ internal sealed partial class WindowsOneDriveConnection : IDisposable
 
 	public static string ClientId => WindowsOneDriveTokenProvider.ApplicationClientId;
 
-	public string? AccountId => this.tokens?.AccountId;
+	public string ProviderName => "OneDrive";
+
+	public string AccountLabel => "Microsoft account";
+
+	public bool IsConnected => this.tokens?.AccountId is not null;
+
+	public string StateDirectory => LocalDirectory;
+
+	public int MaximumConcurrentTransfers => TransferConcurrency;
 
 	public string AccountName => this.tokens?.AccountName ?? "Not connected";
 
@@ -101,45 +111,51 @@ internal sealed partial class WindowsOneDriveConnection : IDisposable
 		Preferences.Default.Remove(AccountPreference);
 	}
 
-	public async Task<OneDriveHttpTransport> OpenBookAsync(Guid bookId, CancellationToken cancellationToken)
+	public async Task<ICloudReplica> OpenBookAsync(Guid bookId, CancellationToken cancellationToken)
 	{
 		WindowsOneDriveTokenProvider selected = this.RequireTokens();
 		using OneDriveBookFolders folders = new(selected.AccountId!, selected);
 		string folderId = await folders.EnsureAsync(bookId, cancellationToken).ConfigureAwait(false);
-		return this.OpenFolder(folderId);
+		return this.CreateTransport(folderId);
 	}
 
-	public async Task<IReadOnlyList<OneDriveBookChoice>> ListBooksAsync(CancellationToken cancellationToken)
+	public async Task<IReadOnlyList<CloudBookChoice>> ListBooksAsync(CancellationToken cancellationToken)
 	{
 		WindowsOneDriveTokenProvider selected = this.RequireTokens();
 		using OneDriveBookFolders folders = new(selected.AccountId!, selected);
 		IReadOnlyDictionary<Guid, string> locations = await folders.ListAsync(cancellationToken).ConfigureAwait(false);
-		List<OneDriveBookChoice> result = [];
+		List<CloudBookChoice> result = [];
 		foreach ((Guid bookId, string folderId) in locations)
 		{
 			cancellationToken.ThrowIfCancellationRequested();
-			using OneDriveHttpTransport replica = this.OpenFolder(folderId);
-			Sync.CloudBookSnapshot? snapshot = await Sync.CloudBookReader.ReadAsync(replica, cancellationToken).ConfigureAwait(false);
-			if (snapshot is not null)
+			using OneDriveHttpTransport replica = this.CreateTransport(folderId);
+			try
 			{
-				Db.ChordDatabase database = snapshot.Database;
-				if (database.Id != bookId)
+				// Discovery uses a separate owner so it cannot resume or clear an interrupted sync.
+				await using CloudBookLease read = await CloudBookLease.AcquireAsync(
+					replica, Guid.NewGuid(), Environment.MachineName, cancellationToken: cancellationToken).ConfigureAwait(false);
+				CloudBookSnapshot? snapshot = await CloudBookReader.ReadAsync(read, cancellationToken).ConfigureAwait(false);
+				if (snapshot is not null)
 				{
-					throw new InvalidDataException("A cloud book does not match its folder identity.");
-				}
+					Db.ChordDatabase database = snapshot.Database;
+					if (database.Id != bookId)
+					{
+						throw new InvalidDataException("A cloud book does not match its folder identity.");
+					}
 
-				result.Add(new(bookId, folderId, database.Name, database.Songs.Count));
+					result.Add(new(bookId, folderId, database.Name, database.Songs.Count));
+				}
+			}
+			catch (CloudBookLockedException)
+			{
+				result.Add(new(bookId, folderId, "Locked OneDrive book " + bookId.ToString("D"), -1));
 			}
 		}
 
 		return [.. result.OrderBy(book => book.Name, StringComparer.CurrentCultureIgnoreCase)];
 	}
 
-	public OneDriveHttpTransport OpenFolder(string folderId)
-	{
-		WindowsOneDriveTokenProvider selected = this.RequireTokens();
-		return new(new(ClientId, selected.AccountId!, folderId), selected);
-	}
+	public ICloudReplica OpenFolder(string folderId) => this.CreateTransport(folderId);
 
 	public void Dispose() => this.tokens?.Dispose();
 
@@ -150,6 +166,12 @@ internal sealed partial class WindowsOneDriveConnection : IDisposable
 	private static string? GetSavedAccount()
 		=> Preferences.Default.Get(ClientPreference, ClientId) == ClientId
 			? Preferences.Default.Get<string?>(AccountPreference, null) : null;
+
+	private OneDriveHttpTransport CreateTransport(string folderId)
+	{
+		WindowsOneDriveTokenProvider selected = this.RequireTokens();
+		return new(new(ClientId, selected.AccountId!, folderId), selected);
+	}
 
 	private WindowsOneDriveTokenProvider RequireTokens()
 		=> this.tokens?.AccountId is not null ? this.tokens

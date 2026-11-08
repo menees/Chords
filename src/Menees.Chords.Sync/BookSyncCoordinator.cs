@@ -25,7 +25,7 @@ public static class BookSyncCoordinator
 	#region Public Methods
 
 	/// <summary>Resumes a valid interrupted transfer or preserves its sheets and compares current books afresh.</summary>
-	public static async Task<BookSyncPreview> PrepareAsync(
+	public static Task<BookSyncPreview> PrepareAsync(
 		IBookStore store,
 		BookLocation location,
 		ICloudReplica replica,
@@ -33,31 +33,19 @@ public static class BookSyncCoordinator
 		SyncDirection direction,
 		Guid recoveryEpoch,
 		CancellationToken cancellationToken = default)
-	{
-		ArgumentNullException.ThrowIfNull(store);
-		ArgumentNullException.ThrowIfNull(lease);
-		RequireTarget(replica, lease);
-		SyncTransferJournal journal = new(lease);
-		SyncTransferDocument? pending = await journal.LoadAsync(cancellationToken).ConfigureAwait(false);
-		if (pending is not null)
-		{
-			string localJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
-			CloudBookSnapshot? cloud = await CloudBookReader.ReadAsync(replica, cancellationToken).ConfigureAwait(false);
-			bool sameCloud = pending.CloudCatalog is null ? cloud is null
-				: cloud is not null && cloud.DatabaseItem.Id.Value == pending.CloudCatalog.Id
-					&& cloud.DatabaseItem.Version.Value == pending.CloudCatalog.Version;
-			bool committedCloud = pending.Direction != SyncDirection.UpdateThisDevice
-				&& cloud is not null && CatalogEquals(cloud, pending.TargetJson);
-			if (pending.Direction != direction || pending.RecoveryEpoch != recoveryEpoch
-				|| (localJson != pending.LocalJson && localJson != pending.TargetJson)
-				|| (!sameCloud && !committedCloud))
-			{
-				await BookSyncRecovery.RefreshReviewAsync(store, location, replica, lease, cancellationToken).ConfigureAwait(false);
-			}
-		}
+		=> PrepareCoreAsync(store, location, replica, lease, direction, recoveryEpoch, null, cancellationToken);
 
-		return await PreviewAsync(store, location, replica, lease, direction, recoveryEpoch, cancellationToken).ConfigureAwait(false);
-	}
+	/// <summary>Resumes or prepares a sync with phase-aware progress for any required cloud recovery.</summary>
+	public static Task<BookSyncPreview> PrepareWithProgressAsync(
+		IBookStore store,
+		BookLocation location,
+		ICloudReplica replica,
+		ReplicaStateLease lease,
+		SyncDirection direction,
+		Guid recoveryEpoch,
+		IProgress<BookSyncProgress> progress,
+		CancellationToken cancellationToken = default)
+		=> PrepareCoreAsync(store, location, replica, lease, direction, recoveryEpoch, new BookSyncProgressAdapter(progress), cancellationToken);
 
 	public static async Task<BookSyncPreview> PreviewAsync(
 		IBookStore store,
@@ -87,7 +75,7 @@ public static class BookSyncCoordinator
 		else
 		{
 			string localJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
-			ChordDatabase local = DatabaseJson.Deserialize(localJson);
+			ChordDatabase local = DatabaseJson.Deserialize(localJson, out bool upgradeLocal);
 			if (local.Id != lease.Key.BookId)
 			{
 				throw new ArgumentException("The local book differs from the leased replica.", nameof(location));
@@ -112,14 +100,28 @@ public static class BookSyncCoordinator
 			string? canonicalCloud = null;
 			bool sameCatalog = cloud is not null && (localJson == snapshot!.DatabaseJson
 				|| (canonicalLocal = DatabaseJson.Serialize(local)) == (canonicalCloud = DatabaseJson.Serialize(cloud)));
-			BookMergeResult merge = cloud is null ? new(local, [], [])
-				: sameCatalog ? new(cloud, [], [])
-				: BookSyncMerger.Merge(local, cloud, baseline, direction, lease.Key.DeviceId, DateTimeOffset.UtcNow);
+			bool retireCopies = local.SongFiles.Any(LegacyPreviousSaves.IsAutomaticCopy)
+				|| cloud?.SongFiles.Any(LegacyPreviousSaves.IsAutomaticCopy) == true;
+			bool normalizeCloud = replica is CloudBookLease && direction != SyncDirection.UpdateThisDevice
+				&& cloud?.SongFiles.Any(file => PortableManagedFileName.WithoutLegacySyncToken(file.RelativePath, file.Id) != file.RelativePath) == true;
+			BookMergeResult merge = cloud is null && !retireCopies ? new(local, [], [])
+				: sameCatalog && !retireCopies && !normalizeCloud ? new(cloud!, [], [])
+				: BookSyncMerger.Merge(local, cloud ?? local, baseline, direction, lease.Key.DeviceId, DateTimeOffset.UtcNow);
+			Guid? cloudToken = (replica as CloudBookLease)?.Token;
+			var occupied = snapshot?.FolderItems;
+			if (cloudToken.HasValue && snapshot is null)
+			{
+				var listing = await replica.ListOrGetChangesAsync(null, cancellationToken).ConfigureAwait(false);
+				occupied = CloudBookReader.IndexItems(listing);
+			}
+
 			result = new(
-				CreateDocument(localJson, local, cloud, snapshot, merge, lease.Key, direction, recoveryEpoch),
+				CreateDocument(localJson, local, snapshot, merge, lease.Key, direction, recoveryEpoch, cloudToken, occupied),
 				resumed: false,
 				canonicalLocal,
-				canonicalCloud);
+				canonicalCloud,
+				upgradeLocal,
+				snapshot?.RequiresCatalogUpgrade == true);
 		}
 
 		return result;
@@ -180,6 +182,11 @@ public static class BookSyncCoordinator
 		SyncTransferJournal journal = new(lease);
 		SyncTransferDocument document = confirmed.Document;
 		SyncTransferDocument? pending = await journal.LoadAsync(cancellationToken).ConfigureAwait(false);
+		if (replica is CloudBookLease cloudLease && document.CloudLeaseToken != cloudLease.Token)
+		{
+			throw new SyncMergeException("The confirmed sync belongs to an earlier cloud lock. Use Sync Now to compare again.");
+		}
+
 		if (pending is not null && pending.Id != document.Id)
 		{
 			throw new SyncMergeException("Another confirmed transfer must be resumed first.");
@@ -197,6 +204,11 @@ public static class BookSyncCoordinator
 		}
 
 		await PublishAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken).ConfigureAwait(false);
+		if (replica is CloudBookLease && document.Direction != SyncDirection.UpdateThisDevice)
+		{
+			await CloudWriteIntent.CleanupAsync(replica, document.GetCloudDatabase(), document.GetTargetDatabase(), progress, cancellationToken)
+				.ConfigureAwait(false);
+		}
 
 		if (localJson != document.TargetJson)
 		{
@@ -224,6 +236,48 @@ public static class BookSyncCoordinator
 	#endregion
 
 	#region Private Methods
+
+	private static async Task<BookSyncPreview> PrepareCoreAsync(
+		IBookStore store,
+		BookLocation location,
+		ICloudReplica replica,
+		ReplicaStateLease lease,
+		SyncDirection direction,
+		Guid recoveryEpoch,
+		IProgress<string>? progress,
+		CancellationToken cancellationToken)
+	{
+		ArgumentNullException.ThrowIfNull(store);
+		ArgumentNullException.ThrowIfNull(lease);
+		RequireTarget(replica, lease);
+		SyncTransferJournal journal = new(lease);
+		SyncTransferDocument? pending = await journal.LoadAsync(cancellationToken).ConfigureAwait(false);
+		if (replica is CloudBookLease cloudLease)
+		{
+			await CloudWriteIntent.RecoverIfNeededAsync(store, location, cloudLease, pending, direction, recoveryEpoch, progress, cancellationToken)
+				.ConfigureAwait(false);
+		}
+
+		if (pending is not null)
+		{
+			string localJson = await store.ReadDatabaseJsonAsync(location, cancellationToken).ConfigureAwait(false);
+			CloudBookSnapshot? cloud = await CloudBookReader.ReadAsync(replica, cancellationToken).ConfigureAwait(false);
+			bool sameCloud = pending.CloudCatalog is null ? cloud is null
+				: cloud is not null && cloud.DatabaseItem.Id.Value == pending.CloudCatalog.Id
+					&& cloud.DatabaseItem.Version.Value == pending.CloudCatalog.Version;
+			bool committedCloud = pending.Direction != SyncDirection.UpdateThisDevice
+				&& cloud is not null && CatalogEquals(cloud, pending.TargetJson);
+			if (pending.Direction != direction || pending.RecoveryEpoch != recoveryEpoch
+				|| (replica is CloudBookLease activeLease && pending.CloudLeaseToken != activeLease.Token)
+				|| (localJson != pending.LocalJson && localJson != pending.TargetJson)
+				|| (!sameCloud && !committedCloud))
+			{
+				await BookSyncRecovery.RefreshReviewAsync(store, location, replica, lease, cancellationToken).ConfigureAwait(false);
+			}
+		}
+
+		return await PreviewAsync(store, location, replica, lease, direction, recoveryEpoch, cancellationToken).ConfigureAwait(false);
+	}
 
 	private static void ReportSheets(IProgress<string>? progress, string phase, int completed, int total)
 	{
@@ -359,6 +413,11 @@ public static class BookSyncCoordinator
 			RequireCloudBaseline(document, current);
 			await StageAssetsAsync(store, location, replica, journal, document, progress, maximumConcurrentTransfers, cancellationToken).ConfigureAwait(false);
 
+			if (replica is CloudBookLease)
+			{
+				await CloudWriteIntent.RecordAsync(replica, document, current, cancellationToken).ConfigureAwait(false);
+			}
+
 			CloudChangeSet inventory = await replica.ListOrGetChangesAsync(null, cancellationToken).ConfigureAwait(false);
 			ConcurrentDictionary<string, CloudReplicaItem> uploadItems = new(CloudBookReader.IndexItems(inventory), StringComparer.OrdinalIgnoreCase);
 			int total = document.Assets.Count(asset => asset.Upload);
@@ -442,12 +501,13 @@ public static class BookSyncCoordinator
 	private static SyncTransferDocument CreateDocument(
 		string localJson,
 		ChordDatabase local,
-		ChordDatabase? cloud,
 		CloudBookSnapshot? snapshot,
 		BookMergeResult merge,
 		CloudReplicaKey key,
 		SyncDirection direction,
-		Guid recoveryEpoch)
+		Guid recoveryEpoch,
+		Guid? cloudLeaseToken,
+		IReadOnlyDictionary<string, CloudReplicaItem>? occupied)
 	{
 		SyncTransferDocument document = new()
 		{
@@ -457,13 +517,14 @@ public static class BookSyncCoordinator
 			Direction = direction,
 			LocalJson = localJson,
 			RecoveryEpoch = recoveryEpoch,
+			CloudLeaseToken = cloudLeaseToken ?? Guid.Empty,
 			CloudCatalog = snapshot is null ? null : SyncItemReceipt.From(snapshot.DatabaseItem),
 			CloudJson = snapshot?.DatabaseJson,
 			Conflicts = [.. merge.Conflicts],
 			RecoveryCount = merge.Recoveries.Count,
 		};
 		Dictionary<Guid, SongFile> left = local.SongFiles.ToDictionary(file => file.Id);
-		Dictionary<Guid, SongFile> right = cloud?.SongFiles.ToDictionary(file => file.Id) ?? [];
+		Dictionary<Guid, SongFile> right = snapshot?.Database.SongFiles.ToDictionary(file => file.Id) ?? [];
 		Dictionary<Guid, SyncRecoverySource> recoveries = merge.Recoveries.ToDictionary(source => source.RecoveryFileId);
 		Dictionary<Guid, string> titles = merge.Database.Songs.ToDictionary(song => song.Id, song => song.Title);
 		const int VersionIdBytes = 8;
@@ -472,8 +533,13 @@ public static class BookSyncCoordinator
 		{
 			left.TryGetValue(file.Id, out SongFile? localFile);
 			right.TryGetValue(file.Id, out SongFile? cloudFile);
-			bool upload = direction != SyncDirection.UpdateThisDevice && !SameContent(file, cloudFile);
+			bool writable = direction != SyncDirection.UpdateThisDevice;
+			string cleanName = PortableManagedFileName.WithoutLegacySyncToken(file.RelativePath, file.Id);
+			bool rename = cloudLeaseToken.HasValue && cloudFile is not null
+				&& !PortableManagedFileName.Comparer.Equals(cleanName, cloudFile.RelativePath);
+			bool upload = writable && (!SameContent(file, cloudFile) || rename);
 			bool stage = upload || !SameContent(file, localFile);
+			SyncItemReceipt? overwrite = null;
 			Guid localSourceId = Guid.Empty;
 			SyncItemReceipt? sourceItem = null;
 			if (recoveries.TryGetValue(file.Id, out SyncRecoverySource? recovery))
@@ -505,9 +571,25 @@ public static class BookSyncCoordinator
 				?? throw new SyncMergeException("A sheet has no recorded length. Validate or reconcile the book before syncing.");
 			if (upload)
 			{
-				string prefix = file.RecoveryVersion is not null ? "Recovered " : file.SavedVersion is not null ? "Previous " : string.Empty;
-				string caption = prefix + titles[file.SongId];
-				file.RelativePath = PortableManagedFileName.Create(caption + " " + versionId, file.Id, Path.GetExtension(file.RelativePath));
+				string name = Path.GetFileNameWithoutExtension(BookSyncChanges.SheetName(file));
+				string caption = recoveries.ContainsKey(file.Id) ? "Recovered " + titles[file.SongId] : name;
+				if (cloudLeaseToken.HasValue)
+				{
+					file.RelativePath = recoveries.ContainsKey(file.Id)
+						? PortableManagedFileName.Create(caption, file.Id, Path.GetExtension(file.RelativePath)) : cleanName;
+					if (cloudFile is not null && PortableManagedFileName.Comparer.Equals(cloudFile.RelativePath, file.RelativePath))
+					{
+						overwrite = SyncItemReceipt.From(snapshot!.ManagedItems[file.Id]);
+					}
+					else
+					{
+						file.RelativePath = PortableManagedFileName.ChooseAvailable(file.RelativePath, file.Id, occupied!.ContainsKey);
+					}
+				}
+				else
+				{
+					file.RelativePath = PortableManagedFileName.Create(caption + " " + versionId, file.Id, Path.GetExtension(file.RelativePath));
+				}
 			}
 			else if (cloudFile is not null && SameContent(file, cloudFile))
 			{
@@ -518,7 +600,7 @@ public static class BookSyncCoordinator
 			}
 
 			file.ObservedLength = length;
-			document.Assets.Add(new(file.Id, file.RelativePath, file.ContentHash, length, localSourceId, sourceItem, stage, upload));
+			document.Assets.Add(new(file.Id, file.RelativePath, file.ContentHash, length, localSourceId, sourceItem, stage, upload, overwrite));
 		}
 
 		document.TargetJson = DatabaseJson.Serialize(merge.Database);
@@ -530,7 +612,8 @@ public static class BookSyncCoordinator
 		=> other is not null && !string.IsNullOrWhiteSpace(file.ContentHash)
 			&& StringComparer.OrdinalIgnoreCase.Equals(file.ContentHash, other.ContentHash);
 
-	private static bool CatalogEquals(CloudBookSnapshot left, string right) => left.DatabaseJson == right || DatabaseJson.Serialize(left.Database) == right;
+	private static bool CatalogEquals(CloudBookSnapshot left, string right)
+		=> left.DatabaseJson == right || (!left.RequiresCatalogUpgrade && DatabaseJson.Serialize(left.Database) == right);
 
 	private static void RequireTarget(ICloudReplica replica, ReplicaStateLease lease)
 	{
@@ -613,7 +696,13 @@ public static class BookSyncCoordinator
 		CloudReplicaItem item;
 		if (items.TryGetValue(asset.Name, out CloudReplicaItem? existing))
 		{
-			if (receipt is null || existing.Id.Value != receipt.Id || existing.Version.Value != receipt.Version)
+			if (asset.OverwriteItem is { } original && existing.Id.Value == original.Id && existing.Version.Value == original.Version)
+			{
+				await using Stream staged = await OpenStageAsync(journal, document, asset, cancellationToken).ConfigureAwait(false);
+				existing = await replica.ReplaceAsync(existing.Id, existing.Version, staged, cancellationToken).ConfigureAwait(false);
+				items[asset.Name] = existing;
+			}
+			else if (receipt is null || existing.Id.Value != receipt.Id || existing.Version.Value != receipt.Version)
 			{
 				// An upload might have succeeded before its response/receipt was persisted. Check the bytes before acknowledging it.
 				await using Stream bytes = await replica.DownloadAsync(existing.Id, cancellationToken).ConfigureAwait(false);
@@ -629,6 +718,11 @@ public static class BookSyncCoordinator
 		}
 		else
 		{
+			if (asset.OverwriteItem is not null)
+			{
+				throw new SyncMergeException("The cloud sheet selected for replacement is missing. Use Sync Now to compare again.");
+			}
+
 			await using Stream staged = await OpenStageAsync(journal, document, asset, cancellationToken).ConfigureAwait(false);
 			try
 			{

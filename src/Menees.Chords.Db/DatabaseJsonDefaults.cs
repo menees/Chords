@@ -29,7 +29,8 @@ internal static class DatabaseJsonDefaults
 
 	private static bool Equivalent(object? value, object? baseline, JsonSerializerOptions options)
 	{
-		bool result = Equals(value, baseline);
+		bool result = value is DateTimeOffset date && baseline is DateTimeOffset baselineDate
+			? date.EqualsExact(baselineDate) : Equals(value, baseline);
 		if (!result && value is not null && baseline is not null && value.GetType() == baseline.GetType())
 		{
 			if (value is ICollection items && baseline is ICollection defaultItems)

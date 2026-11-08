@@ -25,8 +25,7 @@ public sealed partial class BookApplicationSession
 			file.SourceFormat,
 			file.IsArchived,
 			file.RecoveryVersion is not null,
-			file.Id == defaultId,
-			file.RecoveryVersion is null && file.SavedVersion is not null))];
+			file.Id == defaultId))];
 	}
 
 	/// <summary>Captures a read-only comparison of two sheets belonging to the same song.</summary>
@@ -72,6 +71,52 @@ public sealed partial class BookApplicationSession
 		{
 			this.mutationLock.Release();
 		}
+	}
+
+	/// <summary>Creates an independent active sheet from the selected sheet's exact bytes.</summary>
+	public async Task<Guid> DuplicateSongFileAsync(
+		Guid songId, Guid fileId, Guid deviceId, CancellationToken cancellationToken = default)
+	{
+		Guid id = Guid.NewGuid();
+		await this.MutateAssetsAsync(
+			async (database, write, now) =>
+			{
+				SongFile source = database.SongFiles.Single(file => file.SongId == songId && file.Id == fileId);
+				SongFile? currentDefault = this.GetOrderedSongFiles(songId).FirstOrDefault(file => !file.IsArchived && file.RecoveryVersion is null);
+				if (currentDefault?.DisplayPriority == int.MinValue)
+				{
+					currentDefault.DisplayPriority++;
+					currentDefault.Revision = NextRevision(currentDefault.Revision, deviceId, now);
+				}
+
+				string name = Path.GetFileNameWithoutExtension(source.RelativePath)
+					.Replace($" [{source.Id:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
+				SongFile copy = new()
+				{
+					Id = id,
+					SongId = songId,
+					RelativePath = PortableManagedFileName.Create("Copy of " + name, id, Path.GetExtension(source.RelativePath)),
+					MediaKind = source.MediaKind,
+					SourceFormat = source.SourceFormat,
+					TextEncoding = source.TextEncoding,
+					ByteOrderMark = source.ByteOrderMark,
+					DisplayPriority = int.MinValue,
+					ContentHash = source.ContentHash,
+					ObservedLength = source.ObservedLength,
+					ObservedWriteUtc = now,
+					ContentRevision = 1,
+					AnalysisVersion = source.AnalysisVersion,
+					AnalysisFailure = source.AnalysisFailure,
+					Revision = RevisionStamp.Initial(deviceId, now),
+				};
+				(IBookStore activeStore, BookLocation activeLocation) = this.GetActiveBook();
+				using Stream content = await activeStore.OpenManagedAssetAsync(activeLocation, fileId, cancellationToken).ConfigureAwait(false);
+				await write.WriteManagedAssetAsync(id, copy.RelativePath, content, cancellationToken).ConfigureAwait(false);
+				database.SongFiles.Add(copy);
+			},
+			deviceId,
+			cancellationToken).ConfigureAwait(false);
+		return id;
 	}
 
 	/// <summary>Moves a sheet to a one-based display position using only a metadata commit.</summary>

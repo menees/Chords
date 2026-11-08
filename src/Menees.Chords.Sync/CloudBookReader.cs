@@ -30,7 +30,7 @@ public static class CloudBookReader
 		if (items.TryGetValue("database.json", out CloudReplicaItem? databaseItem))
 		{
 			string json = await ReadJsonAsync(replica, databaseItem, cancellationToken).ConfigureAwait(false);
-			ChordDatabase database = DatabaseJson.Deserialize(json);
+			ChordDatabase database = DatabaseJson.Deserialize(json, out bool upgraded);
 			Dictionary<Guid, CloudReplicaItem> managed = [];
 			foreach (SongFile file in database.SongFiles)
 			{
@@ -47,7 +47,7 @@ public static class CloudBookReader
 				databaseItem,
 				new ReadOnlyDictionary<Guid, CloudReplicaItem>(managed),
 				new ReadOnlyDictionary<string, CloudReplicaItem>(items),
-				database);
+				database) { RequiresCatalogUpgrade = upgraded };
 		}
 
 		return result;

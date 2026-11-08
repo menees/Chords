@@ -48,6 +48,7 @@ public sealed partial class SongEditorPage : ContentPage
 		this.session = session;
 		this.InitializeComponent();
 		this.metadataEditor.Load(original);
+		this.songDetails.IsVisible = original.SongId != Guid.Empty;
 		this.convertButton.MenuItems =
 		[
 			new("Convert To ChordPro", () => this.HandleConvertChordPro(this, EventArgs.Empty)),
@@ -257,6 +258,12 @@ public sealed partial class SongEditorPage : ContentPage
 
 	private async void HandleUndo(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(() => this.editor.UndoAsync(this.lifetime.Token), disablePage: false).ConfigureAwait(true);
+
+	private async void HandleSongDetails(object? sender, EventArgs e)
+		=> await this.RunOperationAsync(
+			() => ScreenNavigation.PushAsync(this, new SongDetailsPage(this.session, this.original.SongId, this.original.FileId)),
+			requireEditor: false,
+			disablePage: false).ConfigureAwait(true);
 
 	private async void HandlePreviewMetadata(object? sender, EventArgs e)
 		=> await this.RunOperationAsync(async () =>

@@ -37,33 +37,21 @@ public static class PortableManagedFileName
 
 	/// <summary>Creates a normalized filename containing a permanent song-file GUID suffix.</summary>
 	public static string Create(string description, Guid songFileId, string? extension)
+		=> CreateCore(description, songFileId, extension, string.Empty);
+
+	/// <summary>Uses the proposed name if free, or finds the first free numbered name for the sheet.</summary>
+	public static string ChooseAvailable(string filename, Guid songFileId, Func<string, bool> isOccupied)
 	{
-		if (songFileId == Guid.Empty)
+		ArgumentNullException.ThrowIfNull(isOccupied);
+		string result = filename;
+		if (isOccupied(result))
 		{
-			throw new ArgumentException("A non-empty song-file ID is required.", nameof(songFileId));
-		}
-
-		string safeExtension = NormalizeExtension(extension);
-		string prefix = Sanitize(description);
-		string suffix = $" [{songFileId:D}]{safeExtension}";
-		if (suffix.Length > MaxUtf16Length || Encoding.UTF8.GetByteCount(suffix) > MaxUtf8Length)
-		{
-			throw new ArgumentException("The extension is too long for a portable managed filename.", nameof(extension));
-		}
-
-		int utf16Available = MaxUtf16Length - suffix.Length;
-		int utf8Available = MaxUtf8Length - Encoding.UTF8.GetByteCount(suffix);
-		prefix = TruncateAtTextElement(prefix, utf16Available, utf8Available).TrimEnd(' ', '.');
-		if (prefix.Length == 0)
-		{
-			prefix = "Song";
-		}
-
-		string result = (prefix + suffix).Normalize(NormalizationForm.FormC);
-		IReadOnlyList<string> errors = Validate(result);
-		if (errors.Count != 0)
-		{
-			throw new ArgumentException(string.Join(" ", errors), nameof(description));
+			string extension = Path.GetExtension(filename);
+			string caption = Path.GetFileNameWithoutExtension(filename).Replace($" [{songFileId:D}]", string.Empty, StringComparison.OrdinalIgnoreCase);
+			for (int slot = 2; isOccupied(result); slot = checked(slot + 1))
+			{
+				result = CreateCore(caption, songFileId, extension, " (" + slot.ToString(CultureInfo.InvariantCulture) + ")");
+			}
 		}
 
 		return result;
@@ -131,6 +119,27 @@ public static class PortableManagedFileName
 		return errors;
 	}
 
+	/// <summary>Removes the old cloud version token from a managed filename with the expected sheet ID.</summary>
+	public static string WithoutLegacySyncToken(string filename, Guid songFileId)
+	{
+		string stem = Path.GetFileNameWithoutExtension(filename);
+		string suffix = $" [{songFileId:D}]";
+		string result = filename;
+		if (stem.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+		{
+			ReadOnlySpan<char> caption = stem.AsSpan(0, stem.Length - suffix.Length);
+			int space = caption.LastIndexOf(' ');
+			const int ShortTokenLength = 16, LongTokenLength = 32;
+			if (space > 0 && caption[(space + 1)..] is var token && token.Length is ShortTokenLength or LongTokenLength
+				&& token.IndexOfAnyExcept("0123456789abcdefABCDEF") < 0)
+			{
+				result = string.Concat(caption[..space], suffix, Path.GetExtension(filename));
+			}
+		}
+
+		return result;
+	}
+
 	/// <summary>Extracts a recognizable song-file GUID suffix from a filename.</summary>
 	public static bool TryGetSongFileId(string filename, out Guid songFileId)
 	{
@@ -146,6 +155,39 @@ public static class PortableManagedFileName
 	#endregion
 
 	#region Private Methods
+
+	private static string CreateCore(string description, Guid songFileId, string? extension, string slot)
+	{
+		if (songFileId == Guid.Empty)
+		{
+			throw new ArgumentException("A non-empty song-file ID is required.", nameof(songFileId));
+		}
+
+		string safeExtension = NormalizeExtension(extension);
+		string prefix = Sanitize(description);
+		string suffix = $"{slot} [{songFileId:D}]{safeExtension}";
+		if (suffix.Length > MaxUtf16Length || Encoding.UTF8.GetByteCount(suffix) > MaxUtf8Length)
+		{
+			throw new ArgumentException("The extension is too long for a portable managed filename.", nameof(extension));
+		}
+
+		int utf16Available = MaxUtf16Length - suffix.Length;
+		int utf8Available = MaxUtf8Length - Encoding.UTF8.GetByteCount(suffix);
+		prefix = TruncateAtTextElement(prefix, utf16Available, utf8Available).TrimEnd(' ', '.');
+		if (prefix.Length == 0)
+		{
+			prefix = "Song";
+		}
+
+		string result = (prefix + suffix).Normalize(NormalizationForm.FormC);
+		IReadOnlyList<string> errors = Validate(result);
+		if (errors.Count != 0)
+		{
+			throw new ArgumentException(string.Join(" ", errors), nameof(description));
+		}
+
+		return result;
+	}
 
 	private static string Sanitize(string description)
 	{

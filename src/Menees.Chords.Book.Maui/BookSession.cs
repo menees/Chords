@@ -317,8 +317,12 @@ public sealed partial class BookSession : IDisposable
 
 	internal (FileSystemBookStore Store, BookLocation Location) GetSyncBook() => this.GetActiveBook();
 
-	internal Task ReloadAfterSyncAsync(CancellationToken cancellationToken)
-		=> this.application.ReloadAsync(cancellationToken);
+	internal async Task ReloadAfterSyncAsync(CancellationToken cancellationToken)
+	{
+		var (activeStore, activeLocation) = this.GetActiveBook();
+		await LegacySheetNames.CleanAsync(activeStore, activeLocation, cancellationToken).ConfigureAwait(false);
+		await this.application.ReloadAsync(cancellationToken).ConfigureAwait(false);
+	}
 
 	internal async Task DownloadCloudBookAsync(
 		Sync.ICloudReplica replica,

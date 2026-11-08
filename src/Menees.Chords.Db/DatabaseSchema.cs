@@ -31,12 +31,20 @@ public static class DatabaseSchema
 			result = version switch
 			{
 				0 => MigrateVersion0To1(result),
+				1 => MigrateVersion1To2(result),
 				_ => throw new UnsupportedSchemaVersionException(version),
 			};
 			version++;
 		}
 
 		return result;
+	}
+
+	private static JsonObject MigrateVersion1To2(JsonObject root)
+	{
+		// DatabaseJson reads legacy wall times through OffsetDateTimeJsonConverter.
+		root["schemaVersion"] = 2;
+		return root;
 	}
 
 	private static JsonObject MigrateVersion0To1(JsonObject root)

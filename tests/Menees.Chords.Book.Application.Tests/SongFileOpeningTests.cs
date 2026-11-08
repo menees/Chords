@@ -125,17 +125,18 @@ public sealed class SongFileOpeningTests
 	}
 
 	[TestMethod]
-	public async Task MatchingPreviousSaveCanBeDisplayedWithoutChangingTheDefaultOrAnyCatalogBytes()
+	public async Task MatchingManualCopyCanBeDisplayedWithoutChangingTheDefaultOrAnyCatalogBytes()
 	{
 		using Fixture fixture = new();
 		var token = this.TestContext.CancellationToken;
 		await fixture.InitializeAsync(token);
 		SongEditDocument edit = await fixture.App.GetSongEditAsync(fixture.Song, token);
+		Guid copyId = await fixture.App.DuplicateSongFileAsync(fixture.Song, edit.FileId!.Value, fixture.Device, token);
 		await fixture.App.SaveSongEditAsync(edit, new(edit.Title, edit.Artists, edit.Tags), Fixture.Original + "\nNew verse", fixture.Device, token);
-		string incoming = fixture.Source("previous.cho", Fixture.Original);
+		string incoming = fixture.Source("manual-copy.cho", Fixture.Original);
 		string before = await fixture.Store.ReadDatabaseJsonAsync(fixture.Book, token);
 		using SongFileOpenResult result = await SongFileOpening.OpenAsync(fixture.App, incoming, fixture.Device, token);
-		SongFile old = fixture.App.Database!.SongFiles.Single(file => file.SavedVersion is not null);
+		SongFile old = fixture.App.Database!.SongFiles.Single(file => file.Id == copyId);
 		result.SongFileId.ShouldBe(old.Id);
 		BookSongPresentation shown = await fixture.App.GetPresentationAsync(fixture.Song, sheetOverride: old.Id, cancellationToken: token);
 		shown.SongFileId.ShouldBe(old.Id);

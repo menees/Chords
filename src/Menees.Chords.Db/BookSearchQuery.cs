@@ -34,7 +34,7 @@ internal static partial class BookSearchQuery
 	private static partial Regex Tokens();
 
 	[GeneratedRegex(@"\A(?<field>title|artist|tag|key|genre|capo|duration|album|time|archived|display|metronome|"
-		+ @"multiple|recovery|previoussave|archivedfiles):(?<excluded>!)?", RegexOptions.CultureInvariant)]
+		+ @"multiple|recovery|archivedfiles):(?<excluded>!)?", RegexOptions.CultureInvariant)]
 	private static partial Regex FieldPrefix();
 
 	#endregion

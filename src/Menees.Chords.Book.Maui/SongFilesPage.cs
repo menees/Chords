@@ -64,6 +64,7 @@ public sealed partial class SongFilesPage : ContentPage
 		SongFileRow? selected = this.files.SelectedItem as SongFileRow;
 		int index = selected is null ? -1 : this.rows.IndexOf(selected);
 		this.add.IsEnabled = !this.session.Database!.Songs.Single(song => song.Id == this.songId).IsArchived;
+		this.duplicate.IsEnabled = selected is not null;
 		this.prefer.IsEnabled = selected is { IsArchived: false } && index > 0;
 		this.compare.IsEnabled = this.rows.Count == 2 || (selected is not null && this.rows.Count > 2);
 		this.compare.Opacity = this.compare.IsEnabled ? 1 : DisabledActionOpacity;
@@ -86,6 +87,20 @@ public sealed partial class SongFilesPage : ContentPage
 			this.status.Text = $"Added {count:N0} sheet(s). Identical content already in this song is skipped, including archived sheets.";
 			return count > 0;
 		}).ConfigureAwait(true);
+
+	private async void HandleDuplicate(object? sender, EventArgs e)
+	{
+		Guid? duplicateId = null;
+		await this.RunAsync(
+			async () =>
+			{
+				SongFileRow selected = (SongFileRow)this.files.SelectedItem;
+				duplicateId = await this.session.DuplicateSongFileAsync(this.songId, selected.Id).ConfigureAwait(true);
+				this.status.Text = "Sheet duplicated.";
+				return true;
+			},
+			() => duplicateId).ConfigureAwait(true);
+	}
 
 	private async void HandlePrefer(object? sender, EventArgs e) => await this.MoveAsync(1, relative: false).ConfigureAwait(true);
 
@@ -190,7 +205,7 @@ public sealed partial class SongFilesPage : ContentPage
 			return confirmed;
 		}).ConfigureAwait(true);
 
-	private async Task RunAsync(Func<Task<bool>> operation)
+	private async Task RunAsync(Func<Task<bool>> operation, Func<Guid?>? newSelection = null)
 	{
 		if (!this.busy)
 		{
@@ -201,7 +216,7 @@ public sealed partial class SongFilesPage : ContentPage
 			try
 			{
 				this.changed |= await operation().ConfigureAwait(true);
-				this.Refresh(selectedId);
+				this.Refresh(newSelection?.Invoke() ?? selectedId);
 			}
 #pragma warning disable CA1031 // Report file operations at the UI boundary and retain the open management view.
 			catch (Exception exception)

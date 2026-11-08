@@ -153,12 +153,11 @@ public static class SongVersionComparisonService
 			file.Id,
 			file.RelativePath,
 			file.MediaKind,
-			file.SavedVersion?.OriginalModifiedUtc ?? file.Revision.ModifiedUtc,
+			file.Revision.ModifiedUtc,
 			file.IsArchived,
 			file.RecoveryVersion?.RecoveredFromSyncUtc,
 			file.ContentHash,
 			text,
-			file.SavedVersion?.SavedUtc,
 			usedBySetlists,
 			usedByInstruments);
 	}

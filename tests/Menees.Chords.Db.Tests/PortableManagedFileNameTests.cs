@@ -39,6 +39,24 @@ public sealed class PortableManagedFileNameTests
 	}
 
 	[TestMethod]
+	public void NumberedSlotsRemainDistinctWhenTheCaptionIsTruncated()
+	{
+		Guid id = Guid.Parse("018f0000-0000-7000-8000-000000000002");
+		string first = PortableManagedFileName.Create(new string('a', 400), id, ".cho");
+		HashSet<string> occupied = new(PortableManagedFileName.Comparer) { first };
+
+		string second = PortableManagedFileName.ChooseAvailable(first, id, occupied.Contains);
+		occupied.Add(second);
+		string third = PortableManagedFileName.ChooseAvailable(first, id, occupied.Contains);
+
+		second.ShouldEndWith($" (2) [{id:D}].cho");
+		third.ShouldEndWith($" (3) [{id:D}].cho");
+		PortableManagedFileName.Validate(third).ShouldBeEmpty();
+		occupied.Remove(first);
+		PortableManagedFileName.ChooseAvailable(first, id, occupied.Contains).ShouldBe(first);
+	}
+
+	[TestMethod]
 	public void UnsafeCharactersAreReplaced()
 	{
 		Guid id = Guid.Parse("018f0000-0000-7000-8000-000000000003");
