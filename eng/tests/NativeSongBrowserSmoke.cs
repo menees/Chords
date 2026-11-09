@@ -23,7 +23,7 @@ internal static class NativeSongBrowserSmoke
 		BookApplicationSession application = new();
 		await application.ActivateAsync(store, book);
 		Guid maybe = await application.CreateSongAsync("Maybe", ["Synthetic Artist"], ["Acoustic"],
-			"{key: F#m}\n{tempo: 96}\n{capo: 2}\n[F#m]Maybe original", device);
+			"{key: F#m}\n{meta: bpm 64}\n{capo: 2}\n[F#m]Maybe original", device);
 		string before = await store.ReadDatabaseJsonAsync(book);
 		ChordDatabase database = DatabaseJson.Deserialize(before);
 		for (int index = 0; index < 720; index++)
@@ -69,6 +69,7 @@ internal static class NativeSongBrowserSmoke
 				var anchor = VisibleAnchor(list);
 
 				await OpenAsync(page, list, row);
+				if (grouped) await VerifyPerformanceMetronomeAsync(page, metronome);
 				Call(page, "TryNavigateBack");
 				await ReturnedAsync(page, list, anchor);
 				await OpenAsync(page, list, row);
@@ -114,6 +115,32 @@ internal static class NativeSongBrowserSmoke
 			}
 		}
 		Program.Trace("Browser viewport, real source Save/return, grouped/flat and stale-search cancellation passed");
+	}
+
+	private static async Task VerifyPerformanceMetronomeAsync(MainPage page, SilentMetronome metronome)
+	{
+		var settings = page.FindByName<FluentIconButton>("PerformanceMetronomeButton");
+		var beatControl = page.FindByName<MauiGrid>("PerformanceBeatControl");
+		var beatToggle = page.FindByName<Microsoft.Maui.Controls.Button>("PerformanceBeatToggle");
+		((IButtonController)settings).SendClicked();
+		var panel = (MetronomePanel)page.FindByName<ContentView>("MetronomeHost").Content!;
+		var bpm = panel.FindByName<Microsoft.Maui.Controls.Entry>("bpm");
+		Check(bpm.Text == "64", "Metronome panel did not inherit the chart's BPM");
+		((IButtonController)panel.FindByName<FluentIconButton>("toggle")).SendClicked();
+		await WaitAsync(() => metronome.IsRunning && metronome.CurrentSettings.BeatsPerMinute == 64);
+		bpm.Text = "71";
+		await WaitAsync(() => metronome.CurrentSettings.BeatsPerMinute == 71);
+		((IButtonController)panel.FindByName<FluentIconButton>("closePanel")).SendClicked();
+		await WaitAsync(() => beatControl.IsVisible && beatToggle.Width > 0 && beatControl.X >= settings.X + settings.Width);
+		Check(beatToggle.Width == beatControl.Width && metronome.IsRunning, "The entire beat strip must be actionable beside the settings button");
+		await CaptureAsync(page, "performance-metronome-toolbar.png");
+		((IButtonController)beatToggle).SendClicked();
+		await WaitAsync(() => !metronome.IsRunning && beatControl.IsVisible);
+		Check(Equals(ToolTipProperties.GetText(beatToggle), "Start metronome"), "Paused beat strip lost its restart action");
+		((IButtonController)beatToggle).SendClicked();
+		await WaitAsync(() => metronome.IsRunning && metronome.CurrentSettings.BeatsPerMinute == 71);
+		Check(Equals(ToolTipProperties.GetText(beatToggle), "Stop metronome"), "Running beat strip lost its stop action");
+		Program.Trace("Metronome inherited 64 BPM and the adjacent toolbar strip stopped and restarted the unsaved 71 BPM playback.");
 	}
 
 	private static async Task VerifyColumnsAsync(MainPage page)

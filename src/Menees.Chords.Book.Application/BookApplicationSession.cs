@@ -706,7 +706,7 @@ public sealed partial class BookApplicationSession
 			metronome)
 		{
 			Artist = string.Join(", ", song.Artists.Where(artist => !string.IsNullOrWhiteSpace(artist))),
-			Key = string.Join(", ", GetCatalogColumnValues(song, "key", "keys").Select(FormatCatalogKey)),
+			Key = string.Join(", ", GetCatalogColumnValues(song, "key", "keys").Select(KeyDisplay.Format)),
 			Tempo = string.Join(", ", GetCatalogColumnValues(song, "tempo", "tempos", "bpm")),
 			Capo = string.Join(", ", GetCatalogColumnValues(song, "capo")),
 			Tags = string.Join(", ", song.Tags.Where(tag => !string.IsNullOrWhiteSpace(tag))),
@@ -717,17 +717,6 @@ public sealed partial class BookApplicationSession
 	private static IEnumerable<string> GetCatalogColumnValues(Song song, params string[] names)
 		=> names.SelectMany(name => SongMetadata.GetValues(song, name))
 			.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase);
-
-	private static string FormatCatalogKey(string value)
-	{
-		string result = value;
-		if (value.Length > 1 && value[1] is '#' or 'b' && char.ToUpperInvariant(value[0]) is >= 'A' and <= 'G')
-		{
-			result = string.Concat(value.AsSpan(0, 1), value[1] == '#' ? "♯" : "♭", value.AsSpan(2));
-		}
-
-		return result;
-	}
 
 	private static string CreateDisplayText(Song song)
 	{

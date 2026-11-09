@@ -62,6 +62,8 @@ public partial class MainPage : ContentPage
 	private bool navigatingSong;
 	private bool executingInput;
 	private MetronomePanel? metronomePanel;
+	private MetronomeSettings? pausedMetronomeSettings;
+	private bool togglingPerformanceMetronome;
 	private Guid? performanceSetlistId;
 	private IReadOnlyList<Guid> performanceEntryIds = [];
 	private bool performanceLocked;
@@ -99,17 +101,7 @@ public partial class MainPage : ContentPage
 		this.metronome = metronome;
 		this.metronomeTimer = this.Dispatcher.CreateTimer();
 		this.metronomeTimer.Interval = TimeSpan.FromMilliseconds(50);
-		this.metronomeTimer.Tick += (_, _) =>
-		{
-			this.PerformanceBeats.IsVisible = this.metronomePanel is null && this.metronome.IsRunning && this.metronome.VisualEnabled;
-			if (this.PerformanceBeats.IsVisible)
-			{
-				this.PerformanceBeats.Update(
-					this.metronome.BeatsPerMeasure,
-					this.metronome.CurrentBeat,
-					this.metronome.AccentFirstBeat && this.metronome.CurrentBeat == 1);
-			}
-		};
+		this.metronomeTimer.Tick += (_, _) => this.UpdatePerformanceMetronome();
 		this.historyTimer = this.Dispatcher.CreateTimer();
 		this.historyTimer.Interval = TimeSpan.FromSeconds(HistoryFlushSeconds);
 		this.historyTimer.Tick += (_, _) =>
@@ -681,16 +673,7 @@ public partial class MainPage : ContentPage
 							await this.MovePerformanceAsync(command == PerformanceCommand.NextSong ? 1 : -1, false).ConfigureAwait(true);
 							break;
 						case PerformanceCommand.ToggleMetronome:
-							if (this.metronome.IsRunning)
-							{
-								this.metronome.Stop();
-							}
-							else if (this.currentSongIndex >= 0)
-							{
-								await this.metronome.StartAsync(this.session.GetMetronomeSettings(this.performanceSongs[this.currentSongIndex].Id))
-									.ConfigureAwait(true);
-							}
-
+							await this.TogglePerformanceMetronomeAsync().ConfigureAwait(true);
 							break;
 					}
 				}).ConfigureAwait(true);
@@ -961,10 +944,12 @@ public partial class MainPage : ContentPage
 
 	private void ExitPerformanceMode()
 	{
+		this.pausedMetronomeSettings = null;
 		this.CloseMetronomePanel();
 		this.SetPerformanceLocked(false);
 		this.RestoreScreenPolicy();
 		this.metronome.Stop();
+		this.UpdatePerformanceMetronome();
 		this.session.FlushRecentHistory();
 
 		// Hiding the native WebView can raise SizeChanged while its browser is being detached.
@@ -1265,12 +1250,7 @@ public partial class MainPage : ContentPage
 				this.metronome.Stop();
 			}
 
-			if (this.instrumentSongId != song.Id || this.instrumentEntryId != entryId)
-			{
-				this.instrumentOverride = null;
-				this.instrumentSongId = song.Id;
-				this.instrumentEntryId = entryId;
-			}
+			this.UpdatePerformanceSongContext(song.Id, entryId);
 
 			var assigned = this.session.Instruments.GetAssignedProfiles(song.Id);
 			if (this.instrumentOverride.HasValue && !assigned.Any(profile => profile.Id == this.instrumentOverride))

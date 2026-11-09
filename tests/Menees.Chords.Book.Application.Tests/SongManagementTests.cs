@@ -380,6 +380,26 @@ public sealed class SongManagementTests
 	}
 
 	[TestMethod]
+	[DataRow("{meta: bpm 64}", 64)]
+	[DataRow("{tempo: 1}", 1)]
+	[DataRow("{tempo: Allegro}\n{tempo: 84}", 84)]
+	[DataRow("{tempo: 301}", 96)]
+	public async Task MetronomeInheritsSupportedSongTempoBeforeBookDefault(string directive, int expected)
+	{
+		CancellationToken token = this.TestContext.CancellationToken;
+		var (session, _, _, device, _) = await CreateAsync(token);
+		Guid song = await session.CreateSongAsync("Tempo fixture", [], [], directive + "\n[C]Song", device, token);
+		await session.SaveBookMetronomeAsync(new() { BeatsPerMinute = 96, BeatsPerMeasure = 3 }, device, token);
+		session.GetMetronomeSettings().BeatsPerMinute.ShouldBe(96);
+		session.GetMetronomeSettings(song).BeatsPerMinute.ShouldBe(expected);
+		session.GetMetronomeSettings(song).BeatsPerMeasure.ShouldBe(3);
+		await session.SaveSongMetronomeAsync(song, new() { BeatsPerMinute = 87 }, device, token);
+		session.GetMetronomeSettings(song).BeatsPerMinute.ShouldBe(87);
+		await session.SaveSongMetronomeAsync(song, null, device, token);
+		session.GetMetronomeSettings(song).BeatsPerMinute.ShouldBe(expected);
+	}
+
+	[TestMethod]
 	public void AudioPulseRetainsTimingAndAccentAfterLongPlayback()
 	{
 		const int SampleRate = 48000;

@@ -246,7 +246,7 @@ public sealed partial class MetronomePanel : ContentView
 			}
 
 			this.savedValues = this.ReadValues();
-			this.status.Text = "This song now uses the book defaults.";
+			this.status.Text = "Restored inherited metronome settings for this song.";
 			this.SettingsSaved?.Invoke(this, EventArgs.Empty);
 		}).ConfigureAwait(true);
 

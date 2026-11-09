@@ -1,5 +1,6 @@
 #region Using Directives
 
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
@@ -10,6 +11,13 @@ namespace Menees.Chords.Book.Application;
 
 public sealed partial class BookApplicationSession
 {
+	#region Private Data
+
+	private const int MinimumMetronomeTempo = 1;
+	private const int MaximumMetronomeTempo = 300;
+
+	#endregion
+
 	#region Public Methods
 
 	public static bool MetronomeSettingsEqual(MetronomeSettings left, MetronomeSettings right)
@@ -21,20 +29,18 @@ public sealed partial class BookApplicationSession
 	public static void ValidateMetronome(MetronomeSettings settings)
 	{
 		ArgumentNullException.ThrowIfNull(settings);
-		const int MinimumTempo = 20;
-		const int MaximumTempo = 300;
 		const int MaximumBeats = 16;
 		const int MaximumSubdivision = 4;
 		const int QuarterNote = 4;
 		const int EighthNote = 8;
 		const int SixteenthNote = 16;
-		if (settings.BeatsPerMinute is < MinimumTempo or > MaximumTempo || settings.BeatsPerMeasure is < 1 or > MaximumBeats
+		if (settings.BeatsPerMinute is < MinimumMetronomeTempo or > MaximumMetronomeTempo || settings.BeatsPerMeasure is < 1 or > MaximumBeats
 			|| settings.BeatUnit is not (2 or QuarterNote or EighthNote or SixteenthNote) || !double.IsFinite(settings.Volume) || settings.Volume is < 0 or > 1
 			|| (!settings.AudioEnabled && !settings.VisualEnabled) || settings.Subdivision is < 1 or > MaximumSubdivision
 			|| settings.Sound is not ("Click" or "KickHiHat" or "Kick" or "HiHat" or "Woodblock" or "Cowbell"))
 		{
 			throw new ArgumentException(
-				"Use 20–300 BPM, 1–16 beats, a beat unit of 2, 4, 8, or 16, and audio or visual feedback. "
+				"Use 1–300 BPM, 1–16 beats, a beat unit of 2, 4, 8, or 16, and audio or visual feedback. "
 					+ "Choose 1–4 clicks per beat and a supported percussion sound.",
 				nameof(settings));
 		}
@@ -65,16 +71,18 @@ public sealed partial class BookApplicationSession
 			cancellationToken);
 	}
 
-	/// <summary>Resolves explicit song overrides over book defaults without inferring tempo from song text.</summary>
+	/// <summary>Resolves explicit song overrides, catalog tempo, and book defaults.</summary>
 	public MetronomeSettings GetMetronomeSettings(Guid? songId = null)
 	{
 		ChordDatabase database = this.Database ?? throw new InvalidOperationException("No book is open.");
 		MetronomeSettings defaults = database.BookSettings.DefaultMetronome;
-		SongMetronomeOverride? patch = songId is Guid id ? database.Songs.Single(song => song.Id == id).MetronomeOverride : null;
-		return ResolveMetronome(defaults, patch);
+		Song? song = songId is Guid id ? database.Songs.Single(song => song.Id == id) : null;
+		SongMetronomeOverride? patch = song?.MetronomeOverride;
+		int? catalogTempo = song is not null && patch?.BeatsPerMinute is null ? GetCatalogMetronomeTempo(song) : null;
+		return ResolveMetronome(defaults, patch, catalogTempo);
 	}
 
-	/// <summary>Saves metronome controls as explicit song settings, or resets the song to book defaults.</summary>
+	/// <summary>Saves metronome controls as explicit song settings, or resets the song to its inherited settings.</summary>
 	public Task SaveSongMetronomeAsync(Guid songId, MetronomeSettings? settings, Guid deviceId, CancellationToken cancellationToken = default)
 	{
 		if (settings is not null)
@@ -103,9 +111,25 @@ public sealed partial class BookApplicationSession
 
 	#region Private Methods
 
-	private static MetronomeSettings ResolveMetronome(MetronomeSettings defaults, SongMetronomeOverride? patch) => new()
+	private static int? GetCatalogMetronomeTempo(Song song)
 	{
-		BeatsPerMinute = patch?.BeatsPerMinute ?? defaults.BeatsPerMinute,
+		int? result = null;
+		foreach (string value in GetCatalogColumnValues(song, "tempo", "tempos", "bpm"))
+		{
+			if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out int bpm)
+				&& bpm is >= MinimumMetronomeTempo and <= MaximumMetronomeTempo)
+			{
+				result = bpm;
+				break;
+			}
+		}
+
+		return result;
+	}
+
+	private static MetronomeSettings ResolveMetronome(MetronomeSettings defaults, SongMetronomeOverride? patch, int? catalogTempo = null) => new()
+	{
+		BeatsPerMinute = patch?.BeatsPerMinute ?? catalogTempo ?? defaults.BeatsPerMinute,
 		BeatsPerMeasure = patch?.BeatsPerMeasure ?? defaults.BeatsPerMeasure,
 		BeatUnit = patch?.BeatUnit ?? defaults.BeatUnit,
 		Subdivision = patch?.Subdivision ?? defaults.Subdivision,

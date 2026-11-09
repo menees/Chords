@@ -244,13 +244,19 @@
                 <local:FluentIconSplitButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceSongButton" Icon="EditLineHorizontal3" Description="Edit Song" Clicked="HandleEditCurrentSongClicked" />
 				<local:InstrumentSelector x:Name="QuickInstrument" Margin="3,0" FlexLayout.Shrink="0" IsVisible="False"
 					Changed="HandleQuickInstrumentChanged" />
-                <local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceMetronomeButton" Icon="Metronome" Description="Metronome" Clicked="HandleMetronomeClicked" />
+				<HorizontalStackLayout Spacing="8" FlexLayout.Shrink="0">
+					<local:FluentIconButton x:Name="PerformanceMetronomeButton" Icon="Metronome" Description="Metronome" Clicked="HandleMetronomeClicked" />
+					<Grid x:Name="PerformanceBeatControl" IsVisible="False" VerticalOptions="Center">
+						<local:MetronomeBeatView x:Name="PerformanceBeats" />
+						<Button x:Name="PerformanceBeatToggle" Padding="0" MinimumHeightRequest="28" BackgroundColor="Transparent"
+							Clicked="HandlePerformanceBeatClicked" />
+					</Grid>
+				</HorizontalStackLayout>
 				<HorizontalStackLayout Spacing="4" Margin="6,0">
 
 					<local:TransposePicker x:Name="QuickTranspose" Changed="HandleQuickDisplayChanged" />
 					<Picker ToolTipProperties.Text="Notation" x:Name="QuickNotation" WidthRequest="125" SelectedIndexChanged="HandleQuickDisplayChanged" />
 				</HorizontalStackLayout>
-				<local:MetronomeBeatView x:Name="PerformanceBeats" Margin="6,0" FlexLayout.Shrink="0" IsVisible="False" />
 				<local:FluentIconButton Margin="3,0" FlexLayout.Shrink="0" x:Name="PerformanceLockButton" Icon="LockClosed" Description="Lock" Clicked="HandlePerformanceLockClicked" />
 			</local:ScreenHeader>
 			<ContentView x:Name="MetronomeHost" Grid.Row="1" />

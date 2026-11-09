@@ -45,10 +45,11 @@ public sealed class EditorControlTests
 
 	[TestMethod]
 	[DataRow("C", -1, "B (-1)")]
-	[DataRow("C", -2, "Bb (-2)")]
-	[DataRow("C", 1, "C# (+1)")]
-	[DataRow("Am", 1, "A#m (+1)")]
-	[DataRow("Bb", 0, "Bb (0)")]
+	[DataRow("C", -2, "B♭ (-2)")]
+	[DataRow("C", 1, "C♯ (+1)")]
+	[DataRow("Am", 1, "A♯m (+1)")]
+	[DataRow("Bbm", 0, "B♭m (0)")]
+	[DataRow("Ab", 0, "A♭ (0)")]
 	[DataRow(null, 2, "+2")]
 	public void TransposeChoicesShowKeysAndSignedOffsets(string? key, int offset, string expected)
 		=> TransposeChoice.GetLabel(key, offset).ShouldBe(expected);

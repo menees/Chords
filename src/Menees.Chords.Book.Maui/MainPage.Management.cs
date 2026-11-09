@@ -36,6 +36,7 @@ public partial class MainPage
 		this.PerformanceSongButton.IsEnabled = !locked;
 		this.PerformanceAddButton.IsEnabled = !locked;
 		this.PerformanceMetronomeButton.IsEnabled = !locked;
+		this.PerformanceBeatToggle.IsEnabled = !locked;
 		if (!locked)
 		{
 			_ = this.ProcessPendingFilesAsync();
@@ -246,10 +247,20 @@ public partial class MainPage
 		}
 		else if (this.currentSongIndex >= 0 && this.currentSongIndex < this.performanceSongs.Count)
 		{
-			this.metronomePanel = new(this.performanceSongs[this.currentSongIndex].Id, this.session, this.metronome);
+			Guid songId = this.performanceSongs[this.currentSongIndex].Id;
+			this.metronomePanel = new(songId, this.session, this.metronome);
 			this.metronomePanel.Closed += (_, _) => this.CloseMetronomePanel();
-			this.metronomePanel.SettingsSaved += (_, _) => this.RefreshCatalogAfterEdit("Metronome settings updated.");
+			this.metronomePanel.SettingsSaved += (panel, _) =>
+			{
+				if (ReferenceEquals(panel, this.metronomePanel) && this.pausedMetronomeSettings is not null)
+				{
+					this.pausedMetronomeSettings = this.session.GetMetronomeSettings(songId);
+				}
+
+				this.RefreshCatalogAfterEdit("Metronome settings updated.");
+			};
 			this.MetronomeHost.Content = this.metronomePanel;
+			this.UpdatePerformanceMetronome();
 		}
 	}
 
@@ -258,7 +269,85 @@ public partial class MainPage
 		this.metronomePanel?.Detach();
 		this.MetronomeHost.Content = null;
 		this.metronomePanel = null;
+		this.UpdatePerformanceMetronome();
 		this.FocusSongViewer();
+	}
+
+	private async void HandlePerformanceBeatClicked(object? sender, EventArgs e)
+	{
+		if (!this.performanceLocked && this.metronomePanel is null && this.PerformanceBeatControl.IsVisible)
+		{
+			await this.RunUiOperationAsync(this.TogglePerformanceMetronomeAsync).ConfigureAwait(true);
+		}
+	}
+
+	private async Task TogglePerformanceMetronomeAsync()
+	{
+		if (!this.togglingPerformanceMetronome && this.currentSongIndex >= 0)
+		{
+			this.togglingPerformanceMetronome = true;
+			try
+			{
+				if (this.metronome.IsRunning)
+				{
+					this.pausedMetronomeSettings = this.metronome.CurrentSettings;
+					this.metronome.Stop();
+				}
+				else
+				{
+					MetronomeSettings settings = this.pausedMetronomeSettings
+						?? this.session.GetMetronomeSettings(this.performanceSongs[this.currentSongIndex].Id);
+					await this.metronome.StartAsync(settings).ConfigureAwait(true);
+				}
+			}
+			finally
+			{
+				this.togglingPerformanceMetronome = false;
+				this.UpdatePerformanceMetronome();
+			}
+		}
+	}
+
+	private void UpdatePerformanceMetronome()
+	{
+		bool running = this.metronome.IsRunning;
+		if (running)
+		{
+			this.pausedMetronomeSettings = null;
+		}
+
+		this.PerformanceBeatControl.IsVisible = this.metronomePanel is null && (running || this.pausedMetronomeSettings is not null);
+		if (this.PerformanceBeatControl.IsVisible)
+		{
+			string action = running ? "Stop metronome" : "Start metronome";
+			if (!Equals(ToolTipProperties.GetText(this.PerformanceBeatToggle), action))
+			{
+				ToolTipProperties.SetText(this.PerformanceBeatToggle, action);
+				SemanticProperties.SetDescription(this.PerformanceBeatToggle, action);
+			}
+
+			int beat = running && this.metronome.VisualEnabled ? this.metronome.CurrentBeat : 0;
+			this.PerformanceBeats.Update(
+				this.pausedMetronomeSettings?.BeatsPerMeasure ?? this.metronome.BeatsPerMeasure,
+				beat,
+				this.metronome.AccentFirstBeat && beat == 1);
+		}
+	}
+
+	private void UpdatePerformanceSongContext(Guid songId, Guid? entryId)
+	{
+		if (this.instrumentSongId != songId || this.instrumentEntryId != entryId)
+		{
+			this.pausedMetronomeSettings = null;
+			if (this.togglingPerformanceMetronome && !this.metronome.IsRunning)
+			{
+				this.metronome.Stop();
+			}
+
+			this.instrumentOverride = null;
+			this.instrumentSongId = songId;
+			this.instrumentEntryId = entryId;
+		}
 	}
 
 	private void HandleManagementTabChanged(object? sender, EventArgs e)

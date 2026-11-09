@@ -289,14 +289,19 @@ internal sealed class NoPicker : IWindowsPicker
 }
 internal sealed class SilentMetronome : IMetronomeEngine
 {
-	public MetronomeSettings CurrentSettings { get; } = new();
-	public bool IsRunning => false;
-	public int CurrentBeat => 0;
-	public int BeatsPerMeasure => 4;
-	public bool VisualEnabled => false;
-	public bool AccentFirstBeat => true;
+	public MetronomeSettings CurrentSettings { get; private set; } = new();
+	public bool IsRunning { get; private set; }
+	public int CurrentBeat => this.IsRunning ? 1 : 0;
+	public int BeatsPerMeasure => this.CurrentSettings.BeatsPerMeasure;
+	public bool VisualEnabled => this.CurrentSettings.VisualEnabled;
+	public bool AccentFirstBeat => this.CurrentSettings.AccentFirstBeat;
 	public MetronomeVisualState? VisualPulse => null;
-	public Task StartAsync(MetronomeSettings settings, CancellationToken cancellationToken = default) => Task.CompletedTask;
-	public void Stop() { }
+	public Task StartAsync(MetronomeSettings settings, CancellationToken cancellationToken = default)
+	{
+		this.CurrentSettings = settings;
+		this.IsRunning = true;
+		return Task.CompletedTask;
+	}
+	public void Stop() => this.IsRunning = false;
 	public void Dispose() { }
 }
