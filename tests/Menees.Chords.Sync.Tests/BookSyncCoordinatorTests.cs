@@ -833,20 +833,14 @@ public sealed class BookSyncCoordinatorTests
 	}
 
 	[TestMethod]
-	[DataRow(false, 12)]
-	[DataRow(true, 12)]
-	[DataRow(true, 531)]
-	public async Task FirstDownloadHasBoundedVerifiedProgressAndCanAdoptEmptyFolder(bool adopt, int addedSheets)
+	[DataRow(false, 13)]
+	[DataRow(true, 13)]
+	[DataRow(true, 532)]
+	public async Task FirstDownloadHasBoundedVerifiedProgressAndCanAdoptEmptyFolder(bool adopt, int sheetCount)
 	{
 		CancellationToken token = this.TestContext.CancellationToken;
-		await this.InitializeAsync(token);
-		for (int index = 0; index < addedSheets; index++)
-		{
-			using MemoryStream source = new(Encoding.UTF8.GetBytes($"[C]Disposable {index}\r\n"));
-			await BookImportService.ImportAsync(this.storeA, this.bookA, $"sheet{index}.cho", source, this.deviceA, token);
-		}
-
-		await this.SyncAsync(this.storeA, this.bookA, this.deviceA);
+		this.storeB = new(Path.Combine(this.root, "b"));
+		ChordDatabase original = await this.SeedDownloadReplicaAsync(sheetCount, token);
 		BookLocation empty = await this.storeB.CreateBookAsync("Placeholder", this.deviceB, token);
 		string before = await this.storeB.ReadDatabaseJsonAsync(empty, token);
 		string directory = this.storeB.GetDirectory(empty);
@@ -892,16 +886,15 @@ public sealed class BookSyncCoordinatorTests
 
 		BookLocation result = await downloading;
 		elapsed.Stop();
-		int total = addedSheets + 1;
 		replica.Active.ShouldBe(0);
 		replica.MaximumActive.ShouldBe(4);
 		progress.Values.Where(value => value.TotalSheets.HasValue).Select(value => value.CompletedSheets)
-			.ShouldBe(Enumerable.Range(0, total + 1).Select(value => (int?)value));
-		progress.Values.Where(value => value.TotalSheets.HasValue).ShouldAllBe(value => value.TotalSheets == total);
-		ChordDatabase original = await this.ReadAsync(this.storeA, this.bookA);
+			.ShouldBe(Enumerable.Range(0, sheetCount + 1).Select(value => (int?)value));
+		progress.Values.Where(value => value.TotalSheets.HasValue).ShouldAllBe(value => value.TotalSheets == sheetCount);
 		ChordDatabase actual = await this.ReadAsync(this.storeB, result);
 		actual.Id.ShouldBe(original.Id);
-		actual.SongFiles.Count.ShouldBe(total);
+		actual.SongFiles.Count.ShouldBe(sheetCount);
+		(await this.TextAsync(this.storeB, result, original.SongFiles[^1].Id)).ShouldBe($"[C]Disposable {sheetCount - 1}\r\n");
 		if (adopt)
 		{
 			this.storeB.GetDirectory(result).ShouldBe(directory);
@@ -915,7 +908,7 @@ public sealed class BookSyncCoordinatorTests
 		Directory.EnumerateFileSystemEntries(Path.Combine(this.root, "first-download-stage")).ShouldBeEmpty();
 		using ReplicaStateLease lease = this.States(this.deviceB).Acquire(new(original.Id, this.deviceB, this.cloud.Identity));
 		(await lease.LoadStateAsync(token)).MergeBase.ShouldNotBeNull();
-		this.TestContext.WriteLine($"{total} sheets, four first-download workers, adopt={adopt}: {elapsed.ElapsedMilliseconds} ms.");
+		this.TestContext.WriteLine($"{sheetCount} sheets, four first-download workers, adopt={adopt}: {elapsed.ElapsedMilliseconds} ms.");
 	}
 
 	[TestMethod]
@@ -1054,6 +1047,40 @@ public sealed class BookSyncCoordinatorTests
 	#region Private Methods
 
 	private ReplicaStateStore States(Guid device) => new(Path.Combine(this.root, "state-" + device.ToString("N")));
+
+	private async Task<ChordDatabase> SeedDownloadReplicaAsync(int sheetCount, CancellationToken cancellationToken)
+	{
+		await this.cloud.AuthenticateAsync(cancellationToken);
+		ChordDatabase database = ChordDatabase.Create("Disposable", this.deviceA);
+		for (int index = 0; index < sheetCount; index++)
+		{
+			Song song = new() { Id = Guid.CreateVersion7(), Title = $"Disposable {index}", Revision = RevisionStamp.Initial(this.deviceA) };
+			byte[] bytes = Encoding.UTF8.GetBytes($"[C]{song.Title}\r\n");
+			Guid fileId = Guid.CreateVersion7();
+			SongFile file = new()
+			{
+				Id = fileId,
+				SongId = song.Id,
+				RelativePath = PortableManagedFileName.Create(song.Title, fileId, ".cho"),
+				MediaKind = MediaKind.Text,
+				SourceFormat = SourceFormat.ChordPro,
+				TextEncoding = "utf-8",
+				ContentHash = SongFileAnalyzer.Hash(bytes),
+				ContentRevision = 1,
+				ObservedLength = bytes.Length,
+				AnalysisVersion = SongFileAnalyzer.CurrentAnalysisVersion,
+				Revision = RevisionStamp.Initial(this.deviceA),
+			};
+			database.Songs.Add(song);
+			database.SongFiles.Add(file);
+			using MemoryStream sheet = new(bytes);
+			await this.cloud.SeedAsync(file.RelativePath, sheet, cancellationToken);
+		}
+
+		using MemoryStream catalog = new(Encoding.UTF8.GetBytes(DatabaseJson.Serialize(database)));
+		await this.cloud.SeedAsync("database.json", catalog, cancellationToken);
+		return database;
+	}
 
 	private async Task<BookLocation> DownloadAsync()
 		=> await CloudBookDownloader.DownloadAsync(

@@ -1,5 +1,6 @@
 #region Using Directives
 
+using System.Threading;
 using System.Threading.Tasks;
 using Menees.Chords.Db;
 
@@ -75,22 +76,25 @@ public sealed class MetronomeRendererTests
 	}
 
 	[TestMethod]
-	public void LiveUpdatesReuseSamplesWithoutAllocatingAndMuteImmediately()
+	public async Task LiveUpdatesReuseSamplesWithoutAllocatingAndMuteImmediately()
 	{
 		const int Rate = 48000;
 		MetronomeRenderer renderer = new(new(), Rate);
 		MetronomeSettings settings = new() { AudioEnabled = false, Sound = "Cowbell" };
 		float[] buffer = new float[480];
 		renderer.Update(settings, 0);
-		long before = GC.GetAllocatedBytesForCurrentThread();
-		for (int index = 0; index < 100; index++)
-		{
-			renderer.Update(settings, index * buffer.Length);
-			renderer.Render(buffer, index * buffer.Length);
-		}
-
-		(GC.GetAllocatedBytesForCurrentThread() - before).ShouldBe(0);
+		long allocated = await MeasurePlaybackAllocationsAsync(UpdateAndRender, this.TestContext.CancellationToken);
+		allocated.ShouldBe(0);
 		buffer.All(value => value == 0).ShouldBeTrue();
+
+		void UpdateAndRender()
+		{
+			for (int index = 0; index < 100; index++)
+			{
+				renderer.Update(settings, index * buffer.Length);
+				renderer.Render(buffer, index * buffer.Length);
+			}
+		}
 	}
 
 	[TestMethod]
@@ -182,7 +186,7 @@ public sealed class MetronomeRendererTests
 	}
 
 	[TestMethod]
-	public void RenderHasNoManagedAllocationAndDoesNotReadMutableSettings()
+	public async Task RenderHasNoManagedAllocationAndDoesNotReadMutableSettings()
 	{
 		const int Rate = 48000;
 		const int Iterations = 1000;
@@ -192,14 +196,17 @@ public sealed class MetronomeRendererTests
 		renderer.Render(samples, 0);
 		float[] expected = [.. samples];
 		settings.Volume = 0;
-		long before = GC.GetAllocatedBytesForCurrentThread();
-		for (int index = 0; index < Iterations; index++)
-		{
-			renderer.Render(samples, 0);
-		}
-
-		(GC.GetAllocatedBytesForCurrentThread() - before).ShouldBe(0);
+		long allocated = await MeasurePlaybackAllocationsAsync(Render, this.TestContext.CancellationToken);
+		allocated.ShouldBe(0);
 		samples.ShouldBe(expected);
+
+		void Render()
+		{
+			for (int index = 0; index < Iterations; index++)
+			{
+				renderer.Render(samples, 0);
+			}
+		}
 	}
 
 	[TestMethod]
@@ -231,6 +238,24 @@ public sealed class MetronomeRendererTests
 		BookApplicationSession.MetronomeSettingsEqual(settings, session.GetMetronomeSettings()).ShouldBeTrue();
 		Should.Throw<ArgumentException>(() => BookApplicationSession.ValidateMetronome(new() { Sound = "Missing" }));
 		Should.Throw<ArgumentException>(() => BookApplicationSession.ValidateMetronome(new() { Subdivision = 5 }));
+	}
+
+	#endregion
+
+	#region Private Methods
+
+	private static Task<long> MeasurePlaybackAllocationsAsync(Action playback, CancellationToken cancellationToken)
+	{
+		return Task.Run(Measure, cancellationToken);
+
+		long Measure()
+		{
+			// Warm the exact synchronous workload on the measuring thread before sampling it.
+			playback();
+			long before = GC.GetAllocatedBytesForCurrentThread();
+			playback();
+			return GC.GetAllocatedBytesForCurrentThread() - before;
+		}
 	}
 
 	#endregion
